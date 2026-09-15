@@ -1,0 +1,82 @@
+{{/*
+namespace-quotas.yaml — ResourceQuota y LimitRange.
+
+Son dos objetos que suenan parecido y hacen cosas distintas:
+
+  · **ResourceQuota** limita el namespace ENTERO. Es la suma de todo.
+  · **LimitRange**  limita CADA contenedor por separado, y pone valores por
+    defecto a los que no declaran nada.
+
+Hacen falta los dos, y por motivos independientes. Solo con cuota, un
+contenedor podría pedir la cuota completa y dejar al resto sin poder
+programarse. Solo con LimitRange, veinticinco pods dentro del límite individual
+sumarían más de lo que el nodo tiene.
+
+## Por qué importan aquí en concreto
+
+El HPA puede llevar cinco componentes a 5 réplicas cada uno durante la prueba
+de carga. Sin cuota, ese pico intentaría programar 25 pods y agotaría un nodo
+de 5 GB, dejando sin recursos a PostgreSQL y a RabbitMQ —que no escalan y sin
+los cuales el resto no funciona—. La cuota convierte "el clúster se cae" en "el
+HPA no consigue escalar más", que es un fallo mucho más benigno y además
+visible: los pods quedan en Pending con un evento que lo explica.
+*/}}
+{{- if .Values.namespace.resourceQuota.enabled }}
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ .Release.Name }}-quota
+  namespace: {{ include "sa-platform.namespace" . }}
+  labels:
+    {{- include "sa-platform.labels" . | nindent 4 }}
+spec:
+  hard:
+    # `requests` es lo que el planificador reserva: la suma de todo lo que
+    # puede estar programado a la vez.
+    requests.cpu: {{ .Values.namespace.resourceQuota.requestsCpu | quote }}
+    requests.memory: {{ .Values.namespace.resourceQuota.requestsMemory | quote }}
+    # `limits` es el techo de consumo real. Se permite que supere a `requests`
+    # (sobreventa) porque los picos de los servicios no coinciden en el tiempo:
+    # exigir que la suma de límites quepa en el nodo desperdiciaría la mayor
+    # parte de la capacidad la mayor parte del tiempo.
+    limits.cpu: {{ .Values.namespace.resourceQuota.limitsCpu | quote }}
+    limits.memory: {{ .Values.namespace.resourceQuota.limitsMemory | quote }}
+    # Cuenta también los pods de los Jobs retenidos por el historial de los
+    # CronJobs, que es la razón de que `successfulJobsHistoryLimit` importe.
+    pods: {{ .Values.namespace.resourceQuota.pods | quote }}
+    persistentvolumeclaims: {{ .Values.namespace.resourceQuota.persistentVolumeClaims | quote }}
+{{- end }}
+
+{{- if .Values.namespace.limitRange.enabled }}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: {{ .Release.Name }}-limits
+  namespace: {{ include "sa-platform.namespace" . }}
+  labels:
+    {{- include "sa-platform.labels" . | nindent 4 }}
+spec:
+  limits:
+    - type: Container
+      # Valores por defecto para contenedores que no declaran nada.
+      #
+      # No es una comodidad: un pod sin `requests` recibe clase de servicio
+      # BestEffort y es el primero que el kubelet mata bajo presión de memoria.
+      # Además, el HPA calcula el uso de CPU como porcentaje de `requests`; sin
+      # requests no hay denominador y el HPA reporta "unknown" y no escala
+      # nunca. Es la causa más común de un HPA que parece configurado y no hace
+      # nada.
+      defaultRequest:
+        cpu: {{ .Values.namespace.limitRange.defaultRequest.cpu }}
+        memory: {{ .Values.namespace.limitRange.defaultRequest.memory }}
+      default:
+        cpu: {{ .Values.namespace.limitRange.default.cpu }}
+        memory: {{ .Values.namespace.limitRange.default.memory }}
+      max:
+        cpu: {{ .Values.namespace.limitRange.max.cpu }}
+        memory: {{ .Values.namespace.limitRange.max.memory }}
+      min:
+        cpu: {{ .Values.namespace.limitRange.min.cpu }}
+        memory: {{ .Values.namespace.limitRange.min.memory }}
+{{- end }}

@@ -1,0 +1,29 @@
+# ---------------------------------------------------------------------------
+# sa-p8-analisis — Las puertas de calidad del canary.
+#
+# Tres `AnalysisTemplate` y los scripts que ejecutan. Es lo que convierte la
+# estrategia canary del `api-gateway` en una entrega progresiva de verdad: sin
+# este chart, el Rollout avanzaría del 10 % al 100 % por el mero paso del
+# tiempo, que es «un despliegue con pasos intermedios» y no una validación.
+#
+# ## Por qué es un chart aparte y no parte de `sa-platform`
+#
+# Porque tiene otro ciclo de vida. Los umbrales de una prueba se ajustan
+# cuando se descubre que eran demasiado laxos o demasiado estrictos, y eso
+# pasa mucho más a menudo que un cambio en la forma de un Deployment. Tenerlo
+# separado permite corregir un umbral sin volver a sincronizar los cincuenta
+# objetos de la plataforma, y hace que el historial de «cómo evolucionaron las
+# puertas de calidad» se lea en un solo sitio.
+#
+# También hace visible una dependencia que de otro modo quedaría escondida: la
+# Application de las pruebas se sincroniza ANTES que la de la plataforma (ver
+# las anotaciones `sync-wave` en `apps/` del repositorio GitOps), porque un
+# Rollout que arranca sin sus AnalysisTemplate falla con
+# `AnalysisTemplate not found` y aborta sin haber probado nada.
+# ---------------------------------------------------------------------------
+apiVersion: v2
+name: sa-p8-analisis
+description: Plantillas de análisis del canary — humo, integración y carga.
+type: application
+version: 1.0.0
+appVersion: "1.0.0"

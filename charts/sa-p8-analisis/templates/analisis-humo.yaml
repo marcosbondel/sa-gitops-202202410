@@ -1,0 +1,87 @@
+{{/*
+analisis-humo.yaml — Puerta 1: ¿está viva la versión candidata?
+
+## Cómo decide Argo Rollouts si esta métrica pasó
+
+Con el proveedor `job` no hay `successCondition` que escribir: la métrica es
+`Successful` si el Job termina con éxito y `Failed` si termina con error. Todo
+el criterio de aceptación está, por tanto, en el código de salida del script.
+Es la razón de que `pruebas/humo.sh` cuente fallos y haga `exit 1`: un script
+que imprimiera «✗» y saliera con 0 pasaría la puerta.
+
+## failureLimit: 0
+
+Cero fallos tolerados. En una prueba binaria como esta no hay ruido que
+absorber: si `/health` devuelve 503, la versión nueva no puede atender
+usuarios, y esperar a un segundo fallo para confirmarlo solo alarga el tiempo
+que ese 10 % de tráfico pasa roto.
+
+Es distinto del criterio de la prueba de carga, que sí tolera un 1 % de
+errores. La diferencia no es de rigor sino de qué mide cada una: la de carga
+mide una proporción sobre miles de peticiones, esta hace ocho comprobaciones
+concretas que o pasan o no.
+*/}}
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: sa-p8-humo
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "analisis.labels" . | nindent 4 }}
+spec:
+  args:
+    {{- include "analisis.args" . | nindent 4 }}
+
+  metrics:
+    - name: humo
+      interval: {{ .Values.cadencia.humo.intervalo }}
+      initialDelay: {{ .Values.cadencia.humo.retrasoInicial }}
+      failureLimit: 0
+
+      provider:
+        job:
+          metadata:
+            labels:
+              {{- include "analisis.labels" . | nindent 14 }}
+              sa.usac.edu.gt/prueba: humo
+          spec:
+            # Sin reintentos. Un reintento automático convertiría un fallo
+            # real en un «pasó a la segunda» y la puerta dejaría de serlo.
+            backoffLimit: 0
+            activeDeadlineSeconds: {{ .Values.limiteSegundos.humo }}
+
+            template:
+              metadata:
+                labels:
+                  {{- include "analisis.labels" . | nindent 18 }}
+                  sa.usac.edu.gt/prueba: humo
+              spec:
+                restartPolicy: Never
+                automountServiceAccountToken: false
+                securityContext:
+                  {{- include "analisis.podSecurityContext" . | nindent 18 }}
+
+                containers:
+                  - name: humo
+                    image: {{ .Values.imagenes.curl }}
+                    securityContext:
+                      {{- include "analisis.containerSecurityContext" . | nindent 22 }}
+                    resources:
+                      {{- toYaml .Values.recursos.curl | nindent 22 }}
+                    env:
+                      # Los dos que inyecta el Rollout. `{{`{{args.x}}`}}` es la
+                      # sintaxis de sustitución de Argo Rollouts, no de Helm:
+                      # va escapada para que Helm la deje pasar tal cual y la
+                      # resuelva el controlador en tiempo de ejecución.
+                      - name: SERVICIO_CANARY
+                        value: "{{`{{args.servicio-canary}}`}}"
+                      - name: NAMESPACE
+                        value: "{{`{{args.namespace}}`}}"
+                      - name: PUERTO
+                        value: {{ .Values.puerto | quote }}
+                    command: ["/pruebas/humo.sh"]
+                    volumeMounts:
+                      {{- include "analisis.montajes" . | nindent 22 }}
+
+                volumes:
+                  {{- include "analisis.volumenes" . | nindent 18 }}

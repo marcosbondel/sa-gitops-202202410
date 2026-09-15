@@ -1,0 +1,73 @@
+{{/*
+ingress.yaml — La única puerta de entrada al clúster.
+
+## Por qué Ingress y no NodePort ni LoadBalancer
+
+Un `NodePort` abre un puerto alto en **todos** los nodos y lo deja escuchando
+sin autenticación, sin TLS y sin nombre: se llega por IP y número de puerto.
+Exponer así cinco servicios sería abrir cinco agujeros, y cada uno saltaría el
+gateway —y con él la autenticación, el límite de peticiones y el filtro de
+métodos—.
+
+Un `LoadBalancer` pide al proveedor de nube un balanceador por servicio. En un
+clúster local no hay proveedor y el Service se queda en `<pending>` para
+siempre; en la nube, serían cinco balanceadores facturados por hora.
+
+El Ingress resuelve las dos cosas: un solo punto de entrada, enrutamiento por
+host o por ruta, y un lugar natural donde terminar TLS. Todos los Services de
+la plataforma son `ClusterIP` —solo alcanzables desde dentro— y el único camino
+desde fuera pasa por aquí y termina en el gateway.
+
+## Por qué una sola regla
+
+Se podría enrutar `/api/orders` directamente a order-service y ahorrar un
+salto. Sería un error: el gateway es quien resuelve la identidad contra
+auth-service, quien limita las peticiones por IP y quien cierra los endpoints
+internos. Una regla que lo evite es una puerta trasera a un microservicio que
+confía en que alguien ya lo autenticó.
+
+## Acceso desde el navegador
+
+El host no existe en ningún DNS público. Para alcanzarlo hay que agregarlo al
+archivo de hosts de la máquina:
+
+    echo "$(minikube ip -p sa-p5)  {{ .Values.platformIngress.host }}" | sudo tee -a /etc/hosts
+*/}}
+{{- if .Values.platformIngress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ include "sa-platform.namespace" . }}
+  labels:
+    {{- include "sa-platform.labels" . | nindent 4 }}
+  {{- with .Values.platformIngress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.platformIngress.className }}
+  {{- if .Values.platformIngress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.platformIngress.host | quote }}
+      secretName: {{ .Values.platformIngress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ required "Falta ingress.host" .Values.platformIngress.host | quote }}
+      http:
+        paths:
+          {{- range .Values.platformIngress.paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                # El nombre se compone igual que en el resto del chart:
+                # <release>-<componente>. Escribirlo a mano aquí sería el
+                # típico sitio donde un renombrado del release rompe el
+                # enrutamiento sin que nada falle al instalar.
+                name: {{ $.Release.Name }}-{{ .service }}
+                port:
+                  number: {{ .port }}
+          {{- end }}
+{{- end }}

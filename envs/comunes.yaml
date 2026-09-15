@@ -1,0 +1,78 @@
+# ===========================================================================
+# values-comunes.yaml — Lo que vale igual en TODOS los ambientes de la P8.
+#
+# Existe para que `values-stage.yaml` y `values-prod.yaml` contengan
+# únicamente lo que DIFIERE entre los dos. Ese es el punto del ejercicio: si
+# los dos archivos de ambiente fueran copias completas, «valores diferenciados
+# por ambiente» significaría «dos archivos de 300 líneas que hay que comparar
+# a mano para saber en qué se distinguen», y la primera vez que alguien
+# cambiara un límite en uno y no en el otro nadie lo notaría.
+#
+# Se aplica siempre primero:
+#
+#     helm ... -f values-comunes.yaml -f values-stage.yaml
+#
+# y en el repositorio GitOps aparece como el primer `valueFile` de cada
+# Application.
+# ===========================================================================
+
+global:
+  env: production
+  logLevel: INFO
+
+  # `IfNotPresent` y no `Always`: con etiquetas semánticas inmutables —nunca
+  # `latest`, que además la política de Kyverno prohíbe— volver a descargar la
+  # misma etiqueta no puede traer contenido distinto. `Always` solo añadiría
+  # una llamada al registro por cada arranque de pod.
+  imagePullPolicy: IfNotPresent
+
+  secretsRevision: "1"
+
+# ---------------------------------------------------------------------------
+# Los secretos NO los genera el chart
+#
+# En las Prácticas 5 a 7 el chart creaba el Secret a partir de valores que se
+# pasaban con `-f secretos.yaml`, un archivo que nunca se versionaba. Eso
+# funciona cuando quien despliega es una persona con el archivo en su disco.
+#
+# Aquí quien despliega es ArgoCD, leyendo un repositorio PÚBLICO. Un
+# `-f secretos.yaml` no existe y no puede existir: no hay dónde ponerlo que no
+# sea público.
+#
+# La solución es Sealed Secrets. El Secret lo crea el controlador a partir de
+# un `SealedSecret` versionado en el repositorio GitOps —cifrado con la clave
+# pública del clúster, ilegible para cualquiera que lo descargue—, y el chart
+# se limita a CONSUMIR el Secret que ya existe con ese nombre.
+#
+# Ver `P8/scripts/02-sellar-secretos.sh` y `docs/06-secretos.md`.
+# ---------------------------------------------------------------------------
+secrets:
+  create: false
+
+# ---------------------------------------------------------------------------
+# La cuota y los límites los pone Terraform
+#
+# Apagados aquí a propósito, y no porque sobren: los crea
+# `P8/terraform/cuotas.tf`.
+#
+# El motivo es de propiedad. La cuota es el techo que el flujo automático NO
+# debe poder subirse a sí mismo. Si viviera en este chart, un Pull Request
+# generado por el pipeline podría ampliarla y el límite dejaría de ser un
+# límite. Al vivir en Terraform hace falta un `terraform apply` hecho por una
+# persona con credenciales distintas de las del pipeline.
+#
+# Por si acaso, además, el AppProject de ArgoCD lleva ResourceQuota y
+# LimitRange en su `namespaceResourceBlacklist`: aunque alguien los volviera a
+# encender aquí, ArgoCD rechazaría sincronizarlos.
+# ---------------------------------------------------------------------------
+namespace:
+  resourceQuota:
+    enabled: false
+  limitRange:
+    enabled: false
+
+# El aislamiento de red sigue activo, con el gateway alcanzable desde el
+# controlador de Ingress y no desde fuera del clúster.
+networkPolicies:
+  enabled: true
+  gatewayExposure: ingress

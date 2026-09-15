@@ -1,0 +1,15 @@
+# ===========================================================================
+# envs/stage/analisis.yaml — Umbrales de las puertas de calidad en stage.
+#
+# Vacío de sobrescrituras a propósito: stage usa los valores por defecto de
+# `charts/sa-p8-analisis/values.yaml`, que son los que se calibraron midiendo
+# la versión estable EN ESTE ambiente (ver `P8/docs/03-pruebas-y-umbrales.md`).
+#
+# Este archivo existe aunque no cambie nada porque su ausencia haría fallar la
+# Application: `valueFiles` referencia una ruta que tiene que existir. Y tenerlo
+# vacío dice algo que un archivo ausente no diría —que los valores por defecto
+# son una decisión y no un olvido—.
+# ===========================================================================
+
+# Un mapa vacío. Helm lo fusiona sin efecto.
+{}

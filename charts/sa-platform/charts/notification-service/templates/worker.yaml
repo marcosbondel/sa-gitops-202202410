@@ -1,0 +1,188 @@
+{{/*
+worker.yaml — El consumidor del broker.
+
+Es el único componente que NO sale de `sa-platform.workload`, y vale la pena
+explicar por qué en lugar de forzarlo dentro:
+
+  · **No tiene Service.** Nadie se conecta a él; es él quien se conecta al
+    broker. Un Service sin nadie que lo use sería ruido.
+  · **Sus sondas son `exec`, no HTTP.** No atiende peticiones, así que una
+    `httpGet` probe exigiría levantar un servidor web solo para responderlas.
+  · **Sus etiquetas son distintas.** Se identifica como `notification-worker` y
+    no como `notification-service`, porque las NetworkPolicies necesitan
+    distinguirlos: el worker alcanza RabbitMQ y la API no.
+
+Meterlo en la plantilla común habría requerido tres condiciones sobre su
+nombre, que es justo lo que esa plantilla evita. Cuando un caso se desvía lo
+suficiente, escribirlo aparte es más honesto que doblar la abstracción hasta
+que lo admita.
+
+## Cómo se demuestra que los mensajes no se pierden
+
+    kubectl scale deploy/sa-platform-notification-worker --replicas=0 -n sa-p5
+    # …se crean pedidos; la cola crece y la API sigue respondiendo…
+    kubectl scale deploy/sa-platform-notification-worker --replicas=2 -n sa-p5
+    # …la cola se drena y aparecen todas las notificaciones, ninguna perdida…
+
+Que esto funcione depende de cuatro cosas y no de una: exchange durable,
+mensaje persistente, cola durable y confirmación manual tardía. Faltando
+cualquiera, este experimento pierde mensajes en silencio. Están documentadas
+en `services/notification-service/app/worker.py`.
+*/}}
+{{- if .Values.worker.enabled }}
+{{- $ns := include "sa-platform.namespace" . -}}
+{{- $fullname := printf "%s-notification-worker" .Release.Name -}}
+{{- $labels := include "sa-platform.labels" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+    app.kubernetes.io/name: notification-worker
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  revisionHistoryLimit: 3
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Mismo criterio que el resto: no se retira un consumidor hasta que el
+      # nuevo está listo. Aquí "sin caída" significa que la cola nunca se queda
+      # sin nadie que la drene durante un despliegue.
+      maxUnavailable: 0
+      maxSurge: 1
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: notification-worker
+      app.kubernetes.io/instance: {{ .Release.Name }}
+
+  template:
+    metadata:
+      annotations:
+        {{- include "sa-platform.configChecksum" . | nindent 8 }}
+      labels:
+        {{- $labels | nindent 8 }}
+        # Estas dos etiquetas son las que usan las NetworkPolicies para
+        # autorizar al worker contra PostgreSQL y RabbitMQ. Sin ellas el pod
+        # arrancaría y todas sus conexiones expirarían sin explicación.
+        app.kubernetes.io/name: notification-worker
+        app.kubernetes.io/component: worker
+    spec:
+      serviceAccountName: {{ include "sa-platform.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.worker.terminationGracePeriodSeconds }}
+
+      securityContext:
+        {{- include "sa-platform.podSecurityContext" . | nindent 8 }}
+
+      containers:
+        - name: notification-worker
+          image: {{ include "sa-platform.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | default .Values.global.imagePullPolicy }}
+
+          # Misma imagen que la API, distinto comando. Compartirla garantiza
+          # que ambos procesos corren exactamente el mismo código: si fueran
+          # dos imágenes, un despliegue parcial dejaría al productor y al
+          # consumidor con versiones distintas del contrato del mensaje.
+          command: ["python", "-m", "app.worker"]
+
+          securityContext:
+            {{- include "sa-platform.containerSecurityContext" . | nindent 12 }}
+
+          envFrom:
+            - configMapRef:
+                name: {{ include "sa-platform.fullname" . }}
+            - secretRef:
+                name: sa-platform-{{ .Values.secretSuffix }}
+
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+
+          # --- Sondas por ejecución de comando ---------------------------
+          #
+          # El worker toca /tmp/worker-alive cada 10 segundos desde una
+          # corrutina que corre en el MISMO event loop que los manejadores de
+          # mensajes. Esa coincidencia es lo que hace útil la sonda: si el loop
+          # se bloquea —una consulta a PostgreSQL que no vuelve, un deadlock—
+          # el archivo deja de actualizarse y la liveness lo detecta.
+          #
+          # Un chequeo de "¿existe el proceso?" no vería nada raro: el PID
+          # sigue ahí y `ps` lo lista, pero el consumidor dejó de drenar la
+          # cola, que es lo único que se le pide.
+          startupProbe:
+            exec:
+              # El archivo lo crea el worker solo cuando las colas están
+              # declaradas, atadas y con consumidor activo. Así "startup pasó"
+              # significa exactamente "ya puede recibir mensajes".
+              command: ["/bin/sh", "-c", "test -f /tmp/worker-ready"]
+            periodSeconds: 3
+            failureThreshold: 25
+          livenessProbe:
+            exec:
+              # Se acepta un latido de hasta 45 s de antigüedad, con un latido
+              # cada 10: hay margen para tres fallos consecutivos por un pico
+              # de carga antes de dar el proceso por colgado.
+              command:
+                - /bin/sh
+                - -c
+                - test -f /tmp/worker-alive && [ $(( $(date +%s) - $(stat -c %Y /tmp/worker-alive) )) -lt 45 ]
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "test -f /tmp/worker-ready"]
+            periodSeconds: 10
+            failureThreshold: 3
+
+          # El worker no recibe tráfico entrante, así que no sufre la carrera
+          # de endpoints que afecta a los demás. Aun así se le da un preStop
+          # corto: le da margen a la corrutina de consumo para terminar el
+          # mensaje que tenga entre manos antes del SIGTERM. Cortarlo a la
+          # mitad no pierde datos —sin `ack`, RabbitMQ lo reentrega— pero
+          # provoca trabajo repetido en cada `helm upgrade`.
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 3"]
+
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+
+          volumeMounts:
+            # Con la raíz de solo lectura, /tmp es el único lugar escribible.
+            # Aquí no es un detalle de Python: es donde viven los marcadores
+            # que observan las tres sondas de arriba.
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: {{ .Values.tmpSizeLimit }}
+
+{{- if .Values.worker.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $fullname }}
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+    app.kubernetes.io/name: notification-worker
+spec:
+  minAvailable: {{ .Values.worker.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: notification-worker
+      app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+{{- end }}

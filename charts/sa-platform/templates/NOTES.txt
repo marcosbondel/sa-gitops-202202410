@@ -1,0 +1,122 @@
+{{- $ns := include "sa-platform.namespace" . -}}
+═══════════════════════════════════════════════════════════════════════════════
+  sa-platform {{ .Chart.Version }}  ·  aplicación {{ .Chart.AppVersion }}
+  release «{{ .Release.Name }}» · revisión {{ .Release.Revision }} · namespace {{ $ns }}
+  entorno: {{ .Values.global.env }} · nivel de log: {{ .Values.global.logLevel }}
+═══════════════════════════════════════════════════════════════════════════════
+
+QUÉ SE INSTALÓ
+
+  Microservicios
+{{- range $name := list "api-gateway" "auth-service" "catalog-service" "order-service" "notification-service" }}
+{{- $cfg := index $.Values $name }}
+{{- if $cfg.enabled }}
+    · {{ printf "%-22s" $name }} HPA {{ $cfg.autoscaling.minReplicas }}–{{ $cfg.autoscaling.maxReplicas }} réplicas al {{ $cfg.autoscaling.targetCPUUtilizationPercentage }} % de CPU
+{{- end }}
+{{- end }}
+{{- if (index .Values "notification-service").worker.enabled }}
+    · {{ printf "%-22s" "notification-worker" }} {{ (index .Values "notification-service").worker.replicaCount }} réplicas fijas (consume del broker)
+{{- end }}
+
+  Datos y mensajería
+{{- if .Values.postgresql.enabled }}
+    · PostgreSQL      StatefulSet + PVC de {{ .Values.postgresql.primary.persistence.size }}, con {{ len .Values.databases }} bases:
+{{- range .Values.databases }}
+        {{ printf "%-18s" .name }} usuario {{ printf "%-22s" .user }} para {{ .owner }}
+{{- end }}
+{{- end }}
+{{- if .Values.rabbitmq.enabled }}
+    · RabbitMQ        exchange «{{ .Values.global.rabbitmq.exchange }}» (topic, durable), PVC de {{ .Values.rabbitmq.persistence.size }}
+{{- end }}
+
+{{- if .Values.cronjobs.enabled }}
+
+  Trabajos programados
+{{- range $name, $job := .Values.cronjobs.jobs }}
+    · {{ printf "%-22s" $name }} {{ printf "%-14s" $job.schedule }} {{ $job.description }}
+{{- end }}
+{{- end }}
+
+
+CÓMO ENTRAR
+{{- $gw := index .Values "api-gateway" }}
+{{- if eq ($gw.service.type | default "ClusterIP") "LoadBalancer" }}
+
+  El gateway se expone con un Service de tipo LoadBalancer. El proveedor de
+  nube tarda entre uno y tres minutos en aprovisionar la regla de reenvío y
+  escribir la dirección pública de vuelta en el objeto.
+
+  1) Esperar a que aparezca la IP:
+
+       kubectl get svc {{ .Release.Name }}-api-gateway -n {{ $ns }} -w
+
+  2) Guardarla y probar desde fuera del clúster:
+
+       IP=$(kubectl get svc {{ .Release.Name }}-api-gateway -n {{ $ns }} \
+              -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+       curl http://$IP:{{ $gw.service.port }}/health | jq
+
+     Devuelve el estado de los cuatro microservicios. Si alguno aparece
+     «down», es que su pod aún no pasó la readiness probe o que una
+     NetworkPolicy no lo autoriza.
+
+     Si el curl se queda colgado y los pods están todos Running, el sospechoso
+     es `networkPolicies.gatewayExposure`: con el valor `ingress` la única
+     política de entrada autoriza a un namespace que aquí no existe, y el
+     tráfico del balanceador se descarta sin registrar nada.
+{{- else }}
+
+  El Ingress es la única puerta. Los Services son todos ClusterIP y las
+  NetworkPolicies bloquean cualquier otro camino desde fuera.
+
+  1) Agregar el host al archivo de hosts (una sola vez):
+
+       echo "$(minikube ip -p {{ $ns }})  {{ .Values.platformIngress.host }}" | sudo tee -a /etc/hosts
+
+  2) Probar:
+
+       curl http://{{ .Values.platformIngress.host }}/health | jq
+
+     Devuelve el estado de los cuatro microservicios. Si alguno aparece
+     «down», es que su pod aún no pasó la readiness probe o que una
+     NetworkPolicy no lo autoriza.
+{{- end }}
+
+
+CÓMO VERLO FUNCIONAR
+
+  Estado general
+    kubectl get pods,hpa,pdb -n {{ $ns }}
+    kubectl get all -n {{ $ns }}
+
+  El flujo asíncrono, de punta a punta
+    kubectl logs -n {{ $ns }} -l app.kubernetes.io/name=notification-worker -f
+
+  La consola de RabbitMQ (usuario «{{ .Values.global.rabbitmq.username }}»)
+    kubectl port-forward -n {{ $ns }} svc/{{ .Release.Name }}-rabbitmq 15672:15672
+    # y abrir http://localhost:15672
+
+  Los latidos que escribe el CronJob 1
+    kubectl exec -n {{ $ns }} {{ .Release.Name }}-postgresql-0 -- \
+      env PGPASSWORD=$PG psql -U postgres -d ops_db \
+      -c "SELECT executed_at_local, carne FROM heartbeats ORDER BY id DESC LIMIT 5;"
+
+
+CICLO DE VIDA
+
+  helm history {{ .Release.Name }} -n {{ $ns }}
+  helm upgrade {{ .Release.Name }} . -n {{ $ns }} -f values-gcp.yaml -f secretos.yaml
+  helm rollback {{ .Release.Name }} <revisión> -n {{ $ns }}
+
+{{- if eq .Values.global.env "development" }}
+
+
+⚠  ENTORNO DE DESARROLLO
+
+   · El límite de peticiones del gateway está en {{ (index .Values "api-gateway").config.RATE_LIMIT_MAX }} para que la prueba de
+     carga pueda provocar el escalado sin chocar antes contra un 429.
+   · El nivel de log es {{ .Values.global.logLevel }}: los registros de SQLAlchemy incluyen los
+     parámetros de las consultas. No usar este valor con datos reales.
+   · Si se instaló con values.example.yaml, las credenciales son las de ejemplo
+     y están en el repositorio. No exponer este clúster.
+{{- end }}

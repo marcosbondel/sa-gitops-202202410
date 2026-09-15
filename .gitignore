@@ -1,0 +1,5 @@
+# Este repositorio describe el estado del clúster. Casi nada debería quedar
+# fuera de él —los .tgz de las dependencias de Helm SÍ se versionan a
+# propósito, para que ArgoCD no tenga que salir a internet a buscarlos—.
+.DS_Store
+*.swp

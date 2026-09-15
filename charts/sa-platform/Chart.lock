@@ -1,0 +1,24 @@
+dependencies:
+- name: postgresql
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 16.7.27
+- name: rabbitmq
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 16.0.14
+- name: api-gateway
+  repository: ""
+  version: 2.0.0
+- name: auth-service
+  repository: ""
+  version: 2.0.0
+- name: catalog-service
+  repository: ""
+  version: 2.0.0
+- name: order-service
+  repository: ""
+  version: 2.0.0
+- name: notification-service
+  repository: ""
+  version: 2.0.0
+digest: sha256:f89c6717239764189fc6702861f791900daeb5cf250f84185cb15b59803d2a67
+generated: "2026-09-03T13:08:26.032094-06:00"

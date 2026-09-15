@@ -1,0 +1,185 @@
+# ===========================================================================
+# values-prod.yaml — Ambiente de producción.
+#
+# Se aplica DESPUÉS de `values-comunes.yaml`. Contiene solo lo que distingue a
+# producción de stage; puesto al lado de `values-stage.yaml`, las diferencias
+# se leen de un vistazo:
+#
+#   | | stage | prod |
+#   |---|---|---|
+#   | namespace        | sa-p8-stage        | sa-p8-prod |
+#   | registro         | DEBUG              | INFO |
+#   | host             | sa-p8-stage.local  | sa-p8.local |
+#   | gateway          | 2 réplicas fijas   | HPA 3–6 |
+#   | resto            | 1 réplica          | HPA 2–4 |
+#   | cronjobs         | apagados           | encendidos |
+#   | PodDisruptionBudget | apagado         | encendido |
+#   | promoción manual | permitida (RBAC)   | NO existe |
+#
+# La última fila no está en este archivo: la impone `P8/terraform/rbac.tf`, que
+# crea el Role `sa-p8-operador-rollouts` únicamente en los ambientes cuya
+# etiqueta no es `prod`. En producción el canary avanza porque el análisis lo
+# aprueba, o no avanza.
+# ===========================================================================
+
+global:
+  namespace: sa-p8-prod
+  env: production
+  logLevel: INFO
+
+platformIngress:
+  enabled: true
+  host: sa-p8.local
+
+# ---------------------------------------------------------------------------
+# api-gateway — el componente con entrega progresiva
+# ---------------------------------------------------------------------------
+api-gateway:
+  image:
+    registry: ghcr.io/marcosbondel
+    repository: api-gateway
+    # Actualizada por el pipeline mediante Pull Request. En producción esta
+    # línea solo cambia después de que la misma versión haya pasado el canary
+    # completo en stage.
+    tag: "1.0.0"
+
+  # Con HPA activo, `replicaCount` no se usa (el chart omite el campo para no
+  # pelearse con el autoescalador). Se deja por claridad de lectura.
+  replicaCount: 3
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { cpu: 800m, memory: 512Mi }
+
+  config:
+    CORS_ORIGINS: "http://sa-p8.local:8080"
+
+  rollout:
+    enabled: true
+
+  # En producción sí. Con el HPA moviendo entre 3 y 6 réplicas, `minAvailable: 1`
+  # impide que un drenaje de nodo se lleve por delante al gateway entero.
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+# ---------------------------------------------------------------------------
+# El resto de componentes
+#
+# Con autoescalado, porque aquí sí reciben tráfico real. Los umbrales son los
+# que la Práctica 5 midió con la prueba de carga: 70 % de CPU, que deja margen
+# para los ~45 segundos que tarda una réplica nueva en estar lista.
+# ---------------------------------------------------------------------------
+auth-service:
+  image:
+    registry: ghcr.io/marcosbondel
+    repository: auth-service
+    tag: "1.0.0"
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+  resources:
+    requests: { cpu: 50m, memory: 192Mi }
+    limits: { cpu: 500m, memory: 448Mi }
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+catalog-service:
+  image:
+    registry: ghcr.io/marcosbondel
+    repository: catalog-service
+    tag: "1.0.0"
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+  resources:
+    requests: { cpu: 50m, memory: 160Mi }
+    limits: { cpu: 500m, memory: 384Mi }
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+order-service:
+  image:
+    registry: ghcr.io/marcosbondel
+    repository: order-service
+    tag: "1.0.0"
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+  resources:
+    requests: { cpu: 50m, memory: 192Mi }
+    limits: { cpu: 500m, memory: 448Mi }
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+notification-service:
+  image:
+    registry: ghcr.io/marcosbondel
+    repository: notification-service
+    tag: "1.0.0"
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+  resources:
+    requests: { cpu: 50m, memory: 192Mi }
+    limits: { cpu: 500m, memory: 448Mi }
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  worker:
+    # El consumidor de la cola. Dos réplicas fijas y sin HPA: la métrica que
+    # justificaría escalarlo es la profundidad de la cola de RabbitMQ, no su
+    # CPU, y un HPA por CPU sobre un consumidor que pasa el tiempo bloqueado
+    # esperando mensajes no escala cuando hace falta y escala cuando no.
+    replicaCount: 2
+    resources:
+      requests: { cpu: 50m, memory: 192Mi }
+      limits: { cpu: 500m, memory: 448Mi }
+
+# Encendidos: es el ambiente donde los trabajos programados tienen sentido.
+cronjobs:
+  enabled: true
+  image:
+    registry: ghcr.io/marcosbondel
+    repository: cronjobs
+    tag: "1.0.0"
+
+postgresql:
+  primary:
+    persistence:
+      size: 2Gi
+    resources:
+      requests: { cpu: 100m, memory: 384Mi }
+      limits: { cpu: 800m, memory: 768Mi }
+
+rabbitmq:
+  persistence:
+    size: 2Gi
+  resources:
+    requests: { cpu: 100m, memory: 384Mi }
+    limits: { cpu: 800m, memory: 768Mi }
+  memoryHighWatermark:
+    enabled: true
+    type: relative
+    value: 0.7

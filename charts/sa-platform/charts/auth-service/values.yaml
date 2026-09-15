@@ -1,0 +1,137 @@
+# ===========================================================================
+# auth-service — Autenticación y autorización (Python 3.12 / FastAPI / REST)
+#
+# Es el único componente que maneja secretos criptográficos: la llave de firma
+# del JWT, la de cifrado AES de los datos personales y la de HMAC. Que estén
+# concentrados aquí es lo que permite que los demás servicios no los tengan;
+# order-service no valida tokens, recibe la identidad ya resuelta en cabeceras
+# que inyecta el gateway.
+# ===========================================================================
+
+replicaCount: 2
+component: backend
+
+image:
+  repository: sa-p5/auth-service
+  tag: ""
+  pullPolicy: ""
+
+containerPort: 8000
+service:
+  enabled: true
+  port: 8000
+
+usesDatabase: true
+postgresDatabase: auth_db
+postgresUser: auth_user
+
+usesBroker: false
+
+# Secret propio: contraseña de auth_db + las tres llaves criptográficas + la
+# del administrador sembrado. Ninguna otra parte del sistema las recibe.
+secretSuffix: auth-service-secret
+
+config:
+  JWT_ALGORITHM: "HS256"
+  # 15 minutos de vigencia con 10 de gracia para renovación automática. Es el
+  # esquema heredado de la Práctica 2: una ventana corta acota el daño de un
+  # token robado, y la gracia evita que el usuario tenga que volver a
+  # autenticarse cada cuarto de hora.
+  JWT_EXPIRE_MINUTES: "15"
+  JWT_GRACE_PERIOD_MINUTES: "10"
+  JWT_ISSUER: "practica5-auth-service"
+
+  COOKIE_NAME: "access_token"
+  COOKIE_SECURE: "false"
+  COOKIE_SAMESITE: "lax"
+  CORS_ORIGINS: "http://sa-p5.local,http://localhost:8080"
+
+  # Correo y nombre del administrador que se siembra si la tabla está vacía.
+  # La contraseña NO está aquí: viaja en el Secret. Separarlos es lo correcto
+  # aunque parezca excesivo —el correo no es un secreto y la contraseña sí—.
+  SEED_ADMIN_EMAIL: "admin@tienda.com"
+  SEED_ADMIN_NAME: "Administrador de la Tienda"
+
+# No llama a ningún otro microservicio: es a él a quien llaman.
+serviceRefs: {}
+
+probes:
+  enabled: true
+  kind: http
+  startup:
+    path: /health/startup
+    periodSeconds: 3
+    # Es el arranque más lento de los cuatro: crea las tablas y siembra el
+    # administrador, y el hash bcrypt de la contraseña es deliberadamente caro.
+    # 3 s × 30 = 90 s de margen. Sin startup probe habría que aflojar la
+    # liveness con un `initialDelaySeconds` equivalente, y esa holgura se
+    # pagaría durante toda la vida del despliegue: un pod colgado tardaría 90
+    # segundos en detectarse siempre, no solo al arrancar.
+    failureThreshold: 30
+  liveness:
+    # NO consulta la base. Si lo hiciera, una caída de PostgreSQL reiniciaría
+    # en bucle los pods de los cuatro servicios, y reiniciar un proceso sano
+    # nunca arregló una base caída.
+    path: /health
+    periodSeconds: 15
+    failureThreshold: 3
+  readiness:
+    # SÍ la consulta: sin base, este servicio no puede autenticar a nadie.
+    # Fallar aquí lo saca del Service sin matarlo, y vuelve solo.
+    path: /health/ready
+    periodSeconds: 10
+    failureThreshold: 3
+
+resources:
+  requests:
+    cpu: 100m
+    # Más memoria que el gateway: SQLAlchemy, asyncpg y cryptography ocupan
+    # bastante más que Express.
+    memory: 160Mi
+  limits:
+    cpu: 500m
+    memory: 384Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+serviceAccount:
+  create: true
+  name: ""
+
+rbac:
+  create: true
+  rules: []
+
+securityContext:
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+
+affinity:
+  antiAffinity: true
+
+terminationGracePeriodSeconds: 30
+tmpSizeLimit: 64Mi
+
+
+# ---------------------------------------------------------------------------
+# rollout — entrega progresiva con Argo Rollouts (Práctica 8)
+#
+# Apagado. Este componente se despliega con un Deployment y una actualización
+# progresiva corriente (`maxUnavailable: 0`), que es lo correcto para un
+# servicio interno: no recibe tráfico de usuarios directamente, así que un
+# canary no tendría a quién exponer la versión nueva por partes.
+#
+# El componente que SÍ lo activa es `api-gateway`, que es el único con Ingress.
+# Ver `charts/api-gateway/values.yaml`.
+# ---------------------------------------------------------------------------
+rollout:
+  enabled: false

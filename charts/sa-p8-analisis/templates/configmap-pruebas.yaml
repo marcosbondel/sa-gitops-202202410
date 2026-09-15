@@ -1,0 +1,44 @@
+{{/*
+configmap-pruebas.yaml — Los tres scripts, montados en los Jobs de análisis.
+
+## Por qué un ConfigMap y no una imagen con las pruebas dentro
+
+Una imagen propia habría que construirla, publicarla en GHCR, escanearla con
+Trivy, generarle un SBOM y firmarla con Cosign como cualquier otro artefacto
+—porque si no, sería la única cosa que llega al clúster sin pasar por la cadena
+de suministro que esta práctica levanta—. Todo eso para ejecutar unas doscientas
+líneas de shell y JavaScript.
+
+El ConfigMap tiene además una ventaja para la evaluación: el contenido exacto
+de lo que se ejecutó se puede leer desde el propio clúster, con
+
+    kubectl -n sa-p8-stage get cm sa-p8-pruebas -o yaml
+
+sin descargar ninguna imagen ni confiar en que el repositorio y el registro
+estén sincronizados.
+
+## El límite que tiene, y cuándo tocaría cambiar de opción
+
+Un ConfigMap no puede pasar de 1 MiB. Los tres scripts suman unos 20 KiB, así
+que hay margen de sobra; el día que las pruebas necesiten dependencias
+—una librería de aserciones, un cliente de base de datos— este archivo deja de
+servir y toca construir la imagen.
+
+`.Files.Get` y no `.Files.Glob` con `range`: los tres archivos se nombran
+explícitamente para que un archivo nuevo en `pruebas/` no acabe montado en los
+Jobs sin que nadie lo haya decidido.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sa-p8-pruebas
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "analisis.labels" . | nindent 4 }}
+data:
+  humo.sh: |
+{{ .Files.Get "pruebas/humo.sh" | indent 4 }}
+  integracion.sh: |
+{{ .Files.Get "pruebas/integracion.sh" | indent 4 }}
+  carga.js: |
+{{ .Files.Get "pruebas/carga.js" | indent 4 }}

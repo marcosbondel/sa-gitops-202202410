@@ -1,0 +1,640 @@
+# ===========================================================================
+# values.yaml — Configuración base de la plataforma
+#
+# Este archivo describe el entorno de referencia. Los otros dos values NO lo
+# reemplazan: se superponen con `-f`, y solo redefinen lo que cambia.
+#
+#     helm install sa-platform . -n sa-p5 \
+#       -f values.yaml -f values-dev.yaml -f secretos.yaml
+#
+# Qué cambia cada entorno está en la cabecera de values-dev.yaml y
+# values-prod.yaml.
+#
+# ## Ninguna credencial real vive aquí
+#
+# Todos los campos de `secrets` están vacíos y el chart usa `required` sobre
+# ellos: una instalación sin pasarlos **falla al renderizar**, con un mensaje
+# que dice qué falta. No arranca con una contraseña por defecto ni con una
+# cadena vacía, que son las dos formas de que un secreto de ejemplo termine en
+# producción.
+#
+# `values.example.yaml` trae valores ficticios para poder levantar el entorno
+# local en un comando. Ese archivo es el que se versiona; el que se usa de
+# verdad no.
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# global — lo que ven el chart padre y TODOS los subcharts
+#
+# Helm solo propaga a los subcharts lo que cuelga de `global`. Aquí van las
+# direcciones y parámetros que más de un componente necesita: si el host de
+# PostgreSQL estuviera repetido en los cinco values, cambiar de servidor sería
+# cinco ediciones y la oportunidad de olvidar una.
+# ---------------------------------------------------------------------------
+global:
+  # Namespace de destino. Todos los recursos del chart lo declaran
+  # explícitamente en lugar de heredarlo del release, para que `helm template`
+  # sin `-n` produzca manifiestos completos —que son los que uno pega en una
+  # revisión o guarda como evidencia—.
+  #
+  # Lo crea Helm durante el `helm install`, con `--create-namespace`. NO se
+  # crea a mano. El chart llegó a tener un `templates/namespace.yaml` y hubo
+  # que quitarlo: Helm guarda el registro del release en el namespace de
+  # destino **antes** de aplicar los manifiestos, así que un chart no puede
+  # crear el namespace en el que él mismo se guarda. El razonamiento completo,
+  # con los errores exactos y las alternativas descartadas, está en
+  # charts/sa-platform/NOTAS-namespace.md.
+  namespace: sa-p5
+
+  # Vacío: las imágenes se construyen en el daemon de minikube y se referencian
+  # sin registro. Apuntando a un registro real, `docker.io/miusuario` por
+  # ejemplo, las cinco imágenes cambian de origen a la vez.
+  imageRegistry: ""
+
+  # `IfNotPresent` es obligatorio con imágenes locales de minikube: con
+  # `Always`, Kubernetes intentaría bajarlas de Docker Hub, no las encontraría
+  # y todos los pods quedarían en ErrImagePull. Es el error más común al
+  # empezar con minikube.
+  imagePullPolicy: IfNotPresent
+
+  env: development
+  logLevel: INFO
+
+  postgresql:
+    # Vacío: el chart lo calcula como `<release>-postgresql`, que es como
+    # nombra su Service el subchart de Bitnami. Solo se rellena para apuntar a
+    # una base externa (un RDS, por ejemplo), y entonces el subchart se apaga
+    # con `postgresql.enabled: false`.
+    host: ""
+    port: 5432
+
+  rabbitmq:
+    # Igual que arriba: vacío significa `<release>-rabbitmq`.
+    host: ""
+    port: 5672
+    vhost: "/"
+    username: sa_platform
+    exchange: sa.events
+
+  # Se incrementa a mano al rotar una contraseña. Entra en el checksum del pod
+  # template, así que cambiarlo dispara un RollingUpdate y los pods releen el
+  # Secret. Sin esto, rotar una credencial no tendría efecto hasta el siguiente
+  # reinicio casual: las variables de entorno se resuelven una sola vez.
+  secretsRevision: "1"
+
+  # Requerido por los charts de Bitnami para aceptar imágenes de un repositorio
+  # distinto del suyo por defecto. Ver la explicación completa en Chart.yaml.
+  security:
+    allowInsecureImages: true
+
+
+# ---------------------------------------------------------------------------
+# secrets — todo lo que NO puede versionarse
+#
+# Se declaran vacíos y el chart los exige con `required`. Ver la cabecera.
+# ---------------------------------------------------------------------------
+secrets:
+  # Si el chart crea los Secrets a partir de los valores de abajo (`true`, el
+  # comportamiento de las Prácticas 5 a 7) o si los produce otro —Sealed
+  # Secrets, en la Práctica 8— y el chart solo los consume por nombre.
+  # Ver el comentario extenso en `templates/secrets.yaml`.
+  create: true
+
+  # Superusuario de PostgreSQL. Lo usa el subchart de Bitnami y el script de
+  # inicialización que crea las bases y los usuarios por servicio.
+  postgresAdminPassword: ""
+
+  # Una contraseña por base lógica. El chart recorre este mapa con `range` para
+  # generar el Secret y el script de creación de usuarios, así que agregar una
+  # base es agregar una línea aquí.
+  databasePasswords:
+    auth_db: ""
+    catalog_db: ""
+    order_db: ""
+    notification_db: ""
+    ops_db: ""
+
+  rabbitmqPassword: ""
+  # RabbitMQ usa esta cookie para autenticar nodos entre sí. Con una réplica no
+  # se usa para nada, pero el chart la exige y hay que fijarla: si Helm la
+  # generara al azar en cada `upgrade`, el pod no podría reincorporarse al
+  # clúster de Erlang y quedaría en CrashLoopBackOff. Es un fallo clásico que
+  # solo aparece en el segundo despliegue.
+  rabbitmqErlangCookie: ""
+
+  # Secretos criptográficos de auth-service. Ninguno tiene valor por defecto:
+  # una llave de firma con valor por defecto es una sesión falsificable.
+  jwtSecretKey: ""
+  aesSecretKey: ""
+  hmacSecretKey: ""
+  seedAdminPassword: ""
+
+
+# ---------------------------------------------------------------------------
+# databases — las bases lógicas que se crean dentro del StatefulSet
+#
+# Una sola instancia de PostgreSQL, una base y un usuario por servicio.
+#
+# Es el punto medio entre las dos posturas. La Práctica 4 tenía seis motores
+# separados: máximo aislamiento y seis contenedores, seis volúmenes y seis
+# procesos que administrar. Compartir una sola base entre todos habría sido
+# barato y habría borrado la frontera: cualquier servicio podría leer —y con el
+# tiempo, alguien acabaría escribiendo— las tablas de otro, y volver atrás
+# exigiría desenredar consultas con JOIN entre dominios.
+#
+# Con esta forma el aislamiento lógico se conserva: las credenciales de
+# `order_user` no abren `auth_db`, no existen claves foráneas entre dominios y
+# cada servicio puede migrarse a su propio motor cambiando un host. Lo que se
+# comparte es el proceso y el volumen, que es infraestructura, no diseño.
+#
+# El chart recorre esta lista con `range` para generar el script de creación,
+# el Secret de initdb y los permisos. Agregar una base es agregar una entrada
+# aquí más su contraseña en `secrets.databasePasswords`.
+# ---------------------------------------------------------------------------
+databases:
+  - name: auth_db
+    user: auth_user
+    envVar: AUTH_DB_PASSWORD
+    owner: auth-service
+  - name: catalog_db
+    user: catalog_user
+    envVar: CATALOG_DB_PASSWORD
+    owner: catalog-service
+  - name: order_db
+    user: order_user
+    envVar: ORDER_DB_PASSWORD
+    owner: order-service
+  - name: notification_db
+    user: notification_user
+    envVar: NOTIFICATION_DB_PASSWORD
+    owner: notification-service
+  - name: ops_db
+    user: ops_user
+    envVar: OPS_DB_PASSWORD
+    owner: cronjobs
+
+
+# ---------------------------------------------------------------------------
+# namespace — cuotas y límites del espacio de trabajo
+# ---------------------------------------------------------------------------
+namespace:
+  # ResourceQuota: el techo del namespace entero.
+  #
+  # Existe porque el HPA puede llevar cinco componentes a 5 réplicas cada uno.
+  # Sin cuota, un pico de tráfico podría intentar programar 25 pods y agotar el
+  # nodo, dejando sin recursos a la base de datos y al broker —que no escalan y
+  # sin los cuales nada funciona—. La cuota convierte "el clúster se cae" en
+  # "el HPA no consigue escalar más", que es un fallo mucho más benigno.
+  resourceQuota:
+    enabled: true
+    requestsCpu: "4"
+    requestsMemory: 6Gi
+    limitsCpu: "8"
+    limitsMemory: 10Gi
+    pods: "40"
+    persistentVolumeClaims: "5"
+
+  # LimitRange: el techo y el piso de CADA contenedor.
+  #
+  # Hace dos cosas que la cuota no hace. Primero, pone `requests` por defecto a
+  # los pods que no los declaran: un pod sin requests recibe QoS BestEffort y
+  # es el primero al que el kubelet mata bajo presión de memoria, además de no
+  # contar para el HPA. Segundo, impide que un solo contenedor pida la cuota
+  # entera y deje al resto sin poder programarse.
+  limitRange:
+    enabled: true
+    defaultRequest:
+      cpu: 50m
+      memory: 96Mi
+    default:
+      cpu: 500m
+      memory: 512Mi
+    max:
+      cpu: "2"
+      memory: 2Gi
+    min:
+      cpu: 10m
+      memory: 32Mi
+
+
+# ---------------------------------------------------------------------------
+# networkPolicies — aislamiento de red
+# ---------------------------------------------------------------------------
+networkPolicies:
+  enabled: true
+
+  # La política que cambia el modelo de seguridad del namespace.
+  #
+  # Kubernetes permite todo el tráfico por defecto: cualquier pod puede
+  # conectarse a cualquier otro, en cualquier namespace. Un `default-deny`
+  # invierte esa regla, y a partir de ahí cada conexión legítima debe
+  # declararse. Sin esta política, las demás no sirven de nada: una
+  # NetworkPolicy solo puede *permitir*, nunca prohibir, así que mientras exista
+  # un camino permitido por defecto, agregar permisos no cierra nada.
+  defaultDeny: true
+
+  # Los pods necesitan resolver nombres DNS para encontrarse. `default-deny`
+  # también bloquea el DNS, y el síntoma —"no such host" en todos los
+  # servicios— parece un problema de configuración y no de red.
+  allowDns: true
+
+  # Quién contesta el DNS del clúster. Es una lista porque no es el mismo en
+  # todas partes: con NodeLocal DNSCache —activado por defecto en GKE— quien
+  # responde es `node-local-dns`, aunque el `/etc/resolv.conf` del pod siga
+  # apuntando al ClusterIP de kube-dns. Autorizar solo `kube-dns` deja a los
+  # servicios sin resolución y el error que se ve es `[Errno -3] Try again`.
+  dnsPodSelectors:
+    - labels:
+        k8s-app: kube-dns
+
+  # Direcciones desde las que responde el DNS cuando no es un pod seleccionable
+  # —típicamente la link-local 169.254.20.10 de NodeLocal DNSCache cuando sí
+  # reescribe el resolv.conf—. Vacío por defecto: en minikube no hace falta.
+  dnsServerCidrs: []
+
+  # Cómo entra el tráfico al gateway, que es lo que decide qué origen autoriza
+  # la única política de entrada del namespace. Dos valores:
+  #
+  #   `ingress`      — hay un Ingress Controller dentro del clúster y el origen
+  #                    se nombra por su namespace (ver la línea siguiente). Es
+  #                    el modo de la Práctica 5 sobre minikube, y el defecto.
+  #
+  #   `loadBalancer` — el gateway se expone con un Service de tipo LoadBalancer
+  #                    y el tráfico llega desde fuera del clúster, sin pod
+  #                    intermedio que seleccionar. Modo de la Práctica 6 sobre
+  #                    GKE. El razonamiento completo —y por qué obliga a un
+  #                    `ipBlock: 0.0.0.0/0` que solo parece permisivo— está en
+  #                    la política 3 de templates/networkpolicies.yaml.
+  #
+  # Ponerlo mal no da error: da un timeout desde internet con todos los pods en
+  # Running, que es de los síntomas más caros de diagnosticar.
+  gatewayExposure: ingress
+
+  # Namespace donde corre el Ingress Controller. Solo se usa cuando
+  # `gatewayExposure` es `ingress`. En minikube el addon `ingress` lo instala
+  # aquí; en otro clúster puede llamarse distinto y basta cambiar esta línea.
+  ingressControllerNamespace: ingress-nginx
+
+  # ---- Quién puede hablar con quién -------------------------------------
+  #
+  # Estas listas son la política de red escrita como datos. El chart las
+  # recorre con `range` para generar las NetworkPolicies, así que autorizar un
+  # servicio nuevo es agregar un nombre —no editar una plantilla— y, más
+  # importante, la política completa se lee de un vistazo en lugar de tener que
+  # reconstruirla leyendo siete manifiestos.
+
+  # Servicios a los que el gateway puede llegar. Son exactamente los cuatro
+  # que enruta; el gateway no habla con la base ni con el broker.
+  gatewayTargets:
+    - auth-service
+    - catalog-service
+    - order-service
+    - notification-service
+
+  # Quién puede conectarse a PostgreSQL. El gateway NO está en la lista: no
+  # tiene credenciales de base y no debería tener siquiera ruta de red hacia
+  # ella. Es la misma decisión que en la Práctica 4, donde el gateway estaba
+  # fuera de `data_net`, expresada ahora con la herramienta correcta.
+  databaseClients:
+    - auth-service
+    - catalog-service
+    - order-service
+    - notification-service
+    - notification-worker
+    - heartbeat-writer
+    - heartbeat-summarizer
+
+  # Quién puede conectarse al broker. Tres: el productor de eventos de pedido,
+  # el consumidor, y el CronJob que publica el resumen. La API de
+  # notification-service no está —es de solo lectura y no toca el broker—, ni
+  # tampoco auth, catalog o el escritor de latidos.
+  brokerClients:
+    - order-service
+    - notification-worker
+    - heartbeat-summarizer
+
+  # Llamadas directas entre microservicios que NO pasan por el gateway.
+  # Solo hay una: order-service consulta precios al catálogo durante el
+  # checkout. Se declara explícitamente para que quede claro que es la única.
+  serviceToService:
+    - from: order-service
+      to: catalog-service
+      port: 4000
+
+
+# ---------------------------------------------------------------------------
+# platformIngress — la única puerta de entrada
+#
+# ## Por qué no se llama simplemente `ingress`
+#
+# Se llamaba así y hubo que renombrarlo. Al fusionar valores, Helm arrastra
+# esta clave del chart padre hacia los subcharts, y el chart de RabbitMQ define
+# su propio `ingress.tls` como **booleano** mientras que aquí es una tabla
+# `{enabled, secretName}`. El resultado era un aviso permanente en cada
+# `helm lint` y `helm install`:
+#
+#     coalesce.go: warning: destination for rabbitmq.ingress.tls is a table.
+#                  Ignoring non-table value (false)
+#
+# El aviso era inofensivo —el Ingress de RabbitMQ está deshabilitado de todos
+# modos— pero un aviso que siempre aparece es un aviso que nadie lee, y el día
+# que salga uno real pasará desapercibido. Renombrar la clave lo elimina de
+# raíz.
+#
+# Es un buen recordatorio de que el espacio de nombres de los valores es
+# compartido entre el chart padre y sus dependencias, y de que conviene
+# prefijar lo propio cuando se usan charts de terceros.
+# ---------------------------------------------------------------------------
+platformIngress:
+  enabled: true
+  className: nginx
+  host: sa-p5.local
+
+  # Todo entra por el gateway. No hay una regla por microservicio a propósito:
+  # exponer `/api/orders` directamente saltaría la autenticación, el límite de
+  # peticiones y el filtro de métodos que el gateway aplica. El Ingress enruta
+  # a un solo destino y el gateway decide el resto.
+  paths:
+    - path: /
+      pathType: Prefix
+      service: api-gateway
+      port: 8080
+
+  annotations:
+    # Cabeceras de la petición original. Sin esto, el gateway vería siempre la
+    # IP del controlador y su límite por IP bloquearía a todo el mundo junto.
+    nginx.ingress.kubernetes.io/use-forwarded-headers: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: 2m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+
+  tls:
+    enabled: false
+    secretName: sa-platform-tls
+
+
+# ---------------------------------------------------------------------------
+# cronjobs — trabajos programados
+#
+# Es un mapa y no una lista porque el chart lo recorre con `range` para generar
+# los CronJobs, sus ServiceAccounts, sus Roles y sus RoleBindings. Agregar un
+# tercer trabajo es agregar una entrada aquí; no se toca ninguna plantilla.
+# ---------------------------------------------------------------------------
+cronjobs:
+  enabled: true
+
+  image:
+    # Registro propio, deliberadamente separado de `global.imageRegistry`: ese
+    # lo consumen también los subcharts de Bitnami y lo aplican POR ENCIMA de su
+    # propio `image.registry`. Ver values-gcp.yaml.
+    registry: ""
+    repository: sa-p5/cronjobs
+    tag: "2.0.0"
+
+  # Carné del estudiante. Viaja como dato en el registro que produce el
+  # CronJob 1 y en el mensaje que publica el CronJob 2.
+  carne: "202202410"
+
+  jobs:
+    heartbeat-writer:
+      # Cada 2 minutos.
+      schedule: "*/2 * * * *"
+      command: ["python", "-m", "jobs.writer"]
+      description: Inserta la fecha y hora GMT-6 y el carné en ops_db.heartbeats
+      usesBroker: false
+      resources:
+        requests: { cpu: 20m, memory: 48Mi }
+        limits: { cpu: 200m, memory: 128Mi }
+
+    heartbeat-summarizer:
+      # Cada 10 minutos.
+      schedule: "*/10 * * * *"
+      command: ["python", "-m", "jobs.summarizer"]
+      description: Agrega los latidos por hora y publica el resumen en el broker
+      usesBroker: true
+      resources:
+        requests: { cpu: 20m, memory: 64Mi }
+        limits: { cpu: 200m, memory: 192Mi }
+
+  # --- Política común a los dos trabajos ---
+  #
+  # `Forbid`: si una ejecución sigue corriendo cuando toca la siguiente, la
+  # siguiente NO arranca. Con `Allow`, una base lenta encadenaría ejecuciones
+  # solapadas hasta agotar la cuota del namespace; con `Replace`, se mataría un
+  # trabajo a medias y el resumen quedaría publicado a la mitad.
+  concurrencyPolicy: Forbid
+
+  # Cuántos pods nuevos se crean tras un fallo antes de darlo por perdido. Es
+  # el reintento *externo*; los scripts no reintentan por dentro, para que la
+  # cuenta la lleve un solo mecanismo.
+  backoffLimit: 2
+
+  # Cuánto historial se conserva. No es cosmético: cada Job retenido conserva
+  # su pod, y cada pod cuenta contra la cuota de 40 del namespace. Sin límite,
+  # el CronJob de 2 minutos crearía 720 pods al día y agotaría la cuota en unas
+  # horas, impidiendo que el HPA escale.
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 2
+
+  # Si un Job queda colgado, se mata. Sin esto, con `Forbid`, un trabajo
+  # bloqueado detiene el cronjob para siempre.
+  activeDeadlineSeconds: 120
+
+  # Cuánto tiempo después de la hora prevista sigue siendo válido arrancar.
+  # Si el clúster estuvo saturado y se saltó la ventana, es mejor no ejecutar
+  # que ejecutar tarde y desordenado.
+  startingDeadlineSeconds: 60
+
+
+# ---------------------------------------------------------------------------
+# DEPENDENCIA EXTERNA · PostgreSQL (Bitnami)
+#
+# Se despliega como StatefulSet con su PersistentVolumeClaim y su headless
+# service, que es lo que el chart de Bitnami hace por defecto.
+#
+# Por qué un StatefulSet y no un Deployment: un Deployment da a sus pods
+# nombres aleatorios y los reemplaza sin orden, y todas las réplicas compartirían
+# el mismo PVC —o ninguno—. PostgreSQL necesita identidad estable (siempre
+# `-0`), un volumen propio que lo siga entre reinicios, y un DNS por pod para
+# que un cliente pueda dirigirse al primario y no a "alguno de ellos". Eso es
+# exactamente lo que un StatefulSet garantiza y un Deployment no.
+# ---------------------------------------------------------------------------
+postgresql:
+  enabled: true
+
+  image:
+    registry: docker.io
+    # Ver la nota sobre Bitnami en Chart.yaml. La etiqueta es la que este chart
+    # espera; fijarla evita depender de un `latest` que cambia solo.
+    repository: bitnamilegacy/postgresql
+    tag: 17.6.0-debian-12-r4
+
+  auth:
+    # El chart lee la contraseña del superusuario de este Secret, que genera el
+    # chart padre. Ponerla en `auth.postgresPassword` la dejaría en el values.
+    existingSecret: sa-platform-db-credentials
+    secretKeys:
+      adminPasswordKey: postgres-password
+
+  primary:
+    persistence:
+      enabled: true
+      size: 2Gi
+      # Vacío: usa la StorageClass por defecto (`standard` en minikube).
+      storageClass: ""
+
+    # Script que crea una base y un usuario por servicio.
+    #
+    # Vive en un ConfigMap generado por el chart padre para poder recorrer
+    # `secrets.databasePasswords` con `range`. Las contraseñas NO están en el
+    # script: llegan como variables de entorno desde el Secret, que es lo que
+    # hace `extraEnvVarsSecret`. Escribirlas en el script las habría metido en
+    # un ConfigMap, es decir, a la vista de cualquiera con permiso de lectura.
+    #
+    # Los scripts de initdb solo corren la **primera vez**, con el volumen
+    # vacío. Es la propiedad que hace que la evidencia de persistencia
+    # signifique algo: al borrar el pod, el volumen sobrevive, initdb no vuelve
+    # a correr y los datos siguen ahí.
+    initdb:
+      scriptsConfigMap: sa-platform-postgres-initdb
+
+    # Las contraseñas de cada base llegan al contenedor de initdb como
+    # variables de entorno. El script las usa por nombre; nunca están escritas
+    # en él, que vive en un ConfigMap legible por cualquiera.
+    extraEnvVarsSecret: sa-platform-db-initdb-env
+
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits: { cpu: "1", memory: 1Gi }
+
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 1001
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      # PostgreSQL escribe su socket, sus WAL y sus archivos temporales fuera
+      # del volumen de datos, así que no puede correr con la raíz de solo
+      # lectura. Es la excepción del sistema y está acotada: es el único
+      # contenedor con esta concesión, y sus datos sí están en un volumen
+      # aparte. El chart de Bitnami tampoco lo soporta.
+      readOnlyRootFilesystem: false
+      capabilities:
+        drop: ["ALL"]
+
+  # Métricas del exportador: fuera de alcance (la observabilidad se aborda en
+  # prácticas posteriores) y ahorra un contenedor por pod en un clúster local
+  # con 5 GB de RAM.
+  metrics:
+    enabled: false
+
+  # NetworkPolicy propia del subchart: se desactiva porque el chart padre
+  # escribe las suyas. Dos juegos de políticas sobre los mismos pods se suman y
+  # el resultado es más permisivo que cualquiera de los dos por separado, que
+  # es justo lo contrario de lo que se busca.
+  networkPolicy:
+    enabled: false
+
+
+# ---------------------------------------------------------------------------
+# DEPENDENCIA EXTERNA · RabbitMQ (Bitnami)
+# ---------------------------------------------------------------------------
+rabbitmq:
+  enabled: true
+
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/rabbitmq
+    tag: 4.1.3-debian-12-r1
+
+  auth:
+    username: sa_platform
+    existingPasswordSecret: sa-platform-broker-credentials
+    existingSecretPasswordKey: rabbitmq-password
+    existingErlangSecret: sa-platform-broker-credentials
+    existingSecretErlangKey: rabbitmq-erlang-cookie
+
+  # Una sola réplica. Un clúster de RabbitMQ con quórum sería lo correcto en
+  # producción, pero aquí no cabe: tres réplicas más las cinco del HPA no
+  # entran en 5 GB de RAM. La durabilidad de los mensajes no depende del número
+  # de réplicas sino del disco, y eso sí está resuelto: cola durable, mensaje
+  # persistente y volumen que sobrevive al pod.
+  replicaCount: 1
+
+  persistence:
+    enabled: true
+    size: 1Gi
+
+  resources:
+    requests: { cpu: 100m, memory: 320Mi }
+    limits: { cpu: "1", memory: 768Mi }
+
+  # La consola de administración. Se expone solo dentro del clúster: llegar a
+  # ella exige un `kubectl port-forward`, que a su vez exige credenciales de
+  # Kubernetes. Publicarla por el Ingress abriría un panel con permisos totales
+  # sobre el broker a cualquiera que resuelva el host.
+  service:
+    managerPortEnabled: true
+
+  # El broker se queda sin memoria cuando la cola crece y nadie consume, que es
+  # exactamente el escenario que la práctica pide demostrar. Con este umbral
+  # RabbitMQ empieza a frenar a los productores al llegar al 40 % de la memoria
+  # del contenedor, en lugar de dejarse matar por OOM.
+  memoryHighWatermark:
+    enabled: true
+    type: relative
+    value: 0.4
+
+  metrics:
+    enabled: false
+
+  networkPolicy:
+    enabled: false
+
+
+  # El broker no se expone por Ingress y se declara explícitamente.
+  #
+  # Además de ser lo correcto, evita un aviso de `helm lint`: el chart de
+  # Bitnami define `ingress.tls` como booleano, mientras que el `ingress.tls`
+  # de este chart padre es una tabla `{enabled, secretName}`. Helm arrastra la
+  # forma del padre al fusionar y avisa de que no puede combinar una tabla con
+  # un booleano. Declarar aquí la forma que el subchart espera resuelve la
+  # ambigüedad en lugar de dejarla como ruido permanente en el lint.
+  ingress:
+    enabled: false
+    tls: false
+
+
+# ---------------------------------------------------------------------------
+# SUBCHARTS PROPIOS
+#
+# Aquí solo aparece lo que el chart padre necesita decidir sobre cada
+# componente: si está activo y qué imagen usa. El resto —recursos, sondas,
+# HPA, RBAC— vive en el values.yaml de cada subchart, que es donde se puede
+# leer junto con el servicio al que pertenece.
+# ---------------------------------------------------------------------------
+api-gateway:
+  enabled: true
+  image:
+    repository: sa-p5/api-gateway
+
+auth-service:
+  enabled: true
+  image:
+    repository: sa-p5/auth-service
+
+catalog-service:
+  enabled: true
+  image:
+    repository: sa-p5/catalog-service
+
+order-service:
+  enabled: true
+  image:
+    repository: sa-p5/order-service
+
+notification-service:
+  enabled: true
+  image:
+    repository: sa-p5/notification-service

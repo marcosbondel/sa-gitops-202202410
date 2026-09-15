@@ -1,0 +1,112 @@
+{{/*
+postgres-initdb.yaml — El script que crea una base y un usuario por servicio.
+
+## Qué hace y cuándo
+
+PostgreSQL ejecuta todo lo que encuentre en `/docker-entrypoint-initdb.d` la
+**primera vez** que arranca sobre un directorio de datos vacío, y nunca más.
+
+Esa propiedad es la que hace que la evidencia de persistencia signifique algo:
+al borrar el pod de la base, el PersistentVolumeClaim sobrevive, el pod nuevo
+encuentra el volumen ya inicializado, initdb no vuelve a ejecutarse y los datos
+siguen ahí. Si el script corriera en cada arranque, "los datos sobrevivieron"
+sería indistinguible de "se volvieron a crear".
+
+## Por qué las contraseñas no están en este archivo
+
+Este script vive en un ConfigMap. Un ConfigMap se lee con un `kubectl get -o
+yaml` que cualquiera con permiso de lectura sobre el namespace puede ejecutar.
+Las contraseñas llegan como variables de entorno desde el Secret
+`sa-platform-db-initdb-env` —eso hace `primary.extraEnvVarsSecret`— y el script
+las referencia por nombre.
+
+Nótese que la contraseña se interpola en el SQL, no se pasa como parámetro:
+`CREATE ROLE` no admite parámetros vinculados. Se acota con comillas simples y
+las contraseñas se generan sin comillas; en un sistema con contraseñas
+arbitrarias esto exigiría escapado explícito, y conviene decirlo en lugar de
+fingir que el riesgo no existe.
+
+## Por qué `REVOKE ... ON DATABASE ... FROM PUBLIC`
+
+PostgreSQL concede por defecto el privilegio CONNECT a `PUBLIC`, es decir, a
+todo rol existente. Sin ese REVOKE, `order_user` podría conectarse a `auth_db`
+—no leer sus tablas, pero sí conectarse y enumerar el esquema— y el aislamiento
+entre servicios sería una convención en lugar de una restricción.
+*/}}
+{{- if .Values.postgresql.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sa-platform-postgres-initdb
+  namespace: {{ include "sa-platform.namespace" . }}
+  labels:
+    {{- include "sa-platform.labels" . | nindent 4 }}
+data:
+  00-crear-bases-y-usuarios.sh: |
+    #!/bin/bash
+    # ---------------------------------------------------------------------
+    # Generado por Helm desde values.yaml (.databases). No editar en vivo:
+    # el siguiente `helm upgrade` lo sobrescribe.
+    # ---------------------------------------------------------------------
+    #
+    # `set -e` : cualquier error aborta la inicialización. Sin esto, un fallo
+    #            al crear la tercera base dejaría el servidor arriba con dos
+    #            bases y sin ninguna señal de que faltó algo.
+    # `set -u` : usar una variable no definida es un error. Es la red que
+    #            atrapa el caso de que el Secret no se haya montado: sin ella,
+    #            la contraseña quedaría vacía y el usuario se crearía sin
+    #            contraseña, que es peor que no crearse.
+    #
+    # El superusuario se toma de `${POSTGRES_USER:-postgres}`, con expansión
+    # por defecto. La imagen de Bitnami **no** define `POSTGRES_USER` —usa
+    # `POSTGRESQL_USERNAME` para sus propias cosas y ejecuta estos scripts como
+    # el superusuario, que salvo que se configure otra cosa se llama
+    # `postgres`—. Con `set -u` y sin la expansión por defecto, el script
+    # abortaba en la primera línea con "POSTGRES_USER: unbound variable" y el
+    # pod entraba en CrashLoopBackOff sin que la causa apareciera en ningún
+    # sitio evidente.
+    set -eu
+
+    # La contraseña del superusuario para que `psql` pueda autenticarse.
+    #
+    # La imagen de Bitnami no expone `POSTGRES_PASSWORD` como variable: la
+    # monta como **archivo** y publica su ruta en `POSTGRES_PASSWORD_FILE`. Es
+    # una buena práctica —una variable de entorno se ve en `/proc/<pid>/environ`
+    # y en cualquier volcado del entorno, un archivo con permisos no— y hay que
+    # respetarla en lugar de esquivarla.
+    #
+    # Sin esto, `psql` pedía la contraseña por consola, no había nadie para
+    # escribirla y el script fallaba con "password authentication failed for
+    # user postgres", que suena a credencial equivocada cuando en realidad
+    # nunca se envió ninguna.
+    export PGPASSWORD="$(cat "${POSTGRES_PASSWORD_FILE:-/opt/bitnami/postgresql/secrets/postgres-password}")"
+
+    echo "[initdb] Creando bases y usuarios de la plataforma…"
+
+    {{- range .Values.databases }}
+
+    # ---- {{ .name }} · propiedad de {{ .owner }} ----
+    psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER:-postgres}" --dbname postgres <<-EOSQL
+        CREATE ROLE {{ .user }} WITH LOGIN PASSWORD '${{ printf "{%s}" .envVar }}';
+        CREATE DATABASE {{ .name }} OWNER {{ .user }};
+        -- Se retira el CONNECT que PostgreSQL concede a PUBLIC por defecto y
+        -- se devuelve solo al dueño. Ver la cabecera del archivo.
+        REVOKE ALL ON DATABASE {{ .name }} FROM PUBLIC;
+        GRANT CONNECT, TEMPORARY ON DATABASE {{ .name }} TO {{ .user }};
+    EOSQL
+
+    # El esquema `public` pertenece por defecto al superusuario. Desde
+    # PostgreSQL 15 los roles normales ya no pueden crear tablas en él, así que
+    # sin este paso cada servicio arrancaría y fallaría al intentar crear sus
+    # propias tablas con un "permission denied for schema public" que no dice
+    # nada sobre la causa.
+    psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER:-postgres}" --dbname {{ .name }} <<-EOSQL
+        ALTER SCHEMA public OWNER TO {{ .user }};
+        GRANT ALL ON SCHEMA public TO {{ .user }};
+    EOSQL
+
+    echo "[initdb]   · {{ .name }} lista (usuario {{ .user }}, para {{ .owner }})"
+    {{- end }}
+
+    echo "[initdb] Listo: {{ len .Values.databases }} bases creadas."
+{{- end }}

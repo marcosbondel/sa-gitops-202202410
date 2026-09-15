@@ -1,0 +1,374 @@
+# ===========================================================================
+# values-gcp.yaml — Despliegue sobre un clúster administrado (GKE)
+#
+#     helm install sa-platform . -n sa-p6 --create-namespace \
+#       -f values-gcp.yaml -f secretos.yaml
+#
+# Igual que `values-dev.yaml` en la Práctica 5, este archivo NO reemplaza a
+# `values.yaml`: se superpone. Helm fusiona los mapas en profundidad, así que
+# aquí solo aparece lo que cambia al pasar de minikube a GKE. Copiar el values
+# completo y editar diez líneas sería la forma segura de que los dos archivos
+# se separen con el tiempo y nadie sepa cuál manda.
+#
+# ---------------------------------------------------------------------------
+# LO QUE **NO** ESTÁ EN ESTE ARCHIVO, Y ES LA MITAD DEL RESULTADO
+# ---------------------------------------------------------------------------
+#
+# Antes de leer los cambios conviene ver lo que no hizo falta cambiar, porque
+# es la medida de cuánto del trabajo de la P5 sobrevivió al cambio de entorno:
+#
+#   · **El almacenamiento.** `storageClass: ""` en PostgreSQL y RabbitMQ ya
+#     delegaba en la StorageClass por defecto del clúster. En minikube era
+#     `standard` (una carpeta del nodo); en GKE es `standard-rwo` y detrás hay
+#     un Persistent Disk de verdad, replicado dentro de la zona. Cero líneas.
+#
+#   · **Las 23 NetworkPolicies**, salvo la de entrada. Los objetos son
+#     idénticos: lo que cambia es el CNI que los aplica (Calico en minikube,
+#     Dataplane V2 en GKE) y eso se elige al crear el clúster, no aquí.
+#
+#   · **Los Secrets.** Ya estaban vacíos en `values.yaml` con `required` en la
+#     plantilla, y el archivo real ya estaba en `.gitignore`. El requisito de
+#     "gestionar credenciales mediante Secrets sin versionarlas" se cumplía
+#     desde la práctica anterior.
+#
+#   · **Sondas, HPA, PDB, RBAC, securityContext, CronJobs, `preStop`.** Nada de
+#     eso era específico de minikube, y por eso nada de eso aparece abajo.
+#
+#   · **El código de los seis servicios.** Ni un archivo. Lo único que cambia
+#     de las imágenes es para qué procesador se compilan.
+# ===========================================================================
+
+global:
+  namespace: sa-p6
+  env: production
+  logLevel: INFO
+
+  # -------------------------------------------------------------------------
+  # 1 · EL REGISTRO DE CONTENEDORES
+  # -------------------------------------------------------------------------
+  #
+  # En minikube no había registro: `eval $(minikube docker-env)` apuntaba el
+  # cliente de Docker al demonio del nodo, así que una imagen construida en el
+  # portátil ya estaba en el sitio donde el kubelet la busca. Eso funciona
+  # porque el nodo y la máquina de desarrollo son el mismo proceso.
+  #
+  # En la nube el kubelet corre en una VM de Google a la que este portátil no
+  # tiene acceso. La imagen tiene que viajar, y el único vocabulario que
+  # Kubernetes entiende para eso es una referencia a un registro. De ahí que
+  # publicar las imágenes no sea un paso administrativo: es lo que convierte
+  # una imagen local en algo que un clúster remoto puede nombrar.
+  #
+  # Se usa Artifact Registry del MISMO proyecto que el clúster. No es una
+  # preferencia: el chart no implementa `imagePullSecrets` en ninguna de sus
+  # plantillas, y con Artifact Registry no hace falta —los nodos se autentican
+  # con la Service Account que GKE les asigna, que trae permiso de lectura por
+  # defecto. Con Docker Hub privado o con un registro de otro proyecto habría
+  # que modificar `_workload.tpl`, `worker.yaml` y `cronjobs.yaml`.
+  #
+  # ## Por qué `imageRegistry` se queda VACÍO aquí
+  #
+  # Es lo primero que uno intenta, y está mal. `global.imageRegistry` no es un
+  # valor privado de este chart: los subcharts de Bitnami lo leen también, y su
+  # helper `common.images.image` lo aplica POR ENCIMA del `image.registry` que
+  # ellos mismos traen:
+  #
+  #     {{- $registryName := default .imageRoot.registry ((.global).imageRegistry) -}}
+  #
+  # En Helm, `default A B` devuelve B si B no está vacío. O sea: si el global
+  # tiene valor, gana el global. Poniendo aquí la ruta de Artifact Registry,
+  # PostgreSQL y RabbitMQ se renderizan como
+  #
+  #     us-central1-docker.pkg.dev/<proyecto>/sa-p6/bitnamilegacy/postgresql:...
+  #
+  # que es una imagen que nunca se publicó ahí. El síntoma sería un
+  # ImagePullBackOff en la base y el broker —los dos StatefulSets, o sea todo
+  # el estado del sistema— mientras los seis servicios propios arrancan sin
+  # problema, que es la clase de fallo que se diagnostica al revés.
+  #
+  # Salió de renderizar con `helm template` y leer las ocho líneas de `image:`
+  # antes de crear nada en la nube. Es la razón por la que ese paso está en
+  # scripts/02-desplegar.sh y no como una recomendación.
+  #
+  # La solución es dar el registro a cada componente propio por separado, en
+  # `<componente>.image.registry` más abajo, y dejar el global vacío para que
+  # Bitnami siga resolviendo contra `docker.io`. Los CronJobs necesitaron para
+  # eso un cambio de una línea en templates/cronjobs.yaml, que solo miraba el
+  # global.
+  imageRegistry: ""
+
+  # `IfNotPresent` se hereda de values.yaml y se deja a propósito. Con etiquetas
+  # inmutables (`2.0.0`) es lo correcto: evita una descarga por cada reinicio de
+  # pod. El precio es que reconstruir sin cambiar la etiqueta no se recoge; la
+  # forma correcta de publicar un cambio es subir la etiqueta, no forzar
+  # `Always`.
+
+  # El contador que fuerza el rollout al rotar credenciales. Se reinicia en 1
+  # porque este es un release nuevo, en un clúster nuevo, con secretos nuevos
+  # generados para la nube: ninguno de los de la P5 se reutiliza.
+  secretsRevision: "1"
+
+# ===========================================================================
+# 2 · LA EXPOSICIÓN PÚBLICA
+#
+# La P5 entraba por un Ingress: un objeto que describe reglas de HTTP (host,
+# ruta) y necesita un controlador dentro del clúster que las traduzca a una
+# configuración de proxy. En minikube ese controlador lo instalaba el addon
+# `ingress` y el acceso era `minikube ip` más una línea en /etc/hosts, o sea:
+# no había ninguna dirección pública en ningún momento.
+#
+# Aquí se sustituye por un Service de tipo LoadBalancer sobre el gateway.
+# Cuando el objeto aparece, el controlador de nube de GKE aprovisiona una regla
+# de reenvío de Google Cloud con una IP pública y la escribe de vuelta en
+# `status.loadBalancer.ingress`. El balanceo es de capa 4 —reparte paquetes TCP
+# entre los pods sanos— y no entiende de rutas ni de hosts, que es justo la
+# diferencia con el Ingress.
+#
+# Por qué se eligió esto y no un Ingress de GKE:
+#
+#   · El Ingress nativo de GKE (`gce`) habría obligado a cambiar los Services a
+#     NodePort, reescribir las tres anotaciones `nginx.ingress.kubernetes.io/*`
+#     —que el controlador de Google ignora en silencio— y ajustar la política
+#     de red del controlador. Más piezas para el mismo resultado.
+#
+#   · Instalar ingress-nginx en GKE habría conservado el chart intacto, pero su
+#     controlador pide ~200m de CPU y ~250Mi, y en un clúster de dos e2-medium
+#     eso es el 10 % del presupuesto de CPU gastado en reproducir un salto que
+#     el enunciado permite explícitamente saltarse.
+#
+# Lo que se pierde, y se dice: sin Ingress no hay terminación TLS, así que el
+# sistema se sirve por HTTP. `COOKIE_SECURE` sigue en `false` por eso. Es una
+# limitación real de esta entrega, no un descuido: resolverla bien pide un
+# dominio y un certificado, y el enunciado no los pide.
+# ===========================================================================
+
+platformIngress:
+  enabled: false
+
+networkPolicies:
+  # El cambio que decide si el sistema responde desde internet o da un timeout
+  # con todos los pods en Running. Explicado en la política 3 de
+  # templates/networkpolicies.yaml.
+  gatewayExposure: loadBalancer
+
+  # -------------------------------------------------------------------------
+  # NodeLocal DNSCache
+  #
+  # GKE lo trae activado: un DaemonSet que cachea DNS en cada nodo. El
+  # `/etc/resolv.conf` de los pods sigue apuntando al ClusterIP de kube-dns
+  # —el cambio es transparente para la aplicación— pero quien responde es un
+  # pod `k8s-app: node-local-dns`.
+  #
+  # Con la política de la Práctica 5, que solo autorizaba `k8s-app: kube-dns`,
+  # los cuatro servicios de Python entraron en CrashLoopBackOff con
+  #
+  #     socket.gaierror: [Errno -3] Try again
+  #
+  # y `nslookup` desde cualquier pod devolvía «connection timed out; no servers
+  # could be reached». Todo apuntaba a un problema de configuración de host, y
+  # era la política de red seleccionando al destinatario equivocado.
+  # -------------------------------------------------------------------------
+  dnsPodSelectors:
+    - labels:
+        k8s-app: kube-dns
+    - labels:
+        k8s-app: node-local-dns
+
+  # La link-local de NodeLocal DNSCache, por si en alguna versión sí reescribe
+  # el resolv.conf. `02-desplegar.sh` añade además el ClusterIP real de kube-dns,
+  # que cambia en cada clúster y por eso no puede estar escrito aquí.
+  dnsServerCidrs:
+    - 169.254.20.10/32
+
+# ===========================================================================
+# 3 · LAS CUOTAS Y EL TAMAÑO DEL CLÚSTER
+#
+# ## El error de dimensionamiento, y lo que costó descubrirlo
+#
+# El plan era usar dos `e2-medium`: 2 vCPU y 4 GB cada uno según la ficha del
+# producto, la mitad de precio que el siguiente escalón. La cuenta que se hizo
+# sobre el papel fue:
+#
+#     2 nodos × (2000m − 70m de reserva de GKE) = 3860m asignables
+#
+# El clúster se creó, el chart se instaló, y cuatro pods se quedaron en Pending:
+#
+#     0/2 nodes are available: 2 Insufficient cpu.
+#
+# Los números reales, medidos con `kubectl get nodes -o custom-columns`:
+#
+#     capacity.cpu     2        ← lo que dice la ficha
+#     allocatable.cpu  940m     ← lo que el planificador puede repartir
+#
+# **`e2-medium` es un tipo de núcleo compartido.** Los "2 vCPU" son capacidad de
+# ráfaga, no cómputo garantizado, y GKE declara para él menos de la mitad de lo
+# que la aritmética de reservas haría esperar. La ficha del producto y el objeto
+# Node dicen cosas distintas, y el que manda es el objeto Node.
+#
+# El segundo factor pesa aún más y tampoco estaba en la cuenta: **kube-system en
+# GKE pide 1422m**, medido pod por pod. En minikube el equivalente era una
+# fracción de eso.
+#
+#     kube-dns          270m × 2 réplicas   =  540m
+#     anetd (DPv2)      200m × 2 nodos      =  400m
+#     fluentbit-gke     105m × 2 nodos      =  210m
+#     node-local-dns     30m × 2 nodos      =   60m
+#     gke-metrics-agent  21m × 2 nodos      =   42m
+#     metrics-server                           43m
+#     resto                                   ~127m
+#     ------------------------------------------------
+#                                            1422m
+#
+# Sobre dos `e2-medium` eso es el **76 % del clúster gastado antes de desplegar
+# nada**: 1880m asignables menos 1422m dejan 458m para una plataforma que
+# necesita 850m en reposo. No era un problema de ajustar réplicas; no cabía.
+#
+# La lección, que es la que vale más que el ahorro: **en un clúster pequeño, el
+# coste fijo del sistema domina.** Es casi constante por nodo, así que cuanto
+# más pequeño es el nodo, mayor proporción se lleva. Dos `e2-medium` dedican el
+# 76 % de su CPU a Kubernetes; dos `e2-standard-2`, el 37 %.
+#
+# ## Las cuentas con `e2-standard-2`
+#
+#     allocatable.cpu     1930m × 2 nodos  =  3860m
+#     allocatable.memory  5.88 GiB × 2     =  11.77 GiB
+#     kube-system                          =  1422m  ·  ~1.4 GiB
+#     ---------------------------------------------------------
+#     disponible para la aplicación        =  2438m  ·  ~10 GiB
+#
+# Contra ese presupuesto:
+#
+#     en reposo (HPA al mínimo)                850m CPU  ·  1.47 GiB
+#     peor caso (HPA a 3 + surge + cronjobs)  2290m CPU  ·  3.55 GiB
+#
+# El HPA se queda en 1–3 (2–3 en el gateway) y no vuelve al 2–5 de la Práctica
+# 5: el peor caso de aquella configuración eran 2800m, que tampoco cabrían en
+# los 2438m disponibles. El dimensionamiento del HPA sigue siendo una decisión
+# de capacidad, solo que ahora con la cuenta correcta.
+#
+# La cuota se fija justo por encima del peor caso y por debajo de la capacidad
+# real. Eso es deliberado, y es la lección que dejó `values-dev.yaml` en la
+# Práctica 5 al revés: una cuota MAYOR que la capacidad no protege de nada, solo
+# cambia el mensaje de error —los pods quedan Pending por el planificador en
+# lugar de ser rechazados por la cuota— y Pending sin motivo visible cuesta
+# mucho más de diagnosticar que «exceeded quota».
+# ===========================================================================
+
+namespace:
+  resourceQuota:
+    requestsCpu: "3"
+    requestsMemory: 4Gi
+    # Los límites siguen sobrevendidos a propósito: suman más CPU de la que los
+    # nodos tienen, porque los picos de los seis componentes no coinciden. Lo
+    # que tiene que caber de verdad es la suma de `requests`, y esa es la línea
+    # de arriba. El techo existe para que un límite mal puesto no pueda
+    # reservar el clúster entero.
+    limitsCpu: "16"
+    limitsMemory: 12Gi
+    pods: "30"
+    persistentVolumeClaims: "5"
+
+# ===========================================================================
+# 4 · LOS COMPONENTES
+#
+# Dos cambios por servicio, y solo dos:
+#
+#   · `image.repository` pierde el prefijo `sa-p5/`. En la P5 ese prefijo hacía
+#     de espacio de nombres dentro del demonio de Docker local; ahora el
+#     espacio de nombres lo da la ruta del repositorio de Artifact Registry, y
+#     dejarlo produciría `.../sa-p6/sa-p5/auth-service:2.0.0`, con dos
+#     prácticas en la misma ruta y ninguna razón para ello.
+#
+#   · `autoscaling` baja a 1–3 (2–3 en el gateway). El gateway conserva un
+#     mínimo de 2 porque es el único que está detrás del balanceador: con una
+#     sola réplica, cada rollout deja el sistema sin responder desde internet
+#     durante unos segundos, y es lo único que un evaluador vería caerse.
+# ===========================================================================
+
+api-gateway:
+  image:
+    # Marcador: scripts/02-desplegar.sh lo sobrescribe con --set a partir
+    # de $PROJECT_ID. Un olvido da ImagePullBackOff con un nombre de imagen
+    # que dice exactamente qué falta.
+    registry: us-central1-docker.pkg.dev/PROYECTO-SIN-CONFIGURAR/sa-p6
+    repository: api-gateway
+    tag: "2.0.0"
+  service:
+    type: LoadBalancer
+    # `Cluster` y no `Local`: con `Local` se conservaría la IP real del cliente
+    # en los logs, pero el tráfico solo llegaría a pods del nodo que lo recibe,
+    # y con dos nodos y dos réplicas un nodo puede quedarse sin ninguna. El
+    # health check de ese nodo fallaría y se perdería la mitad del balanceo.
+    externalTrafficPolicy: Cluster
+    # Lo rellena scripts/02-desplegar.sh con la IP estática reservada. Vacío,
+    # GCP asigna una efímera: el sistema funciona igual, pero la dirección
+    # cambia si el Service se recrea y la documentación queda desactualizada.
+    loadBalancerIP: ""
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 3
+  config:
+    # El navegador compara el `Origin` con esta lista. Lo rellena el script con
+    # la IP pública; el valor de abajo solo sirve para `helm lint`.
+    CORS_ORIGINS: "http://localhost:8080"
+
+auth-service:
+  image:
+    # Marcador: scripts/02-desplegar.sh lo sobrescribe con --set a partir
+    # de $PROJECT_ID. Un olvido da ImagePullBackOff con un nombre de imagen
+    # que dice exactamente qué falta.
+    registry: us-central1-docker.pkg.dev/PROYECTO-SIN-CONFIGURAR/sa-p6
+    repository: auth-service
+    tag: "2.0.0"
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 3
+
+catalog-service:
+  image:
+    # Marcador: scripts/02-desplegar.sh lo sobrescribe con --set a partir
+    # de $PROJECT_ID. Un olvido da ImagePullBackOff con un nombre de imagen
+    # que dice exactamente qué falta.
+    registry: us-central1-docker.pkg.dev/PROYECTO-SIN-CONFIGURAR/sa-p6
+    repository: catalog-service
+    tag: "2.0.0"
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 3
+
+order-service:
+  image:
+    # Marcador: scripts/02-desplegar.sh lo sobrescribe con --set a partir
+    # de $PROJECT_ID. Un olvido da ImagePullBackOff con un nombre de imagen
+    # que dice exactamente qué falta.
+    registry: us-central1-docker.pkg.dev/PROYECTO-SIN-CONFIGURAR/sa-p6
+    repository: order-service
+    tag: "2.0.0"
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 3
+
+notification-service:
+  image:
+    # Marcador: scripts/02-desplegar.sh lo sobrescribe con --set a partir
+    # de $PROJECT_ID. Un olvido da ImagePullBackOff con un nombre de imagen
+    # que dice exactamente qué falta.
+    registry: us-central1-docker.pkg.dev/PROYECTO-SIN-CONFIGURAR/sa-p6
+    repository: notification-service
+    tag: "2.0.0"
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 3
+  worker:
+    # De 2 a 1. El worker no tiene HPA —consume de una cola, y ahí la unidad de
+    # escalado es el `prefetch`, no el número de procesos— así que su réplica
+    # extra es coste fijo. Con 1 se sigue demostrando el flujo asíncrono y se
+    # sigue viendo qué pasa cuando el consumidor cae: los mensajes se acumulan
+    # en RabbitMQ y se procesan al volver. Lo que se pierde es la tolerancia a
+    # que ESE pod muera, y con `minAvailable: 1` en su PDB eso queda anotado.
+    replicaCount: 1
+
+cronjobs:
+  image:
+    registry: us-central1-docker.pkg.dev/PROYECTO-SIN-CONFIGURAR/sa-p6
+    repository: cronjobs
+    tag: "2.0.0"

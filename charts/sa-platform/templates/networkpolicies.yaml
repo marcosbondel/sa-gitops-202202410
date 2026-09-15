@@ -1,0 +1,469 @@
+{{/*
+networkpolicies.yaml — El aislamiento de red del namespace.
+
+## Lo primero que hay que entender de las NetworkPolicies
+
+Una NetworkPolicy **solo puede permitir**. No existe una regla que prohíba
+algo. Lo que prohíbe es la ausencia de permiso… pero solo para los pods que ya
+están seleccionados por alguna política.
+
+De ahí se sigue el comportamiento que sorprende a todo el mundo la primera vez:
+un pod que no aparece en ninguna política acepta y emite **todo el tráfico**.
+Kubernetes es permisivo por defecto —cualquier pod puede conectarse a cualquier
+otro, incluso de otro namespace— y agregar reglas de permiso a ese modelo no
+cierra nada.
+
+Por eso la primera política de este archivo es un `default-deny` que selecciona
+a **todos** los pods con `podSelector: {}` y no declara ninguna regla. A partir
+de ese momento todo pod del namespace está seleccionado, y por tanto todo
+tráfico que no esté explícitamente permitido queda bloqueado. Las políticas
+siguientes van devolviendo, una por una, las conexiones que el sistema
+realmente necesita.
+
+Las políticas son **aditivas**: si dos permiten algo, se suma. Nunca se restan.
+Esa es la razón de que `postgresql.networkPolicy.enabled` y
+`rabbitmq.networkPolicy.enabled` estén en `false` en values.yaml: las políticas
+propias de esos subcharts se sumarían a estas y el resultado sería más
+permisivo que cualquiera de los dos juegos por separado.
+
+## El mapa completo del tráfico permitido
+
+    Internet ──▶ Ingress Controller ──▶ api-gateway:8080
+                                            │
+                        ┌───────────────────┼───────────────────┐
+                        ▼                   ▼                   ▼
+                   auth-service      catalog-service      order-service ─┐
+                        │                   │             notification   │
+                        │                   │                  │         │
+                        └───────────────────┴──────────────────┘         │
+                                            ▼                            ▼
+                                      PostgreSQL:5432              catalog:4000
+                                                                  RabbitMQ:5672
+                        heartbeat-writer ────▶ PostgreSQL
+                        heartbeat-summarizer ▶ PostgreSQL + RabbitMQ
+
+Todo lo demás está bloqueado. En particular:
+
+  · Nadie llega a PostgreSQL ni a RabbitMQ desde fuera del namespace.
+  · El gateway NO alcanza la base ni el broker. Aunque lo comprometieran, no
+    tiene ruta de red hacia los datos.
+  · catalog-service y auth-service no pueden hablar entre sí, ni con
+    order-service, ni con notification-service. No lo necesitan.
+  · notification-service (la API) no alcanza el broker: es de solo lectura.
+
+La evidencia de que esto funciona está en docs/04-evidencias.md: un pod sin
+autorización intenta conectarse a PostgreSQL y la conexión expira.
+*/}}
+{{- if .Values.networkPolicies.enabled }}
+{{- $ns := include "sa-platform.namespace" . -}}
+{{- $labels := include "sa-platform.labels" . -}}
+{{- $release := .Release.Name -}}
+
+{{- if .Values.networkPolicies.defaultDeny }}
+# ===========================================================================
+# 1 · Denegar todo. La política que invierte el modelo del namespace.
+# ===========================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $release }}-default-deny
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  # El selector vacío significa "todos los pods del namespace". No es un
+  # descuido: es la forma de decirlo.
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  # Sin `ingress:` ni `egress:`. Seleccionar sin permitir es denegar.
+{{- end }}
+
+{{- if .Values.networkPolicies.allowDns }}
+---
+# ===========================================================================
+# 2 · Permitir DNS.
+#
+# `default-deny` también bloquea las consultas a CoreDNS, y ese es el fallo más
+# desconcertante de todos: los servicios arrancan, no hay ningún error de red
+# visible, y todas las conexiones fallan con "no such host" o "Name or service
+# not known". Parece un problema de configuración —un host mal escrito— y es un
+# problema de red.
+#
+# Se permiten UDP y TCP en el 53. DNS usa UDP salvo cuando la respuesta no cabe
+# en un paquete, y entonces reintenta por TCP; permitir solo UDP funciona hasta
+# que alguien consulta un nombre con muchos registros.
+#
+# ## Por qué quién resuelve el DNS es configurable
+#
+# En minikube bastaba con autorizar los pods `k8s-app: kube-dns`. En GKE eso no
+# alcanza, y el fallo es exactamente el que describe el párrafo de arriba: los
+# servicios arrancan y mueren con `socket.gaierror: [Errno -3] Try again`.
+#
+# La causa es **NodeLocal DNSCache**, que GKE trae activado. Es un DaemonSet que
+# pone un caché de DNS en cada nodo para no cruzar la red en cada consulta. Los
+# pods siguen viendo el ClusterIP de kube-dns en su `/etc/resolv.conf` —el
+# cambio es transparente para la aplicación—, pero quien contesta ya no es un
+# pod `k8s-app: kube-dns`: es un pod `k8s-app: node-local-dns`. La política que
+# funcionaba en local seleccionaba al destinatario equivocado.
+#
+# Que el `resolv.conf` no cambie es justo lo que hace difícil el diagnóstico:
+# todo apunta a que la consulta va a kube-dns, y la política que la autoriza
+# parece correcta.
+#
+# `dnsPodSelectors` es una lista para que el chart no tenga que saber cómo se
+# llama el DNS de cada distribución, y `dnsServerCidrs` cubre el caso de que el
+# caché escuche en una dirección link-local (169.254.20.10 es la que usa
+# NodeLocal DNSCache cuando sí reescribe el resolv.conf) en vez de en un pod.
+# ===========================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $release }}-allow-dns
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+      {{- range .Values.networkPolicies.dnsPodSelectors }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .namespace | default "kube-system" }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .labels | nindent 14 }}
+      {{- end }}
+      {{- range .Values.networkPolicies.dnsServerCidrs }}
+        - ipBlock:
+            cidr: {{ . }}
+      {{- end }}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+{{- end }}
+
+---
+# ===========================================================================
+# 3 · La única puerta de entrada al namespace → api-gateway
+#
+# El origen depende de cómo se exponga el sistema, y `gatewayExposure` elige
+# entre los dos únicos casos que el chart soporta:
+#
+#   `ingress`      — Práctica 5, minikube. El tráfico entra por el Ingress
+#                    Controller, que corre como pod en su propio namespace. El
+#                    origen se identifica por el namespace y no por una IP: las
+#                    IP de los pods cambian en cada reinicio y una regla escrita
+#                    con IP deja de funcionar sin avisar.
+#
+#   `loadBalancer` — Práctica 6, GKE. El tráfico entra por una regla de reenvío
+#                    del proveedor y aterriza en el pod SIN pasar por ningún pod
+#                    intermedio: no hay namespace de origen que seleccionar,
+#                    porque el balanceador no vive dentro del clúster.
+#
+#                    Y la IP de origen tampoco sirve. Son tres, y ninguna es
+#                    predecible: con `externalTrafficPolicy: Cluster` la fuente
+#                    es la IP interna del nodo que recibió el paquete (SNAT),
+#                    con `Local` es la IP real de un cliente cualquiera de
+#                    internet, y los health checks de Google llegan desde rangos
+#                    propios (35.191.0.0/16, 130.211.0.0/22 y otros que Google
+#                    documenta como sujetos a cambio). La única regla que las
+#                    cubre las tres es `0.0.0.0/0` sobre el 8080.
+#
+#                    Esto NO es «apagar las NetworkPolicies». Es declarar que el
+#                    puerto público del sistema es público, que es justo lo que
+#                    ya hacía el Ingress en la P5: cualquiera de internet podía
+#                    llegar al gateway, solo que el salto previo ocurría dentro
+#                    del clúster y se podía nombrar por namespace. El
+#                    aislamiento real vive en las otras 22 políticas y sigue
+#                    intacto: desde esa IP pública no se alcanza PostgreSQL, ni
+#                    RabbitMQ, ni ninguno de los cuatro microservicios. Solo el
+#                    8080 del gateway, que aplica autenticación, límite de
+#                    peticiones y correlación antes de reenviar nada.
+#
+# Nótese que esta es la ÚNICA política de entrada desde fuera del namespace en
+# todo el archivo. Los microservicios, la base y el broker no reciben ninguna,
+# y por tanto siguen sujetos al `default-deny` para cualquier origen externo.
+# ===========================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $release }}-allow-ingress-to-gateway
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: api-gateway
+      app.kubernetes.io/instance: {{ $release }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+      {{- if eq (.Values.networkPolicies.gatewayExposure | default "ingress") "loadBalancer" }}
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      {{- else }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicies.ingressControllerNamespace }}
+      {{- end }}
+      ports:
+        - protocol: TCP
+          port: 8080
+
+---
+# ===========================================================================
+# 4 · El gateway alcanza a los cuatro microservicios que enruta.
+#
+# Se generan dos mitades por cada destino, y hacen falta las dos: con
+# `default-deny` sobre Ingress **y** Egress, una conexión necesita permiso de
+# salida en el origen y permiso de entrada en el destino. Autorizar solo una
+# mitad produce un bloqueo que parece aleatorio —"a veces funciona"— cuando en
+# realidad nunca funcionó.
+# ===========================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $release }}-gateway-egress
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: api-gateway
+      app.kubernetes.io/instance: {{ $release }}
+  policyTypes:
+    - Egress
+  egress:
+    {{- range .Values.networkPolicies.gatewayTargets }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ . }}
+              app.kubernetes.io/instance: {{ $release }}
+    {{- end }}
+
+{{- range .Values.networkPolicies.gatewayTargets }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $release }}-{{ . }}-from-gateway
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ . }}
+      app.kubernetes.io/instance: {{ $release }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: api-gateway
+              app.kubernetes.io/instance: {{ $release }}
+{{- end }}
+
+{{- range .Values.networkPolicies.serviceToService }}
+---
+# ===========================================================================
+# 5 · Llamada directa entre microservicios: {{ .from }} → {{ .to }}
+#
+# No pasa por el gateway a propósito. El gateway es la puerta de entrada desde
+# afuera; obligar al tráfico interno a salir y volver solo agregaría latencia y
+# un punto de fallo. Que esta lista tenga una sola entrada es el dato
+# importante: el resto de los servicios no se conocen entre sí.
+# ===========================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $release }}-{{ .from }}-to-{{ .to }}
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .from }}
+      app.kubernetes.io/instance: {{ $release }}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ .to }}
+              app.kubernetes.io/instance: {{ $release }}
+      ports:
+        - protocol: TCP
+          port: {{ .port }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $release }}-{{ .to }}-from-{{ .from }}
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .to }}
+      app.kubernetes.io/instance: {{ $release }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ .from }}
+              app.kubernetes.io/instance: {{ $release }}
+      ports:
+        - protocol: TCP
+          port: {{ .port }}
+{{- end }}
+
+{{- if .Values.postgresql.enabled }}
+---
+# ===========================================================================
+# 6 · Acceso a PostgreSQL, solo desde los clientes declarados.
+#
+# El selector del destino usa las etiquetas del chart de Bitnami, que son
+# distintas de las nuestras. Es el precio de usar un chart de terceros: sus
+# objetos llevan sus etiquetas, y una política escrita con las nuestras no
+# seleccionaría nada —y no daría error: simplemente no protegería nada—.
+# ===========================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $release }}-postgresql-ingress
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql
+      app.kubernetes.io/instance: {{ $release }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        {{- range .Values.networkPolicies.databaseClients }}
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ . }}
+              app.kubernetes.io/instance: {{ $release }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: 5432
+
+{{- range .Values.networkPolicies.databaseClients }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $release }}-{{ . }}-to-postgresql
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ . }}
+      app.kubernetes.io/instance: {{ $release }}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+              app.kubernetes.io/instance: {{ $release }}
+      ports:
+        - protocol: TCP
+          port: 5432
+{{- end }}
+{{- end }}
+
+{{- if .Values.rabbitmq.enabled }}
+---
+# ===========================================================================
+# 7 · Acceso a RabbitMQ, solo desde los tres que publican o consumen.
+#
+# Se permite el 5672 (AMQP) y el 15672 (consola de administración). La consola
+# se abre para que un `kubectl port-forward` funcione al recoger evidencias;
+# port-forward atraviesa el apiserver y llega al pod desde dentro del
+# namespace, así que sin este permiso la conexión se quedaría colgada.
+# ===========================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $release }}-rabbitmq-ingress
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: rabbitmq
+      app.kubernetes.io/instance: {{ $release }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        {{- range .Values.networkPolicies.brokerClients }}
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ . }}
+              app.kubernetes.io/instance: {{ $release }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: 5672
+    # La consola de administración, alcanzable solo por port-forward.
+    - ports:
+        - protocol: TCP
+          port: 15672
+
+{{- range .Values.networkPolicies.brokerClients }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $release }}-{{ . }}-to-rabbitmq
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ . }}
+      app.kubernetes.io/instance: {{ $release }}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: rabbitmq
+              app.kubernetes.io/instance: {{ $release }}
+      ports:
+        - protocol: TCP
+          port: 5672
+{{- end }}
+{{- end }}
+{{- end }}

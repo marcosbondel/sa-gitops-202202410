@@ -1,0 +1,89 @@
+# ===========================================================================
+# values.example.yaml — Plantilla de credenciales
+#
+# ---------------------------------------------------------------------------
+# LOS VALORES DE ESTE ARCHIVO SON FICTICIOS Y ESTÁN VERSIONADOS A PROPÓSITO.
+# ---------------------------------------------------------------------------
+#
+# El repositorio no contiene ninguna credencial real: `values.yaml` deja todos
+# estos campos vacíos y el chart los exige con `required`, de modo que un
+# `helm install` sin credenciales **falla al renderizar**, antes de tocar el
+# clúster, con un mensaje que dice exactamente qué falta.
+#
+# Este archivo existe para dos cosas:
+#
+#   1. Documentar qué secretos necesita el sistema y con qué forma. Sin él,
+#      averiguarlo obligaría a leer `templates/secrets.yaml`.
+#   2. Permitir levantar el entorno local en un comando, sin inventar nada.
+#
+# ---------------------------------------------------------------------------
+# CÓMO USARLO
+# ---------------------------------------------------------------------------
+#
+# **En local (minikube), tal cual.** Estos valores no protegen nada que
+# importe: el clúster vive en la máquina del desarrollador y no está expuesto.
+#
+#     helm install sa-platform . -n sa-p5 \
+#       -f values-dev.yaml -f values.example.yaml
+#
+# **En cualquier otro sitio, generando valores nuevos.** Copiarlo y cambiar las
+# cadenas por unas propias:
+#
+#     cp values.example.yaml secretos.yaml     # secretos.yaml está en .gitignore
+#     # y generar cada valor con:
+#     openssl rand -base64 32
+#
+# ---------------------------------------------------------------------------
+# POR QUÉ ESTE ARCHIVO NO DEBE PARECERSE AL REAL
+# ---------------------------------------------------------------------------
+#
+# Las cadenas de abajo dicen en voz alta que son de ejemplo. Es deliberado: un
+# archivo de ejemplo con contraseñas que *parecen* buenas es el mejor camino
+# para que alguien lo copie a producción sin cambiarlas, y para que nadie note
+# la diferencia revisando el despliegue.
+#
+# En un sistema real, ni siquiera este archivo sería el mecanismo: los secretos
+# vendrían de un gestor externo (Vault, AWS Secrets Manager, Sealed Secrets) y
+# Helm nunca los vería. Pasarlos por `-f` significa que quedan en el historial
+# del shell y en el estado del release, y `helm get values` los muestra. Es
+# aceptable para una práctica y hay que saber que lo es.
+# ===========================================================================
+
+secrets:
+  # --- PostgreSQL ---------------------------------------------------------
+  postgresAdminPassword: "EJEMPLO-cambiar-admin-postgres-32chars"
+
+  # Una por base lógica. Que sean distintas es lo que hace real el aislamiento:
+  # las credenciales de order-service no abren auth_db.
+  databasePasswords:
+    auth_db: "EJEMPLO-cambiar-auth-db-password"
+    catalog_db: "EJEMPLO-cambiar-catalog-db-password"
+    order_db: "EJEMPLO-cambiar-order-db-password"
+    notification_db: "EJEMPLO-cambiar-notification-db-password"
+    ops_db: "EJEMPLO-cambiar-ops-db-password"
+
+  # --- RabbitMQ -----------------------------------------------------------
+  rabbitmqPassword: "EJEMPLO-cambiar-rabbitmq-password"
+  # Con un solo nodo no autentica nada, pero tiene que ser estable: si Helm la
+  # regenerara en cada upgrade, el pod no podría reincorporarse al clúster de
+  # Erlang y quedaría en CrashLoopBackOff. Es un fallo que solo aparece en el
+  # segundo despliegue, cuando ya nadie recuerda haber tocado esto.
+  rabbitmqErlangCookie: "EJEMPLOcambiarEstaCookieDeErlang32"
+
+  # --- auth-service -------------------------------------------------------
+  #
+  # Los tres primeros son llaves criptográficas y ninguno tiene valor por
+  # defecto en values.yaml. Una llave de firma con valor por defecto es una
+  # sesión falsificable por cualquiera que haya leído el repositorio.
+  jwtSecretKey: "EJEMPLO-cambiar-llave-de-firma-del-jwt-32chars"
+  aesSecretKey: "EJEMPLO-cambiar-llave-aes-de-datos-personales"
+  hmacSecretKey: "EJEMPLO-cambiar-llave-hmac-de-integridad"
+
+  # Administrador que se siembra si la tabla de usuarios está vacía. Sin él
+  # nadie podría crear el primer producto del catálogo.
+  #
+  # El correo (`admin@tienda.com`) NO está aquí: va en el ConfigMap de
+  # auth-service, porque no es un secreto. Separarlos parece excesivo hasta que
+  # uno necesita cambiar el correo del administrador y descubre que tiene que
+  # editar un Secret para hacerlo.
+  seedAdminPassword: "EJEMPLO-Cambiar-Admin-12345"

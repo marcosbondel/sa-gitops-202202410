@@ -1,0 +1,97 @@
+{{/*
+analisis-carga.yaml — Puerta 3: ¿aguanta la versión candidata bajo carga?
+
+Es la única de las tres con umbrales numéricos, y por eso la única cuyo
+criterio de aceptación se puede afinar por ambiente sin tocar código. Los
+valores y su justificación están en `values.yaml` y en `pruebas/carga.js`.
+
+## Por qué k6 y no Locust
+
+Los dos habrían servido. k6 gana en dos cosas concretas para este uso: los
+umbrales son parte de la definición de la prueba (`options.thresholds`) y
+determinan el código de salida sin escribir nada más, que es exactamente lo
+que el proveedor `job` necesita; y la imagen oficial corre como usuario no
+privilegiado de fábrica, así que pasa la política de Kyverno sin un
+`securityContext` que la contradiga.
+
+Con Locust habría que interpretar el informe y decidir el código de salida a
+mano, que es código propio entre la medición y el veredicto: justo donde no
+conviene tenerlo.
+
+## workingDir
+
+k6 escribe `resumen.json` desde `handleSummary` en su directorio de trabajo.
+Con `readOnlyRootFilesystem: true`, ese directorio tiene que ser el emptyDir
+montado en /tmp o el proceso termina con «read-only file system» DESPUÉS de
+haber corrido los noventa segundos completos —y el análisis lo registraría
+como fallo de la versión candidata, que no es lo que pasó—.
+*/}}
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: sa-p8-carga
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "analisis.labels" . | nindent 4 }}
+spec:
+  args:
+    {{- include "analisis.args" . | nindent 4 }}
+
+  metrics:
+    - name: carga
+      interval: {{ .Values.cadencia.carga.intervalo }}
+      initialDelay: {{ .Values.cadencia.carga.retrasoInicial }}
+      failureLimit: 0
+
+      provider:
+        job:
+          metadata:
+            labels:
+              {{- include "analisis.labels" . | nindent 14 }}
+              sa.usac.edu.gt/prueba: carga
+          spec:
+            backoffLimit: 0
+            activeDeadlineSeconds: {{ .Values.limiteSegundos.carga }}
+
+            template:
+              metadata:
+                labels:
+                  {{- include "analisis.labels" . | nindent 18 }}
+                  sa.usac.edu.gt/prueba: carga
+              spec:
+                restartPolicy: Never
+                automountServiceAccountToken: false
+                securityContext:
+                  {{- include "analisis.podSecurityContext" . | nindent 18 }}
+
+                containers:
+                  - name: carga
+                    image: {{ .Values.imagenes.k6 }}
+                    workingDir: /tmp
+                    securityContext:
+                      {{- include "analisis.containerSecurityContext" . | nindent 22 }}
+                    resources:
+                      {{- toYaml .Values.recursos.k6 | nindent 22 }}
+                    env:
+                      - name: SERVICIO_CANARY
+                        value: "{{`{{args.servicio-canary}}`}}"
+                      - name: NAMESPACE
+                        value: "{{`{{args.namespace}}`}}"
+                      - name: PUERTO
+                        value: {{ .Values.puerto | quote }}
+                      - name: UMBRAL_ERRORES
+                        value: {{ .Values.carga.umbralErrores | quote }}
+                      - name: UMBRAL_P95
+                        value: {{ .Values.carga.umbralP95 | quote }}
+                      - name: UMBRAL_P99
+                        value: {{ .Values.carga.umbralP99 | quote }}
+                      - name: VUS
+                        value: {{ .Values.carga.usuariosVirtuales | quote }}
+                      - name: DURACION
+                        value: {{ .Values.carga.duracion | quote }}
+                    command: ["k6", "run", "--quiet", "/pruebas/carga.js"]
+                    volumeMounts:
+                      {{- include "analisis.montajes" . | nindent 22 }}
+
+                volumes:
+                  {{- include "analisis.volumenes" . | nindent 18 }}

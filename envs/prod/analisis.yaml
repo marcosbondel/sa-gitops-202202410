@@ -1,0 +1,50 @@
+# ===========================================================================
+# envs/prod/analisis.yaml — Umbrales de las puertas de calidad en producción.
+#
+# Más estrictos que en stage, y esa es toda la diferencia entre los dos
+# ambientes en lo que a validación se refiere.
+#
+# ## Por qué producción es más estricta y no al revés
+#
+# La intuición dice lo contrario: si stage es donde se prueba, debería ser el
+# exigente. Pero stage tiene un solo juego de réplicas sin autoescalado y
+# comparte una laptop con todo lo demás, así que su latencia tiene más ruido.
+# Un umbral apretado ahí produciría abortos por el entorno y no por el código,
+# y un canary que aborta por ruido enseña a la gente a promover a mano.
+#
+# Producción tiene el HPA, más réplicas y más margen, así que puede sostener un
+# umbral más cercano a lo que un usuario toleraría. Y es donde el costo de
+# dejar pasar una regresión lo pagan usuarios reales.
+#
+# La consecuencia se asume: una versión puede pasar el canary de stage y fallar
+# el de producción. Eso no es un fallo del proceso, es el proceso funcionando
+# —la promoción a producción es una decisión aparte, con su propio Pull Request
+# y su propio análisis—.
+# ===========================================================================
+
+carga:
+  # 0.5 % en vez de 1 %. Con el HPA manteniendo capacidad, los únicos errores
+  # esperables siguen siendo los de la recarga de nginx al cambiar el peso del
+  # canary: un puñado sobre ~5400 peticiones (el doble de VU durante lo mismo).
+  umbralErrores: "0.005"
+
+  # 500 ms en vez de 800. Producción mide ~140 ms en estable —menos que stage
+  # porque no comparte CPU con las pruebas de otros—, así que 500 ms sigue
+  # siendo más del triple del valor observado.
+  umbralP95: "500"
+
+  # 1200 ms en vez de 2000.
+  umbralP99: "1200"
+
+  # Más carga: con 3 a 6 réplicas, 15 usuarios virtuales no llegarían a
+  # ejercitar nada. 30 es lo que hace que la medición diga algo.
+  usuariosVirtuales: "30"
+
+recursos:
+  k6:
+    # El generador de carga necesita más CPU al doblar los usuarios virtuales.
+    # Si se queda corto, el cuello de botella es k6 y la latencia que mide es
+    # la suya: la prueba aprobaría una versión lenta porque no consiguió
+    # cargarla.
+    requests: { cpu: 400m, memory: 192Mi }
+    limits: { cpu: 1200m, memory: 512Mi }

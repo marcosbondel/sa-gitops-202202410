@@ -1,0 +1,161 @@
+# ===========================================================================
+# 03-exigir-no-root.yaml — Nada corre como root.
+#
+# ## Qué exige, y por qué no basta con `runAsNonRoot`
+#
+# Tres cosas, porque `runAsNonRoot: true` a solas se puede burlar:
+#
+#   1. `runAsNonRoot: true` — el kubelet se niega a arrancar el contenedor si
+#      la imagen declara UID 0. Es la comprobación básica.
+#
+#   2. `allowPrivilegeEscalation: false` — sin esto, un binario con el bit
+#      setuid dentro del contenedor puede recuperar privilegios en tiempo de
+#      ejecución. El pod arrancó como usuario 10001 y el proceso acaba siendo
+#      root de todas formas. Es la vía de escape que hace que el punto 1 sea
+#      una declaración de intenciones y no un control.
+#
+#   3. `capabilities.drop: [ALL]` — las capacidades de Linux son root
+#      troceado. Un contenedor «no root» con `CAP_SYS_ADMIN` puede montar
+#      sistemas de archivos y manipular cgroups; con `CAP_NET_RAW` puede
+#      falsificar paquetes y envenenar el ARP de la red del pod. Quitarlas
+#      todas y no devolver ninguna es lo que hace que «no root» signifique algo.
+#
+# ## La relación con Pod Security Admission
+#
+# Los namespaces llevan PSA en `enforce: baseline` y `warn/audit: restricted`
+# (ver `P8/terraform/namespaces.tf`). PSA `restricted` exigiría esto mismo y
+# más, pero no se puede poner en `enforce` porque PostgreSQL y RabbitMQ vienen
+# de los charts de Bitnami y no declaran `seccompProfile` en todos sus
+# contenedores de inicialización: `restricted` tumbaría la base de datos y el
+# broker por un detalle de un chart ajeno.
+#
+# Esta política cubre el hueco donde importa. Se limita a los tres controles de
+# arriba —que los charts de Bitnami SÍ cumplen— en lugar de exigir el paquete
+# `restricted` completo, y por eso puede rechazar sin romper nada.
+#
+# Es una decisión con un costo que conviene decir en voz alta: no se exige
+# `seccompProfile: RuntimeDefault`, así que un contenedor de la plataforma
+# podría ejecutarse con el perfil `Unconfined` si alguien lo pidiera
+# explícitamente. Los cinco servicios propios lo declaran en el chart
+# (`sa-platform.podSecurityContext`), así que hoy no hay ninguno; lo que falta
+# es la garantía de que siga siendo así.
+# ===========================================================================
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sa-p8-exigir-no-root
+  labels:
+    app.kubernetes.io/part-of: sa-platform
+    sa.usac.edu.gt/practica: p8
+  annotations:
+    policies.kyverno.io/title: Exigir ejecución sin privilegios de root
+    policies.kyverno.io/category: Seguridad del pod
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Exige runAsNonRoot, allowPrivilegeEscalation:false y el descarte de todas
+      las capacidades de Linux en cada contenedor.
+spec:
+  validationFailureAction: Enforce
+  background: true
+
+  rules:
+    # -----------------------------------------------------------------------
+    # Regla 1 · No root
+    #
+    # `anyPattern` en vez de `pattern` porque hay DOS formas válidas de
+    # declararlo: en el contexto del pod, donde se hereda a todos los
+    # contenedores, o en cada contenedor por separado. Un `pattern` que exigiera
+    # solo la del contenedor rechazaría un pod correcto que lo declara arriba
+    # —que es como lo hace el chart de la plataforma—.
+    # -----------------------------------------------------------------------
+    - name: exigir-run-as-non-root
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - sa-p8-stage
+                - sa-p8-prod
+      validate:
+        message: >-
+          RECHAZADO por sa-p8-exigir-no-root: el pod debe declarar
+          runAsNonRoot:true, en securityContext del pod o en el de cada
+          contenedor.
+        anyPattern:
+          - spec:
+              securityContext:
+                runAsNonRoot: true
+          - spec:
+              containers:
+                - securityContext:
+                    runAsNonRoot: true
+
+    # -----------------------------------------------------------------------
+    # Regla 2 · Sin escalada de privilegios
+    #
+    # Esta va por contenedor y sin alternativa: `allowPrivilegeEscalation` NO
+    # existe en el securityContext del pod, solo en el del contenedor. Es una
+    # asimetría de la API de Kubernetes que sorprende a quien espera que todo
+    # lo del pod se pueda heredar.
+    # -----------------------------------------------------------------------
+    - name: prohibir-escalada-de-privilegios
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - sa-p8-stage
+                - sa-p8-prod
+      validate:
+        message: >-
+          RECHAZADO por sa-p8-exigir-no-root: todo contenedor debe declarar
+          allowPrivilegeEscalation:false. Sin esto, un binario setuid dentro del
+          contenedor recupera privilegios y runAsNonRoot deja de significar nada.
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  allowPrivilegeEscalation: false
+            =(initContainers):
+              - securityContext:
+                  allowPrivilegeEscalation: false
+
+    # -----------------------------------------------------------------------
+    # Regla 3 · Sin capacidades de Linux
+    # -----------------------------------------------------------------------
+    - name: descartar-todas-las-capacidades
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - sa-p8-stage
+                - sa-p8-prod
+      validate:
+        message: >-
+          RECHAZADO por sa-p8-exigir-no-root: todo contenedor debe descartar
+          todas las capacidades (capabilities.drop incluyendo ALL). Las
+          capacidades son root troceado: CAP_SYS_ADMIN monta sistemas de
+          archivos y CAP_NET_RAW permite falsificar paquetes.
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  capabilities:
+                    # Se exige la lista literal `[ALL]` y no «que ALL
+                    # aparezca entre otras». Una lista como
+                    # `[ALL, NET_BIND_SERVICE]` sería legítima —descarta todo y
+                    # devuelve una capacidad concreta— pero obliga a justificar
+                    # por qué. Ningún componente de la plataforma lo necesita:
+                    # ninguno abre puertos por debajo de 1024.
+                    drop:
+                      - ALL
+            =(initContainers):
+              - securityContext:
+                  capabilities:
+                    drop:
+                      - ALL

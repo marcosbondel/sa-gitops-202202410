@@ -1,0 +1,129 @@
+# ===========================================================================
+# order-service — Pedidos (Python 3.12 / FastAPI / REST)
+#
+# Es el **productor** del flujo asíncrono. En la Práctica 4 llamaba por HTTP a
+# notification-service y esperaba su respuesta antes de contestarle al cliente;
+# aquí publica `order.created` en RabbitMQ y retorna.
+#
+# El código de negocio no cambió: `OrderService` sigue llamando
+# `notifications.notify(...)` sin saber qué hay detrás. Lo que cambió fue la
+# implementación inyectada en el composition root. Es la razón por la que valió
+# la pena escribir esa abstracción cuando parecía innecesaria.
+# ===========================================================================
+
+replicaCount: 2
+component: backend
+
+image:
+  repository: sa-p5/order-service
+  tag: ""
+  pullPolicy: ""
+
+containerPort: 8000
+service:
+  enabled: true
+  port: 8000
+
+usesDatabase: true
+postgresDatabase: order_db
+postgresUser: order_user
+
+# Único servicio que publica en el broker. Recibe host, puerto, vhost, usuario
+# y exchange por ConfigMap; la contraseña, por Secret.
+usesBroker: true
+secretSuffix: order-service-secret
+
+config:
+
+  # El catálogo está en el camino crítico: sin precios no hay pedido, y
+  # conviene fallar rápido.
+  UPSTREAM_TIMEOUT_SECONDS: "5.0"
+  # Publicar es una escritura local a la red del clúster. Si tarda más que
+  # esto, algo va mal y no vale la pena hacer esperar al cliente por un efecto
+  # secundario que además es "best effort".
+  PUBLISH_TIMEOUT_SECONDS: "3.0"
+
+  CORS_ORIGINS: "http://sa-p5.local,http://localhost:8080"
+
+# --- Referencias a otros Services del release ------------------------------
+#
+# Una sola. Durante el checkout hay que conocer el precio vigente, y esperar
+# una respuesta asíncrona para eso sería absurdo: no todo flujo debe volverse
+# asíncrono, solo lo que puede ocurrir después.
+serviceRefs:
+  CATALOG_SERVICE_URL: { name: catalog-service, port: 4000 }
+
+probes:
+  enabled: true
+  kind: http
+  startup:
+    path: /health/startup
+    periodSeconds: 3
+    failureThreshold: 25
+  liveness:
+    # No consulta ni la base ni el broker.
+    #
+    # Lo del broker merece decirse: este servicio degrada bien sin él —el
+    # pedido se guarda y solo se pierde el aviso—, así que un broker caído no
+    # debe sacar de servicio al checkout completo. Incluirlo en la liveness
+    # convertiría una degradación aceptable en una caída total.
+    path: /health
+    periodSeconds: 15
+    failureThreshold: 3
+  readiness:
+    # Consulta la base, no el broker, por el mismo motivo.
+    path: /health/ready
+    periodSeconds: 10
+    failureThreshold: 3
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 160Mi
+  limits:
+    cpu: 500m
+    memory: 384Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+serviceAccount:
+  create: true
+  name: ""
+
+rbac:
+  create: true
+  rules: []
+
+securityContext:
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+
+affinity:
+  antiAffinity: true
+
+terminationGracePeriodSeconds: 30
+tmpSizeLimit: 64Mi
+
+
+# ---------------------------------------------------------------------------
+# rollout — entrega progresiva con Argo Rollouts (Práctica 8)
+#
+# Apagado. Este componente se despliega con un Deployment y una actualización
+# progresiva corriente (`maxUnavailable: 0`), que es lo correcto para un
+# servicio interno: no recibe tráfico de usuarios directamente, así que un
+# canary no tendría a quién exponer la versión nueva por partes.
+#
+# El componente que SÍ lo activa es `api-gateway`, que es el único con Ingress.
+# Ver `charts/api-gateway/values.yaml`.
+# ---------------------------------------------------------------------------
+rollout:
+  enabled: false

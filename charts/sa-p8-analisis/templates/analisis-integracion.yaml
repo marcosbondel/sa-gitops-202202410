@@ -1,0 +1,77 @@
+{{/*
+analisis-integracion.yaml — Puerta 2: ¿funciona un flujo completo de usuario?
+
+Ocho pasos que atraviesan los cuatro microservicios, PostgreSQL y RabbitMQ.
+Ver `pruebas/integracion.sh` para el detalle de cada uno y de por qué está.
+
+## Por qué el intervalo es mayor que el del humo
+
+Cada ejecución crea un usuario nuevo en la base de datos —tiene que hacerlo,
+o la segunda chocaría con un 409— y deja un pedido consultado y una sesión
+cerrada. A 45 segundos como el humo, una ventana de canary de siete minutos
+dejaría una decena de usuarios de prueba; a 60 segundos son siete. No es
+gratis, y por eso `scripts/05-recoger-evidencia.sh` los cuenta y el informe
+lo menciona.
+
+La alternativa —limpiar al terminar— se descartó: un borrado al final del
+script no se ejecuta cuando el script falla a la mitad, que es justamente
+cuando más ruido deja.
+*/}}
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: sa-p8-integracion
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "analisis.labels" . | nindent 4 }}
+spec:
+  args:
+    {{- include "analisis.args" . | nindent 4 }}
+
+  metrics:
+    - name: integracion
+      interval: {{ .Values.cadencia.integracion.intervalo }}
+      initialDelay: {{ .Values.cadencia.integracion.retrasoInicial }}
+      failureLimit: 0
+
+      provider:
+        job:
+          metadata:
+            labels:
+              {{- include "analisis.labels" . | nindent 14 }}
+              sa.usac.edu.gt/prueba: integracion
+          spec:
+            backoffLimit: 0
+            activeDeadlineSeconds: {{ .Values.limiteSegundos.integracion }}
+
+            template:
+              metadata:
+                labels:
+                  {{- include "analisis.labels" . | nindent 18 }}
+                  sa.usac.edu.gt/prueba: integracion
+              spec:
+                restartPolicy: Never
+                automountServiceAccountToken: false
+                securityContext:
+                  {{- include "analisis.podSecurityContext" . | nindent 18 }}
+
+                containers:
+                  - name: integracion
+                    image: {{ .Values.imagenes.curl }}
+                    securityContext:
+                      {{- include "analisis.containerSecurityContext" . | nindent 22 }}
+                    resources:
+                      {{- toYaml .Values.recursos.curl | nindent 22 }}
+                    env:
+                      - name: SERVICIO_CANARY
+                        value: "{{`{{args.servicio-canary}}`}}"
+                      - name: NAMESPACE
+                        value: "{{`{{args.namespace}}`}}"
+                      - name: PUERTO
+                        value: {{ .Values.puerto | quote }}
+                    command: ["/pruebas/integracion.sh"]
+                    volumeMounts:
+                      {{- include "analisis.montajes" . | nindent 22 }}
+
+                volumes:
+                  {{- include "analisis.volumenes" . | nindent 18 }}

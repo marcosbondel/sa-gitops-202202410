@@ -1,0 +1,117 @@
+# ===========================================================================
+# values.yaml — Umbrales e imágenes de las tres puertas de calidad.
+#
+# Todo lo ajustable de las pruebas vive aquí y no dentro de los scripts. El
+# motivo es operativo: endurecer un umbral en producción sin tocarlo en stage
+# tiene que ser un cambio en `envs/prod/` del repositorio GitOps, revisable en
+# un Pull Request, y no una edición de un script que corre en los dos sitios.
+# ===========================================================================
+
+# El puerto del gateway. Es el mismo en los dos ambientes y sale de
+# `service.port` del subchart de api-gateway.
+puerto: 8080
+
+# ---------------------------------------------------------------------------
+# Imágenes de las pruebas
+#
+# Las dos están fijadas por etiqueta y no por `latest`, y no solo por higiene:
+# la política `sa-p8-prohibir-latest` de Kyverno rechazaría estos Jobs. Que las
+# propias pruebas tengan que cumplir las políticas del clúster es deliberado
+# —un control que se salta a sí mismo no es un control—.
+# ---------------------------------------------------------------------------
+imagenes:
+  # `curlimages/curl` en vez de una imagen propia con las pruebas dentro.
+  #
+  # Una imagen propia habría que construirla, publicarla, escanearla y firmarla
+  # como cualquier otra, y añadiría un artefacto más al pipeline para ejecutar
+  # ciento veinte líneas de shell. Los scripts van en un ConfigMap montado, que
+  # además tiene una ventaja: se pueden leer con `kubectl get cm -o yaml` desde
+  # el propio clúster, sin descargar nada.
+  curl: curlimages/curl:8.11.1
+
+  # La imagen oficial de k6. Corre como usuario 12345 por defecto, así que
+  # cumple la política de no-root sin configuración extra.
+  k6: grafana/k6:0.55.0
+
+# ---------------------------------------------------------------------------
+# Recursos de los pods de prueba
+#
+# Se declaran explícitamente aunque el LimitRange del namespace pondría valores
+# por defecto. Dos motivos:
+#
+#   1. Los pods de prueba compiten por la MISMA ResourceQuota que la
+#      plataforma. Durante el canary hay hasta tres Jobs vivos a la vez; sin
+#      límites propios podrían llevarse recursos que el gateway necesita
+#      justamente mientras se le mide la latencia, y la prueba mediría su
+#      propio consumo.
+#
+#   2. El defecto del LimitRange (500m/512Mi) es generoso para un `curl`.
+# ---------------------------------------------------------------------------
+recursos:
+  curl:
+    requests: { cpu: 20m, memory: 32Mi }
+    limits: { cpu: 200m, memory: 128Mi }
+  k6:
+    # k6 con 15 usuarios virtuales necesita CPU de verdad: si se queda corto,
+    # el generador de carga se convierte en el cuello de botella y la latencia
+    # que mide es la suya, no la del gateway. Es el error clásico de una prueba
+    # de carga contenerizada.
+    requests: { cpu: 200m, memory: 128Mi }
+    limits: { cpu: 800m, memory: 384Mi }
+
+# ---------------------------------------------------------------------------
+# Umbrales de la prueba de carga
+#
+# Justificados en detalle en `pruebas/carga.js` y en
+# `P8/docs/03-pruebas-y-umbrales.md`, con la corrida de calibración que los
+# produjo. Resumen:
+#
+#   · errores 1 %  — por encima del ruido que generan las recargas de nginx al
+#                    cambiar el peso del canary, muy por debajo de lo que
+#                    produce un defecto real.
+#   · p95 800 ms   — más del cuádruple de los ~180 ms de la versión estable.
+#                    Atrapa cambios de orden de magnitud, no calentamientos.
+#   · p99 2000 ms  — atrapa lo que el p95 esconde: una degradación que afecta
+#                    solo a una de cada cien peticiones.
+# ---------------------------------------------------------------------------
+carga:
+  umbralErrores: "0.01"
+  umbralP95: "800"
+  umbralP99: "2000"
+  usuariosVirtuales: "15"
+  duracion: "90s"
+
+# ---------------------------------------------------------------------------
+# Cadencia del análisis de fondo
+#
+# `intervalo` es cada cuánto se repite la medición mientras el rollout avanza.
+# `retrasoInicial` es lo que se espera antes de la primera: sin él, la primera
+# medición saldría mientras el pod canary todavía está pasando su startup probe
+# y el análisis abortaría el rollout por no haber esperado a que arrancara.
+#
+# Ninguna lleva `count`. En un análisis de fondo, omitirlo significa «repite
+# mientras el rollout siga vivo», que es lo que se quiere: con un número fijo,
+# el análisis terminaría con éxito a mitad de la promoción y los pasos
+# restantes avanzarían sin nadie vigilando.
+# ---------------------------------------------------------------------------
+cadencia:
+  humo:
+    intervalo: 45s
+    retrasoInicial: 60s
+  integracion:
+    intervalo: 60s
+    retrasoInicial: 60s
+  carga:
+    # Mayor que la duración de la prueba (90s) por obligación: con un intervalo
+    # menor, Argo Rollouts lanzaría un Job nuevo con el anterior todavía
+    # corriendo y las dos corridas se medirían la carga la una a la otra.
+    intervalo: 3m
+    retrasoInicial: 90s
+
+# Tiempo máximo que puede vivir un Job de prueba antes de que Kubernetes lo
+# mate. Es la red de seguridad para un `curl` que se quedó esperando a un
+# gateway colgado: sin esto, el análisis no fallaría, se quedaría pendiente.
+limiteSegundos:
+  humo: 120
+  integracion: 180
+  carga: 150

@@ -1,0 +1,180 @@
+# ===========================================================================
+# values-stage.yaml — Ambiente de preproducción.
+#
+# Se aplica DESPUÉS de `values-comunes.yaml`, y contiene solo lo que distingue
+# a stage de producción. Comparar este archivo con `values-prod.yaml` línea a
+# línea debería bastar para saber en qué se diferencian los dos ambientes;
+# si algo aparece igual en los dos, su sitio es `values-comunes.yaml`.
+#
+# ## Para qué sirve este ambiente
+#
+# Es donde el canary se ejercita antes de que exista en producción. Recibe la
+# versión nueva primero, con la misma estrategia y las mismas plantillas de
+# análisis, y si el análisis la rechaza aquí, el Pull Request hacia producción
+# ni siquiera se abre.
+# ===========================================================================
+
+global:
+  namespace: sa-p8-stage
+
+  # `development` cambia el nivel de detalle de los registros y desactiva
+  # algunas cachés de los servicios. En un ambiente donde lo que interesa es
+  # diagnosticar por qué falló un canary, más registro vale más que menos.
+  env: development
+  logLevel: DEBUG
+
+platformIngress:
+  enabled: true
+
+  # Host propio. Los dos ambientes comparten el controlador de Ingress del
+  # clúster, así que necesitan hosts distintos o se pisarían: el primero en
+  # sincronizar se quedaría con la regla y el segundo quedaría inalcanzable
+  # sin ningún error visible.
+  host: sa-p8-stage.local
+
+# ---------------------------------------------------------------------------
+# api-gateway — el componente con entrega progresiva
+# ---------------------------------------------------------------------------
+api-gateway:
+  image:
+    registry: ghcr.io/marcosbondel
+    repository: api-gateway
+    # La etiqueta la actualiza el pipeline mediante un Pull Request contra el
+    # repositorio GitOps. Es lo ÚNICO que el flujo automático modifica, y por
+    # eso está sola en su línea: un `sed` sobre este archivo no puede tocar
+    # nada más por accidente.
+    tag: "1.0.0"
+
+  # Dos réplicas, no una.
+  #
+  # Con una sola réplica el Rollout tendría que apagarla para levantar la
+  # nueva, y durante ese hueco el Ingress no tendría a quién enviar tráfico: la
+  # prueba de carga del análisis mediría errores causados por el propio canary
+  # y abortaría siempre. Dos es el mínimo para que la versión estable siga
+  # atendiendo mientras la candidata se levanta.
+  replicaCount: 2
+
+  # Sin HPA en stage. El análisis mide latencia y tasa de error bajo una carga
+  # conocida; si el HPA añadiera réplicas a mitad de la medición, el resultado
+  # dependería de cuándo escaló y no de si la versión nueva es buena.
+  autoscaling:
+    enabled: false
+
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 384Mi }
+
+  config:
+    CORS_ORIGINS: "http://sa-p8-stage.local:8080"
+
+  rollout:
+    enabled: true
+
+  # Sin PodDisruptionBudget en stage: con 2 réplicas y `minAvailable: 1`, el
+  # PDB bloquea el drenaje del único nodo de kind cuando se reinicia, y el
+  # síntoma —un `kubectl drain` que no termina— no se relaciona con esto a
+  # simple vista.
+  podDisruptionBudget:
+    enabled: false
+
+# ---------------------------------------------------------------------------
+# El resto de componentes — mínimos
+#
+# Una réplica y sin autoescalado. No están bajo prueba: existen para que el
+# gateway tenga a quién consultar cuando el análisis golpee su `/health`.
+#
+# Se escriben los cuatro completos y no con anclas de YAML (`&base` / `<<: *base`)
+# aunque cuatro de los seis bloques sean casi iguales. Las anclas ahorran
+# veinte líneas y cobran dos peajes: el `<<` REEMPLAZA el mapa `image` entero
+# en vez de fusionarlo —cosa que no se ve leyendo— y `helm template` imprime el
+# resultado ya resuelto, así que un error en el ancla se diagnostica sobre un
+# archivo que no se parece al que se editó. Para un archivo que un evaluador
+# tiene que poder comparar con `values-prod.yaml` de un vistazo, la repetición
+# explícita vale más que la brevedad.
+# ---------------------------------------------------------------------------
+auth-service:
+  image:
+    registry: ghcr.io/marcosbondel
+    repository: auth-service
+    tag: "1.0.0"
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+  resources:
+    requests: { cpu: 25m, memory: 128Mi }
+    limits: { cpu: 300m, memory: 320Mi }
+  podDisruptionBudget:
+    enabled: false
+
+catalog-service:
+  image:
+    registry: ghcr.io/marcosbondel
+    repository: catalog-service
+    tag: "1.0.0"
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+  resources:
+    requests: { cpu: 25m, memory: 96Mi }
+    limits: { cpu: 300m, memory: 256Mi }
+  podDisruptionBudget:
+    enabled: false
+
+order-service:
+  image:
+    registry: ghcr.io/marcosbondel
+    repository: order-service
+    tag: "1.0.0"
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+  resources:
+    requests: { cpu: 25m, memory: 128Mi }
+    limits: { cpu: 300m, memory: 320Mi }
+  podDisruptionBudget:
+    enabled: false
+
+notification-service:
+  image:
+    registry: ghcr.io/marcosbondel
+    repository: notification-service
+    tag: "1.0.0"
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+  resources:
+    requests: { cpu: 25m, memory: 128Mi }
+    limits: { cpu: 300m, memory: 320Mi }
+  podDisruptionBudget:
+    enabled: false
+  worker:
+    replicaCount: 1
+    resources:
+      requests: { cpu: 25m, memory: 128Mi }
+      limits: { cpu: 300m, memory: 320Mi }
+
+# Los trabajos programados se apagan en stage. Escriben en la base de datos y
+# su calendario no tiene nada que ver con la ventana del canary: un CronJob
+# disparándose a mitad de la prueba de carga añade ruido a una medición de la
+# que depende una promoción.
+cronjobs:
+  enabled: false
+
+postgresql:
+  primary:
+    persistence:
+      size: 1Gi
+    resources:
+      requests: { cpu: 50m, memory: 256Mi }
+      limits: { cpu: 500m, memory: 512Mi }
+
+rabbitmq:
+  persistence:
+    size: 1Gi
+  resources:
+    requests: { cpu: 50m, memory: 256Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+  memoryHighWatermark:
+    enabled: true
+    type: relative
+    value: 0.7

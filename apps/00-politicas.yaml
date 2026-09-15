@@ -1,0 +1,53 @@
+# ===========================================================================
+# 00-politicas.yaml — Las políticas de admisión de Kyverno.
+#
+# Primera aplicación del app-of-apps y la única de alcance de clúster.
+#
+# ## Por qué la onda -20
+#
+# Las políticas de admisión tienen que estar VIGENTES antes de que llegue el
+# primer pod de la plataforma. Kubernetes no aplica políticas retroactivamente:
+# si un pod entra mientras la ClusterPolicy todavía no existe, se queda
+# corriendo y nadie lo mira nunca más.
+#
+# El resultado sería un clúster que ninguna política aprueba, con todas las
+# políticas en verde. `sync-wave: "-20"` garantiza que ArgoCD sincroniza esto
+# antes que nada, y deja hueco (hasta -21) por si un día hace falta algo aún
+# más temprano.
+#
+# ## Por qué el destino es el namespace `argocd`
+#
+# Una `ClusterPolicy` no vive en ningún namespace: es un objeto de clúster. El
+# `destination.namespace` de una Application solo se usa para los objetos que
+# no traen el suyo, así que aquí es irrelevante y se pone el de ArgoCD por
+# convención. El permiso para crearla viene del `clusterResourceWhitelist` del
+# AppProject `sa-p8`, que autoriza exactamente `kyverno.io/ClusterPolicy` y
+# nada más.
+# ===========================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sa-p8-politicas
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-20"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sa-p8
+
+  source:
+    repoURL: https://github.com/marcosbondel/sa-gitops-202202410.git
+    targetRevision: main
+    path: policies
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false

@@ -1,0 +1,19 @@
+# ---------------------------------------------------------------------------
+# auth-service — subchart de sa-platform
+#
+# Autenticación y autorización (Python / FastAPI / REST)
+#
+# No se instala por separado: las plantillas que usa (`sa-platform.workload` y
+# compañía) viven en el chart padre. Helm resuelve los nombres de plantilla en
+# un espacio global que abarca padre y subcharts, así que este subchart aporta
+# **valores** y el padre aporta la **forma**.
+#
+# Esa división es lo que hace que este directorio se lea de un vistazo: aquí
+# está todo lo que distingue a este componente de los otros cuatro, y nada más.
+# ---------------------------------------------------------------------------
+apiVersion: v2
+name: auth-service
+description: "Autenticación y autorización (Python / FastAPI / REST)"
+type: application
+version: 2.0.0
+appVersion: "2.0.0"

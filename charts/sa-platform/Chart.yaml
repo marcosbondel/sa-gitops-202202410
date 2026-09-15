@@ -1,0 +1,167 @@
+# ---------------------------------------------------------------------------
+# sa-platform — Chart padre de la plataforma de microservicios
+#
+# Instala la plataforma completa con un solo comando:
+#
+#     helm dependency update charts/sa-platform
+#     helm install sa-platform charts/sa-platform -n sa-p6 \
+#       -f charts/sa-platform/values-gcp.yaml -f secretos.yaml
+#
+# ## Cómo está compuesto
+#
+#   · Cinco subcharts propios, uno por componente desplegable. Viven en
+#     `charts/` y se declaran abajo con una `condition`, de modo que apagar
+#     cualquiera de ellos es un `--set <nombre>.enabled=false` y no una edición.
+#
+#   · Dos dependencias externas —PostgreSQL y RabbitMQ— que se resuelven con
+#     `helm dependency update` desde el registro OCI de Bitnami.
+#
+# ## Por qué la base y el broker son dependencias y no manifiestos propios
+#
+# Escribir un StatefulSet de PostgreSQL a mano son cincuenta líneas fáciles de
+# leer y cientos de detalles difíciles de acertar: el orden de apagado, el
+# `podManagementPolicy`, los permisos del volumen, la sonda que distingue
+# "arrancando" de "listo", el `preStop` que hace un checkpoint antes de morir.
+# El chart de Bitnami ya resolvió todo eso y está probado por mucha más gente
+# de la que revisará este repositorio.
+#
+# Declararlos como dependencias tiene además una consecuencia operativa: la
+# versión queda fijada aquí y `Chart.lock` la congela con su digest, así que
+# `helm dependency update` en otra máquina y en otro mes instala exactamente el
+# mismo software. Copiar los manifiestos a mano habría dejado esa versión sin
+# registrar en ninguna parte.
+#
+# ## Nota sobre las imágenes de Bitnami
+#
+# Desde 2025 Bitnami dejó de publicar en `docker.io/bitnami` las etiquetas
+# fijas que sus propios charts referencian; el catálogo histórico se movió a
+# `docker.io/bitnamilegacy`. Los charts siguen publicándose y funcionando, pero
+# apuntan a imágenes que ya no existen en la ruta por defecto.
+#
+# Por eso `values.yaml` redirige el registro de ambas dependencias a
+# `bitnamilegacy` con la etiqueta exacta que cada chart espera. Es la razón de
+# que aparezca `global.security.allowInsecureImages: true`: ese interruptor
+# existe justamente para permitir una imagen distinta de la que el chart trae
+# por defecto, y sin él la plantilla se niega a renderizar. Está documentado
+# aquí y no solo en values.yaml porque, sin contexto, esa bandera parece un
+# atajo peligroso y es exactamente lo contrario: es lo que permite fijar una
+# etiqueta inmutable en lugar de depender de un `latest` que cambia solo.
+# ---------------------------------------------------------------------------
+apiVersion: v2
+name: sa-platform
+description: Plataforma de microservicios de la tienda en línea — Práctica 6 de Software Avanzado (GKE)
+type: application
+
+# Versión del CHART: cambia cuando cambia el empaquetado (plantillas, valores,
+# dependencias), aunque el código de los servicios sea el mismo.
+#
+# HISTORIAL
+#   2.0.0 — primera versión sobre Kubernetes.
+#   2.1.0 — Dos cambios, ambos salidos de medir en lugar de suponer:
+#
+#           · Hook `preStop` de 5 s en todos los contenedores. Con
+#             `maxUnavailable: 0` se esperaba cero errores durante un upgrade;
+#             la medición dio 2 de 506 peticiones con 503. La causa es la
+#             carrera entre el SIGTERM al pod y su eliminación de los
+#             endpoints, y el preStop es el patrón que la cierra. Explicado en
+#             detalle en templates/_workload.tpl.
+#
+#           · Nivel de log de desarrollo de DEBUG a INFO. Salió de la prueba de
+#             carga: con DEBUG, `aio_pika` registra cada trama AMQP y
+#             SQLAlchemy cada consulta con sus parámetros, y en 9 minutos los
+#             logs crecieron hasta hacer inútil `kubectl logs`. Los parámetros
+#             de las consultas son, además, datos de usuario.
+#
+#           `appVersion` NO cambia: no se reconstruyó ninguna imagen. Es
+#           exactamente el caso que justifica tener dos números de versión.
+#
+#   3.0.0 — Despliegue en un clúster administrado (GKE). Sube la versión MAYOR
+#           porque dos cambios rompen compatibilidad con instalaciones de la
+#           serie 2.x que no revisen sus values:
+#
+#             · `service.type` dejó de estar escrito a fuego como ClusterIP y
+#               ahora se lee de los values. El valor por defecto sigue siendo
+#               ClusterIP, así que nadie se rompe por accidente, pero el
+#               contrato del subchart cambió: `service` acepta tres claves más
+#               (`type`, `externalTrafficPolicy`, `loadBalancerIP`).
+#
+#             · `networkPolicies.gatewayExposure` decide de dónde se acepta
+#               tráfico hacia el gateway. Quien instale con los valores de la
+#               P5 no nota nada —el defecto es `ingress`—, pero una instalación
+#               con Service LoadBalancer y sin poner `loadBalancer` aquí queda
+#               inalcanzable desde internet, y el síntoma es un timeout mudo.
+#
+#           `appVersion` sigue en 2.0.0: el código de los seis servicios es
+#           byte por byte el mismo que en la P5. Lo único que cambió de las
+#           imágenes es la arquitectura para la que se compilan —amd64 en lugar
+#           del arm64 del portátil— y eso no es una versión de aplicación
+#           distinta, es el mismo software para otro procesador.
+version: 3.0.0
+
+# Versión de la APLICACIÓN que se empaqueta. Son dos números distintos a
+# propósito: corregir una plantilla sube `version` y deja `appVersion` igual;
+# publicar una imagen nueva sube ambas.
+appVersion: "2.0.0"
+
+# `helm lint` lo sugiere como INFO. Se usa el logo de Kubernetes porque este
+# chart no representa a un producto con identidad propia; lo importante es que
+# el campo exista y apunte a algo estable.
+icon: https://raw.githubusercontent.com/kubernetes/kubernetes/master/logo/logo.png
+
+keywords:
+  - microservicios
+  - kubernetes
+  - helm
+  - rabbitmq
+  - postgresql
+
+maintainers:
+  - name: Marcos Bonifasi
+    email: mbonifasi@lomax.com.gt
+
+annotations:
+  practica: "6"
+  carne: "202202410"
+
+dependencies:
+  # --------------------------- Dependencias externas -----------------------
+  - name: postgresql
+    version: 16.7.27
+    repository: oci://registry-1.docker.io/bitnamicharts
+    condition: postgresql.enabled
+
+  - name: rabbitmq
+    version: 16.0.14
+    repository: oci://registry-1.docker.io/bitnamicharts
+    condition: rabbitmq.enabled
+
+  # --------------------------- Subcharts propios ---------------------------
+  #
+  # Se declaran aunque Helm los tomaría igual de `charts/`: declararlos es lo
+  # que permite darles una `condition`, y aparecer en `helm dependency list`
+  # como parte del inventario del release.
+  #
+  # Van SIN campo `repository`, que es como se declara un subchart que ya vive
+  # en `charts/`. Con `repository: file://charts/...`, `helm dependency update`
+  # los empaquetaría en un .tgz **junto** al directorio que ya existe, y Helm
+  # cargaría los dos: cada objeto se renderizaría por duplicado y la
+  # instalación fallaría con nombres repetidos.
+  - name: api-gateway
+    version: 2.0.0
+    condition: api-gateway.enabled
+
+  - name: auth-service
+    version: 2.0.0
+    condition: auth-service.enabled
+
+  - name: catalog-service
+    version: 2.0.0
+    condition: catalog-service.enabled
+
+  - name: order-service
+    version: 2.0.0
+    condition: order-service.enabled
+
+  - name: notification-service
+    version: 2.0.0
+    condition: notification-service.enabled

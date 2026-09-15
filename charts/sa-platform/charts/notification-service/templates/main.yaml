@@ -1,0 +1,15 @@
+{{/*
+main.yaml — Todo el componente sale de aquí.
+
+Ocho objetos —ConfigMap, ServiceAccount, Role, RoleBinding, Deployment,
+Service, HPA y PodDisruptionBudget— en una línea, porque la forma es común y
+está en `templates/_workload.tpl` del chart padre. Lo que este componente tiene
+de particular está en su `values.yaml`, que es donde se puede leer junto al
+servicio al que pertenece.
+
+Si este archivo tuviera doscientas líneas de YAML con algún `{{ .Values.x }}`
+suelto, sería un manifiesto con otro nombre. La prueba de que no lo es: los
+cinco componentes tienen formas distintas —uno sin base de datos, dos sin
+broker, uno con sondas exec— y este archivo es idéntico en los cinco.
+*/}}
+{{ include "sa-platform.workload" . }}

@@ -1,0 +1,107 @@
+# ===========================================================================
+# La plataforma de microservicios — prod.
+#
+# Es la Application que el enunciado pide ver en estado `Synced` y `Healthy`
+# al momento de la calificación (§8.1).
+#
+#     Nombre:     sa-p8-plataforma-prod
+#     Namespace:  argocd
+#
+# ## Las dos fuentes
+#
+# El chart vive en `charts/sa-platform/` de este repositorio y los valores del
+# ambiente en `envs/prod/`. Están separados a propósito: el chart lo publica
+# el pipeline cuando cambia la forma de los manifiestos —algo infrecuente— y
+# los valores los toca el Pull Request automático que sube la versión de la
+# imagen —algo que pasa en cada entrega—.
+#
+# Con las dos cosas en la misma carpeta, el diff de «subir api-gateway de
+# 1.0.0 a 1.0.1» se mezclaría con el del chart y dejaría de ser revisable de un
+# vistazo. Que sea revisable de un vistazo es lo único que hace que un Pull
+# Request automático sea una puerta de control y no un trámite.
+#
+# ## Por qué `comunes.yaml` va primero
+#
+# Helm fusiona los archivos de valores en orden, y el último gana. `comunes`
+# trae lo que vale igual en los dos ambientes; `prod` solo lo que difiere.
+# Invertir el orden dejaría que lo común pisara lo específico.
+# ===========================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sa-p8-plataforma-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sa-p8
+
+  sources:
+    - repoURL: https://github.com/marcosbondel/sa-gitops-202202410.git
+      targetRevision: main
+      ref: valores
+
+    - repoURL: https://github.com/marcosbondel/sa-gitops-202202410.git
+      targetRevision: main
+      path: charts/sa-platform
+      helm:
+        releaseName: sa-platform
+        valueFiles:
+          - $valores/envs/comunes.yaml
+          - $valores/envs/prod/values.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sa-p8-prod
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      # Espera a que los objetos estén sanos antes de dar la sincronización por
+      # terminada. Sin esto, ArgoCD reporta `Synced` en cuanto el servidor de
+      # API acepta los manifiestos, que es antes de que ningún pod haya
+      # arrancado.
+      - ApplyOutOfSyncOnly=true
+
+    retry:
+      # PostgreSQL tarda en estar listo y los servicios que dependen de él
+      # fallan su primer arranque. Sin reintentos, la primera sincronización de
+      # un namespace vacío queda en `Degraded` hasta que alguien la repita a
+      # mano —y «alguien la repite a mano» es exactamente lo que esta práctica
+      # elimina—.
+      limit: 5
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m
+
+  ignoreDifferences:
+    # ---------------------------------------------------------------------
+    # El selector de los Services, mutado por Argo Rollouts
+    #
+    # Este es el ajuste sin el cual ArgoCD y Argo Rollouts se pelean, y la
+    # pelea no se diagnostica sola.
+    #
+    # Durante un canary, el controlador de Rollouts INYECTA la etiqueta
+    # `rollouts-pod-template-hash` en el selector del Service estable y en el
+    # del canary, para dirigir cada uno a su ReplicaSet. Ese campo no está en
+    # el repositorio, así que ArgoCD lo ve como deriva, marca la aplicación
+    # `OutOfSync` y —con `selfHeal: true`— lo revierte.
+    #
+    # El resultado es un bucle: Rollouts inyecta, ArgoCD borra, Rollouts vuelve
+    # a inyectar. Mientras dura, los dos Services apuntan a las dos versiones a
+    # la vez y el reparto de tráfico del canary deja de significar nada —la
+    # prueba de análisis mediría una mezcla y aprobaría cualquier cosa—.
+    #
+    # Con esta excepción, el selector queda fuera de la comparación y cada
+    # controlador manda en lo suyo.
+    # ---------------------------------------------------------------------
+    - group: ""
+      kind: Service
+      jsonPointers:
+        - /spec/selector

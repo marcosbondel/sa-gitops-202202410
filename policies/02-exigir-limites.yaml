@@ -1,0 +1,105 @@
+# ===========================================================================
+# 02-exigir-limites.yaml — Todo contenedor declara lo que pide y lo que puede.
+#
+# ## Por qué hacen falta los cuatro campos y no dos
+#
+# `requests` y `limits` responden preguntas distintas y omitir cualquiera de
+# las dos tiene una consecuencia concreta:
+#
+#   · Sin `requests`, el planificador no sabe cuánto reservar. El pod entra en
+#     clase QoS BestEffort y es el PRIMERO al que el kubelet mata cuando el
+#     nodo se queda sin memoria —antes que cualquier pod que sí declaró—.
+#     Peor para esta práctica: el HPA mide el porcentaje de uso RESPECTO al
+#     request. Sin denominador, reporta `<unknown>/70%` y no escala nunca. Es
+#     la causa más frecuente de un autoescalador que parece bien configurado y
+#     no hace nada.
+#
+#   · Sin `limits`, un contenedor puede consumir todo lo que quede en el nodo.
+#     Una fuga de memoria en el servicio de pedidos se lleva por delante a
+#     PostgreSQL, que sí declaraba límites y estaba comportándose. El fallo se
+#     manifiesta lejos de su causa.
+#
+# ## Pero el LimitRange ya pone valores por defecto, ¿no sobra esta política?
+#
+# No, y la diferencia es la que justifica tener las dos cosas.
+#
+# El LimitRange (`P8/terraform/cuotas.tf`) es un plugin de admisión MUTANTE:
+# rellena lo que falta con un valor genérico. Es una red de seguridad, y su
+# efecto secundario es que un contenedor mal declarado arranca igualmente,
+# corriendo con números que nadie eligió para él.
+#
+# Esta política es VALIDANTE: exige que alguien haya pensado el número. El
+# orden en que se ejecutan importa y es lo que hace que las dos convivan:
+# Kubernetes ejecuta primero los plugins mutantes —LimitRanger incluido— y
+# después los webhooks validantes, así que cuando Kyverno mira el pod, los
+# valores por defecto ya están puestos.
+#
+# Lo que esta política atrapa, entonces, no es la ausencia de límites en el
+# clúster: es la ausencia de límites EN EL REPOSITORIO. Y eso es exactamente
+# lo que interesa en un flujo GitOps, donde el repositorio tiene que describir
+# el estado deseado completo y no la mitad que alguien recordó escribir.
+#
+# La prueba de que funciona así está en la evidencia: el Deployment de
+# `docs/evidencias/` sin `resources` se rechaza, aunque el LimitRange le
+# habría puesto valores.
+# ===========================================================================
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sa-p8-exigir-limites
+  labels:
+    app.kubernetes.io/part-of: sa-platform
+    sa.usac.edu.gt/practica: p8
+  annotations:
+    policies.kyverno.io/title: Exigir límites de CPU y memoria
+    policies.kyverno.io/category: Fiabilidad
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Exige que todo contenedor declare `requests` y `limits` de CPU y memoria.
+      Sin requests el HPA no puede escalar; sin limits una fuga en un
+      contenedor degrada a todos los demás del nodo.
+spec:
+  validationFailureAction: Enforce
+  background: true
+
+  rules:
+    - name: exigir-requests-y-limits
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - sa-p8-stage
+                - sa-p8-prod
+      validate:
+        message: >-
+          RECHAZADO por sa-p8-exigir-limites: todo contenedor debe declarar
+          resources.requests.{cpu,memory} y resources.limits.{cpu,memory}.
+          Sin requests el pod queda en QoS BestEffort y el HPA no puede medirlo;
+          sin limits una fuga de memoria se lleva por delante al resto del nodo.
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  requests:
+                    # `?*` significa «cualquier valor, pero presente y no
+                    # vacío». Un `*` a secas aceptaría la cadena vacía, y
+                    # `requests: {cpu: ""}` es tan inútil como no declararlo.
+                    cpu: "?*"
+                    memory: "?*"
+                  limits:
+                    cpu: "?*"
+                    memory: "?*"
+            # Los initContainers también consumen recursos del nodo mientras
+            # corren, y uno sin límites puede agotarlo antes de que el
+            # contenedor principal llegue a arrancar.
+            =(initContainers):
+              - resources:
+                  requests:
+                    cpu: "?*"
+                    memory: "?*"
+                  limits:
+                    cpu: "?*"
+                    memory: "?*"

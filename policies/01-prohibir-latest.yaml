@@ -1,0 +1,146 @@
+# ===========================================================================
+# 01-prohibir-latest.yaml — Ninguna imagen sin versión.
+#
+# ## Qué prohíbe exactamente
+#
+# Dos cosas, y la segunda es la que suele olvidarse:
+#
+#   1. La etiqueta literal `latest`.
+#   2. La AUSENCIA de etiqueta. `ghcr.io/x/api-gateway` sin `:algo` no es una
+#      imagen sin versión: es `:latest` escrito de otra forma. Una política que
+#      solo buscara la cadena «latest» dejaría pasar el mismo problema con otra
+#      sintaxis.
+#
+# ## Por qué importa en una práctica de GitOps
+#
+# Con `latest`, el repositorio deja de ser la fuente de verdad aunque nadie lo
+# note. Dos pods creados desde el mismo manifiesto con una hora de diferencia
+# pueden correr código distinto, y ArgoCD reportaría `Synced` en los dos casos
+# porque el manifiesto no cambió. La deriva existiría y sería invisible, que es
+# peor que una deriva que se ve.
+#
+# Rompe además la reversión automática, que es el corazón de esta práctica: si
+# el canary aborta y Argo Rollouts devuelve el tráfico al ReplicaSet estable,
+# ese ReplicaSet referencia `latest` —la misma etiqueta que acaba de fallar—.
+# No habría a dónde volver.
+#
+# ## Por qué se valida el Pod y no el Deployment
+#
+# Kyverno genera automáticamente reglas equivalentes para los controladores que
+# conoce: Deployment, StatefulSet, DaemonSet, Job y CronJob. Así, un
+# `kubectl apply` de un Deployment con `:latest` se rechaza en el acto y con un
+# mensaje que señala el Deployment.
+#
+# El `Rollout` de Argo NO está en esa lista: Kyverno no lo conoce. La regla
+# sigue protegiendo igual, pero de otra forma: el Rollout se admite, su
+# ReplicaSet intenta crear pods y ESOS pods se rechazan. El resultado es el
+# mismo —la imagen no corre— pero el diagnóstico aparece en los eventos del
+# ReplicaSet y no en la respuesta al `apply`.
+#
+# Se documenta aquí porque la diferencia importa al leer la evidencia: el
+# rechazo de `docs/evidencias/` se provoca con un Deployment justamente para
+# que el mensaje sea directo.
+# ===========================================================================
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sa-p8-prohibir-latest
+  labels:
+    app.kubernetes.io/part-of: sa-platform
+    sa.usac.edu.gt/practica: p8
+  annotations:
+    policies.kyverno.io/title: Prohibir la etiqueta latest
+    policies.kyverno.io/category: Cadena de suministro
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Rechaza cualquier pod cuya imagen use la etiqueta `latest` o no declare
+      etiqueta alguna.
+spec:
+  # `Enforce`: rechaza. La alternativa, `Audit`, registra la violación en un
+  # PolicyReport y deja pasar el objeto —lo correcto al introducir una política
+  # en un clúster con carga heredada—. Aquí no hay carga heredada.
+  validationFailureAction: Enforce
+
+  # Evalúa también lo que YA existe y publica el resultado en un PolicyReport.
+  # Es lo que convierte la política en una respuesta a «¿hay algo incumpliendo
+  # ahora mismo?» y no solo en un portero de lo que llega.
+  background: true
+
+  rules:
+    # -----------------------------------------------------------------------
+    # Regla 1 · Toda imagen tiene que declarar etiqueta
+    # -----------------------------------------------------------------------
+    - name: exigir-etiqueta
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                # Solo los ambientes de la plataforma.
+                #
+                # Aplicarla a todo el clúster rompería los complementos: el
+                # manifiesto de ingress-nginx para kind referencia imágenes por
+                # digest y algunos de sus Jobs de arranque no fijan etiqueta.
+                # Esos objetos los instala Terraform, están fijados por versión
+                # de chart y no forman parte de lo que el flujo automático
+                # despliega.
+                #
+                # La frontera es la misma que la del AppProject de ArgoCD: lo
+                # que ArgoCD puede tocar es lo que las políticas vigilan.
+                - sa-p8-stage
+                - sa-p8-prod
+      validate:
+        message: >-
+          RECHAZADO por sa-p8-prohibir-latest: hay una imagen sin etiqueta.
+          Una imagen sin `:version` es `:latest` escrito de otra forma. Use una
+          versión semántica derivada de un tag de Git, por ejemplo
+          ghcr.io/marcosbondel/api-gateway:1.0.0
+        pattern:
+          spec:
+            # Un patrón con UN elemento en una lista se aplica a TODOS los
+            # elementos de esa lista. Así que esto exige que las tres listas de
+            # contenedores tengan etiqueta, no solo la primera imagen.
+            containers:
+              - image: "*:*"
+            # `=(campo)` es el ancla condicional de Kyverno: «si este campo
+            # existe, valídalo». Sin ella, un pod sin initContainers —que es la
+            # mayoría— fallaría la validación por no tener un campo que no
+            # tenía por qué tener.
+            #
+            # Los initContainers son el punto ciego clásico de esta política:
+            # corren ANTES que el contenedor principal y con los mismos
+            # permisos, así que una imagen sin fijar ahí es igual de peligrosa
+            # y pasa desapercibida.
+            =(initContainers):
+              - image: "*:*"
+            =(ephemeralContainers):
+              - image: "*:*"
+
+    # -----------------------------------------------------------------------
+    # Regla 2 · Y esa etiqueta no puede ser `latest`
+    # -----------------------------------------------------------------------
+    - name: prohibir-etiqueta-latest
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - sa-p8-stage
+                - sa-p8-prod
+      validate:
+        message: >-
+          RECHAZADO por sa-p8-prohibir-latest: la etiqueta `latest` está
+          prohibida. Es mutable, así que dos pods creados desde el mismo
+          manifiesto pueden correr código distinto y la reversión automática
+          se queda sin destino al que volver.
+        pattern:
+          spec:
+            containers:
+              - image: "!*:latest"
+            =(initContainers):
+              - image: "!*:latest"
+            =(ephemeralContainers):
+              - image: "!*:latest"

@@ -1,0 +1,261 @@
+{{/*
+cronjobs.yaml — Los dos trabajos programados, generados a partir de un mapa.
+
+Todo este archivo es un solo `range` sobre `.Values.cronjobs.jobs`. Agregar un
+tercer trabajo es agregar una entrada en values.yaml —con su horario, su
+comando y sus recursos— y de aquí salen su CronJob, su ServiceAccount, su Role
+y su RoleBinding sin tocar una línea de plantilla.
+
+Es la diferencia entre una plantilla y un manifiesto disfrazado: si esto fuera
+lo segundo, habría dos bloques casi idénticos y el tercer trabajo sería un
+copiar-pegar más.
+
+## Qué hace cada uno
+
+    heartbeat-writer      cada 2 min   → inserta fecha GMT-6 + carné en ops_db
+    heartbeat-summarizer  cada 10 min  → agrega por hora y PUBLICA en el broker
+                                          ↓
+                                     notification-worker lo consume y almacena
+
+Están encadenados pero no acoplados: el segundo no invoca al primero ni sabe si
+corrió. Lee lo que haya. Si el primero estuvo caído una hora, el resumen dirá
+cero para esa hora, que es información correcta y no un error.
+
+## Por qué cada trabajo tiene su propio ServiceAccount con un Role vacío
+
+La práctica prohíbe usar el ServiceAccount `default`, y con razón: es el que
+comparten todos los pods que no declaran uno, así que cualquier permiso que
+alguien le conceda alguna vez se lo concede a todo el namespace de golpe.
+
+El Role que se les asigna no tiene ninguna regla, y es deliberado. Estos
+trabajos no consultan la API de Kubernetes: hablan con PostgreSQL y con
+RabbitMQ, y nada más. El mínimo privilegio de quien no necesita nada es
+exactamente ninguno; darles un permiso "por si acaso" sería lo contrario del
+principio.
+
+Lo que sí aporta el ServiceAccount dedicado es identidad: los eventos y las
+auditorías del clúster distinguen quién hizo qué, y el día que uno de estos
+trabajos necesite un permiso, se le da a él y no a todo el namespace.
+
+Se refuerza con `automountServiceAccountToken: false`, que impide que el token
+llegue siquiera al contenedor. Un Role vacío ya no autoriza nada, pero el token
+montado seguiría siendo una credencial dentro de un pod, y una credencial que
+no está es una credencial que no se roba.
+*/}}
+{{- if .Values.cronjobs.enabled }}
+{{- $ns := include "sa-platform.namespace" . -}}
+{{- $labels := include "sa-platform.labels" . -}}
+{{- $release := .Release.Name -}}
+{{- $cron := .Values.cronjobs -}}
+{{- $global := .Values.global -}}
+
+{{- range $name, $job := $cron.jobs }}
+# ===========================================================================
+# {{ $name }} — {{ $job.description }}
+# Horario: {{ $job.schedule }}
+# ===========================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $release }}-{{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+    app.kubernetes.io/component: cronjob
+automountServiceAccountToken: false
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $release }}-{{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+# Sin reglas: este trabajo no consulta la API de Kubernetes. Ver la cabecera.
+rules: []
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $release }}-{{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $release }}-{{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $release }}-{{ $name }}
+    namespace: {{ $ns }}
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $release }}-{{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+    app.kubernetes.io/component: cronjob
+  annotations:
+    sa-platform/descripcion: {{ $job.description | quote }}
+spec:
+  schedule: {{ $job.schedule | quote }}
+
+  # La expresión cron se interpreta en la zona del controlador, que es UTC.
+  # Se fija explícitamente para que no dependa de cómo esté configurado el
+  # clúster. Aquí da igual —"cada 2 minutos" es cada 2 minutos en cualquier
+  # zona— pero un horario como "0 6 * * *" significaría cosas distintas, y ese
+  # es el momento en que uno descubre que nunca lo había fijado.
+  timeZone: "Etc/UTC"
+
+  # Si una ejecución sigue corriendo cuando toca la siguiente, la siguiente NO
+  # arranca. Con `Allow`, una base lenta encadenaría ejecuciones solapadas
+  # hasta agotar la cuota; con `Replace`, se mataría un trabajo a medias y el
+  # resumen quedaría publicado por la mitad.
+  concurrencyPolicy: {{ $cron.concurrencyPolicy }}
+
+  # Si el clúster estuvo saturado y se saltó la ventana, es mejor no ejecutar
+  # que ejecutar tarde y desordenado.
+  startingDeadlineSeconds: {{ $cron.startingDeadlineSeconds }}
+
+  # Cuánto historial se conserva. No es cosmético: cada Job retenido conserva
+  # su pod, y cada pod cuenta contra la cuota de {{ $.Values.namespace.resourceQuota.pods }} del namespace. Sin
+  # límite, el trabajo de 2 minutos crearía 720 pods al día y agotaría la
+  # cuota en unas horas, impidiendo de paso que el HPA escalara.
+  successfulJobsHistoryLimit: {{ $cron.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ $cron.failedJobsHistoryLimit }}
+
+  jobTemplate:
+    metadata:
+      labels:
+        {{- $labels | nindent 8 }}
+    spec:
+      # Cuántos pods nuevos se crean tras un fallo antes de darlo por perdido.
+      # Es el reintento *externo*; los scripts no reintentan por dentro, para
+      # que la cuenta la lleve un solo mecanismo.
+      backoffLimit: {{ $cron.backoffLimit }}
+
+      # Si el trabajo queda colgado, se mata. Sin esto, con `Forbid`, un
+      # trabajo bloqueado detendría el cronjob para siempre y el síntoma sería
+      # "el cronjob dejó de correr", que apunta al lugar equivocado.
+      activeDeadlineSeconds: {{ $cron.activeDeadlineSeconds }}
+
+      # Borra el Job (y su pod) pasado este tiempo desde que terminó. Trabaja
+      # junto con los límites de historial para que la cuota no se agote.
+      ttlSecondsAfterFinished: 600
+
+      template:
+        metadata:
+          labels:
+            # Esta etiqueta es la que usan las NetworkPolicies para autorizar
+            # a este trabajo contra PostgreSQL y, si corresponde, el broker.
+            # Sin ella el pod arrancaría y todas sus conexiones expirarían.
+            app.kubernetes.io/name: {{ $name }}
+            app.kubernetes.io/instance: {{ $release }}
+            app.kubernetes.io/component: cronjob
+            app.kubernetes.io/part-of: sa-platform
+        spec:
+          # `Never`: si el contenedor falla, el pod NO se reinicia en el sitio.
+          # Es el Job quien decide, creando un pod nuevo según `backoffLimit`.
+          # Con `OnFailure` habría dos mecanismos de reintento simultáneos y
+          # ninguno llevaría la cuenta real.
+          restartPolicy: Never
+
+          serviceAccountName: {{ $release }}-{{ $name }}
+          automountServiceAccountToken: false
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+
+          containers:
+            - name: {{ $name }}
+{{/* El registro se lee primero del propio bloque `cronjobs.image` y solo
+     después del global. Hace falta la primera mitad: `global.imageRegistry`
+     lo consumen también los subcharts de Bitnami, que lo aplican por encima
+     de su propio `image.registry`, así que usarlo para nuestras imágenes
+     mandaría a PostgreSQL y a RabbitMQ a buscarse en un registro donde no
+     están. Detalle en values-gcp.yaml. */}}
+{{- $cronRegistry := $cron.image.registry | default $global.imageRegistry }}
+              image: "{{ if $cronRegistry }}{{ $cronRegistry }}/{{ end }}{{ $cron.image.repository }}:{{ $cron.image.tag | default $.Chart.AppVersion }}"
+              imagePullPolicy: {{ $global.imagePullPolicy }}
+              command:
+                {{- toYaml $job.command | nindent 16 }}
+
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 10001
+                capabilities:
+                  drop:
+                    - ALL
+
+              env:
+                # El nombre del pod se inyecta desde la API descendente. Queda
+                # guardado en cada fila de `heartbeats` y es lo único que
+                # permite correlacionar un registro con los logs de la
+                # ejecución que lo escribió, después de que el historial haya
+                # borrado el pod.
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                - name: CARNE
+                  value: {{ $cron.carne | quote }}
+                - name: POSTGRES_HOST
+                  value: {{ include "sa-platform.postgresqlHost" $ | quote }}
+                - name: POSTGRES_PORT
+                  value: {{ $global.postgresql.port | quote }}
+                - name: POSTGRES_DB
+                  value: "ops_db"
+                - name: POSTGRES_USER
+                  value: "ops_user"
+                {{- if $job.usesBroker }}
+                - name: RABBITMQ_HOST
+                  value: {{ include "sa-platform.rabbitmqHost" $ | quote }}
+                - name: RABBITMQ_PORT
+                  value: {{ $global.rabbitmq.port | quote }}
+                - name: RABBITMQ_VHOST
+                  value: {{ $global.rabbitmq.vhost | quote }}
+                - name: RABBITMQ_USER
+                  value: {{ $global.rabbitmq.username | quote }}
+                - name: RABBITMQ_EXCHANGE
+                  value: {{ $global.rabbitmq.exchange | quote }}
+                {{- end }}
+
+              # Las contraseñas llegan del Secret propio de este trabajo. El
+              # escritor no recibe las del broker porque no publica nada: un
+              # secreto que no se inyecta no se puede filtrar.
+              envFrom:
+                - secretRef:
+                    name: sa-platform-{{ $name }}-secret
+
+              resources:
+                {{- toYaml $job.resources | nindent 16 }}
+
+              volumeMounts:
+                # `readOnlyRootFilesystem` deja todo el contenedor de solo
+                # lectura. Python necesita un /tmp escribible para archivos
+                # temporales, así que se monta como emptyDir: escribible,
+                # efímero y aislado del resto de la imagen.
+                - name: tmp
+                  mountPath: /tmp
+
+          volumes:
+            - name: tmp
+              emptyDir:
+                sizeLimit: 32Mi
+
+---
+{{- end }}
+{{- end }}

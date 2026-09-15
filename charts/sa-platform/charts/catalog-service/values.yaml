@@ -1,0 +1,107 @@
+# ===========================================================================
+# catalog-service — Catálogo de productos (Node.js 20 / TypeScript / GraphQL)
+#
+# El segundo lenguaje del sistema y la segunda forma de API. Está aquí porque
+# la práctica exige al menos dos lenguajes distintos, pero la elección no es
+# arbitraria: un catálogo es el caso donde GraphQL rinde de verdad, porque cada
+# pantalla necesita un subconjunto distinto de los mismos campos y con REST eso
+# se traduce en endpoints a medida o en respuestas infladas.
+# ===========================================================================
+
+replicaCount: 2
+component: backend
+
+image:
+  repository: sa-p5/catalog-service
+  tag: ""
+  pullPolicy: ""
+
+containerPort: 4000
+service:
+  enabled: true
+  port: 4000
+
+usesDatabase: true
+postgresDatabase: catalog_db
+postgresUser: catalog_user
+
+usesBroker: false
+secretSuffix: catalog-service-secret
+
+config:
+  PORT: "4000"
+
+# No llama a ningún otro microservicio.
+serviceRefs: {}
+
+probes:
+  enabled: true
+  kind: http
+  startup:
+    path: /health/startup
+    periodSeconds: 3
+    # `waitForDatabase` reintenta hasta 30 s y `migrateAndSeed` crea las tablas
+    # y siembra el catálogo. Apollo se monta después de todo eso, así que hasta
+    # entonces el proceso ni siquiera responde este endpoint: es exactamente lo
+    # que la startup probe necesita observar.
+    failureThreshold: 25
+  liveness:
+    path: /health
+    periodSeconds: 15
+    failureThreshold: 3
+  readiness:
+    path: /health/ready
+    periodSeconds: 10
+    failureThreshold: 3
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 320Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+serviceAccount:
+  create: true
+  name: ""
+
+rbac:
+  create: true
+  rules: []
+
+securityContext:
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+
+affinity:
+  antiAffinity: true
+
+terminationGracePeriodSeconds: 30
+tmpSizeLimit: 32Mi
+
+
+# ---------------------------------------------------------------------------
+# rollout — entrega progresiva con Argo Rollouts (Práctica 8)
+#
+# Apagado. Este componente se despliega con un Deployment y una actualización
+# progresiva corriente (`maxUnavailable: 0`), que es lo correcto para un
+# servicio interno: no recibe tráfico de usuarios directamente, así que un
+# canary no tendría a quién exponer la versión nueva por partes.
+#
+# El componente que SÍ lo activa es `api-gateway`, que es el único con Ingress.
+# Ver `charts/api-gateway/values.yaml`.
+# ---------------------------------------------------------------------------
+rollout:
+  enabled: false

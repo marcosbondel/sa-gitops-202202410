@@ -1,0 +1,55 @@
+# ===========================================================================
+# Plantillas de análisis del canary — stage.
+#
+# Los tres `AnalysisTemplate` (humo, integración y carga) y el ConfigMap con
+# los scripts que ejecutan. Ver `charts/sa-p8-analisis/`.
+#
+# ## Por qué la onda -5, entre los secretos y la plataforma
+#
+# Un `Rollout` que arranca sin sus `AnalysisTemplate` no espera a que
+# aparezcan: falla con `AnalysisTemplate "sa-p8-humo" not found` y aborta sin
+# haber probado nada. El rollback sería correcto y el diagnóstico, engañoso:
+# parecería que la versión candidata falló cuando lo que faltaba era la puerta.
+#
+# Va después de los secretos (-10) porque no los necesita, y antes de la
+# plataforma (0) porque la plataforma sí necesita las plantillas.
+# ===========================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sa-p8-analisis-stage
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sa-p8
+
+  sources:
+    # Fuente de solo-valores. No tiene `path`: existe para que la otra pueda
+    # referirse a sus archivos con `$valores/...`. Es el mecanismo de
+    # múltiples fuentes de ArgoCD, y es lo que permite tener el chart en un
+    # sitio y los valores por ambiente en otro sin duplicar el chart.
+    - repoURL: https://github.com/marcosbondel/sa-gitops-202202410.git
+      targetRevision: main
+      ref: valores
+
+    - repoURL: https://github.com/marcosbondel/sa-gitops-202202410.git
+      targetRevision: main
+      path: charts/sa-p8-analisis
+      helm:
+        releaseName: sa-p8-analisis
+        valueFiles:
+          - $valores/envs/stage/analisis.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sa-p8-stage
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false

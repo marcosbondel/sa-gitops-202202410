@@ -1,0 +1,237 @@
+# ===========================================================================
+# api-gateway — La única puerta de entrada al clúster.
+#
+# Es el componente que más difiere de los demás: no habla con PostgreSQL ni con
+# RabbitMQ. Su trabajo es resolver la identidad contra auth-service, aplicar el
+# límite de peticiones y reenviar. Eso significa que no tiene Secret propio y
+# que las NetworkPolicies no le dan ruta a los datos: aunque lo comprometieran,
+# no hay camino de red desde aquí hasta la base.
+# ===========================================================================
+
+replicaCount: 2
+component: gateway
+
+image:
+  repository: sa-p5/api-gateway
+  # Vacío: cae a .Chart.AppVersion. La versión se declara en Chart.yaml y no
+  # en cinco values que se desincronizan.
+  tag: ""
+  pullPolicy: ""
+
+containerPort: 8080
+service:
+  enabled: true
+  port: 8080
+
+  # ClusterIP por defecto: en un clúster con Ingress Controller, el gateway no
+  # necesita —ni debe— una IP propia hacia fuera. `values-gcp.yaml` lo cambia a
+  # LoadBalancer, que es lo que un clúster administrado usa para pedirle al
+  # proveedor una dirección pública. Las tres claves están documentadas en el
+  # bloque Service de templates/_workload.tpl.
+  type: ClusterIP
+  externalTrafficPolicy: Cluster
+  loadBalancerIP: ""
+
+# No toca la base ni el broker, así que no recibe sus variables ni sus
+# credenciales. Es mínimo privilegio aplicado a la configuración.
+usesDatabase: false
+usesBroker: false
+secretSuffix: ""
+
+# --- Configuración no sensible (va al ConfigMap) ---------------------------
+config:
+  PORT: "8080"
+
+  COOKIE_NAME: "access_token"
+  # `false` porque el Ingress local no tiene TLS. Con TLS habilitado hay que
+  # ponerlo en true, o el navegador aceptará la cookie por HTTP y la sesión
+  # viajará en claro. values-prod.yaml lo cambia.
+  COOKIE_SECURE: "false"
+  COOKIE_SAMESITE: "lax"
+  CORS_ORIGINS: "http://sa-p5.local,http://localhost:8080"
+
+  # El gateway corre replicado y `express-rate-limit` cuenta en la memoria de
+  # cada proceso: con 3 réplicas el límite efectivo es el triple. Un contador
+  # compartido exigiría Redis, declarado fuera de alcance.
+  #
+  # El valor importa para la prueba de carga: si fuera bajo, k6 recibiría 429
+  # antes de que la CPU subiera y el HPA no se activaría nunca. values-dev.yaml
+  # lo sube; values-prod.yaml lo baja.
+  RATE_LIMIT_WINDOW_MS: "60000"
+  RATE_LIMIT_MAX: "3000"
+
+  INTROSPECTION_CACHE_MS: "30000"
+  INTROSPECTION_TIMEOUT_MS: "3000"
+  HEALTH_TIMEOUT_MS: "2000"
+
+# --- Sondas ----------------------------------------------------------------
+#
+# Las tres apuntan a endpoints que NO consultan a los microservicios. Es
+# deliberado: si la liveness dependiera de ellos, una caída de order-service
+# reiniciaría el gateway y se llevaría por delante el tráfico del catálogo,
+# que estaba funcionando. Una falla parcial se convertiría en total.
+#
+# El agregado real —quién está arriba y quién no— vive en `GET /health`, que
+# es para operadores y no para el kubelet.
+# --- Referencias a otros Services del release ------------------------------
+#
+# Se declaran como {nombre, puerto} y el chart compone la URL anteponiendo el
+# nombre del release. Escribirlas completas —"http://sa-platform-auth-service:8000"—
+# habría atado el chart a un nombre de release concreto, y el fallo resultante
+# es de los que cuestan: los pods arrancan sanos y no resuelven a sus vecinos.
+#
+# Que aquí estén exactamente los cuatro servicios que enruta el gateway no es
+# casualidad: es la misma lista que `routes.ts` y la misma que
+# `networkPolicies.gatewayTargets`. Los tres tienen que coincidir, y las tres
+# están escritas como datos por ese motivo.
+serviceRefs:
+  AUTH_SERVICE_URL: { name: auth-service, port: 8000 }
+  CATALOG_SERVICE_URL: { name: catalog-service, port: 4000 }
+  ORDER_SERVICE_URL: { name: order-service, port: 8000 }
+  NOTIFICATION_SERVICE_URL: { name: notification-service, port: 8000 }
+
+probes:
+  enabled: true
+  kind: http
+  startup:
+    path: /health/startup
+    periodSeconds: 3
+    # 3 s × 20 = 60 s de margen. Node arranca en menos de un segundo, así que
+    # sobra; el margen cubre el caso de un nodo con la imagen fría.
+    failureThreshold: 20
+  liveness:
+    path: /health/self
+    periodSeconds: 15
+    failureThreshold: 3
+  readiness:
+    path: /health/ready
+    periodSeconds: 10
+    failureThreshold: 3
+
+# --- Recursos --------------------------------------------------------------
+#
+# `requests` es lo que el planificador reserva Y el denominador con el que el
+# HPA calcula el porcentaje de CPU. 100m es bajo a propósito: con un umbral del
+# 70 %, el HPA reacciona cuando el pod pasa de 70 milicores, que k6 alcanza sin
+# saturar el clúster local. Un `requests` alto haría falta muchísima más carga
+# para provocar el escalado, y la evidencia sería imposible de recoger en una
+# máquina de escritorio.
+resources:
+  requests:
+    cpu: 100m
+    memory: 96Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+serviceAccount:
+  create: true
+  name: ""
+
+rbac:
+  create: true
+  # Sin reglas: el gateway no consulta la API de Kubernetes.
+  rules: []
+
+securityContext:
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+
+affinity:
+  antiAffinity: true
+
+terminationGracePeriodSeconds: 30
+tmpSizeLimit: 32Mi
+
+
+# ---------------------------------------------------------------------------
+# rollout — entrega progresiva con Argo Rollouts (Práctica 8)
+#
+# Apagado aquí y encendido desde los values de ambiente de la Práctica 8
+# (`P8/charts/values-stage.yaml` y `values-prod.yaml`). Así el chart sigue
+# rindiendo exactamente lo mismo que en las Prácticas 6 y 7 —un Deployment—
+# cuando se instala con los values de aquellas.
+#
+# ## Por qué el canary es este componente y no otro
+#
+# Es el único con Ingress, así que es el único al que se le puede repartir
+# tráfico REAL entre dos versiones. Y su `/health` consulta en paralelo a los
+# cuatro microservicios, de modo que un defecto en cualquier parte de la
+# plataforma se manifiesta en su latencia y en su tasa de error: el canary del
+# gateway vigila, de hecho, al sistema completo.
+#
+# Los valores de abajo son los que usan los dos ambientes salvo donde se
+# indique; lo que cambia entre stage y prod está en los values de la P8.
+# ---------------------------------------------------------------------------
+rollout:
+  enabled: false
+
+  # El reparto de tráfico lo hace el controlador de Ingress, no el número de
+  # réplicas. Ver el comentario extenso en `templates/_workload.tpl`.
+  trafficRouting:
+    nginx:
+      # El Ingress que ya existe y al que Argo Rollouts le crea un gemelo
+      # `-canary`. El nombre es el del release, porque así lo nombra
+      # `templates/ingress.yaml`.
+      stableIngress: sa-platform
+
+  analysis:
+    enabled: true
+
+    # Las tres puertas de calidad del enunciado (§3.2, «Validación automatizada
+    # como puerta de calidad»), como tres AnalysisTemplate independientes.
+    #
+    # Son tres y no uno porque miden cosas distintas y fallan por motivos
+    # distintos: si el análisis fuera uno solo, «el canary falló» no diría si
+    # fue el humo, la integración o la carga, y el informe de incidente tendría
+    # que empezar por averiguarlo.
+    templates:
+      - sa-p8-humo
+      - sa-p8-integracion
+      - sa-p8-carga
+
+  # ## Los pasos de la promoción
+  #
+  # Cuatro `setWeight` y tres pausas. El enunciado pide al menos tres pasos
+  # condicionados a un análisis; aquí el análisis es de fondo y corre durante
+  # los cuatro, así que cada uno está condicionado a que las tres plantillas
+  # sigan pasando en ese momento.
+  #
+  # ## Por qué estos porcentajes y estas duraciones
+  #
+  # 10 % es el escalón de entrada: con la prueba de carga generando tráfico
+  # sostenido, es suficiente para que el análisis obtenga muestras y lo
+  # bastante pequeño para que un fallo total afecte a uno de cada diez
+  # usuarios. Empezar en 25 % o 50 % —lo que suele venir en los ejemplos—
+  # significa que el peor caso ya es un cuarto o la mitad de los usuarios antes
+  # de la primera medición.
+  #
+  # Las pausas son de 2 minutos en los dos primeros escalones y de 3 en el
+  # tercero. La duración no es arbitraria: la plantilla de carga corre 90
+  # segundos, así que una pausa de 2 minutos garantiza al menos una medición
+  # completa por escalón con margen para que el análisis la publique. Una
+  # pausa más corta que la prueba dejaría avanzar el canary con el análisis a
+  # medias, que es como se consigue un canary que parece funcionar y no valida
+  # nada.
+  #
+  # El último escalón espera más porque es el que precede al 100 %: es la
+  # última oportunidad de abortar antes de que la versión nueva atienda a todos.
+  steps:
+    - setWeight: 10
+    - pause: { duration: 2m }
+    - setWeight: 30
+    - pause: { duration: 2m }
+    - setWeight: 60
+    - pause: { duration: 3m }
+    - setWeight: 100
