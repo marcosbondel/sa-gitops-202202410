@@ -41,7 +41,7 @@ api-gateway:
     # Actualizada por el pipeline mediante Pull Request. En producción esta
     # línea solo cambia después de que la misma versión haya pasado el canary
     # completo en stage.
-    tag: "1.0.0"
+    tag: "1.0.1"
 
   # Con HPA activo, `replicaCount` no se usa (el chart omite el campo para no
   # pelearse con el autoescalador). Se deja por claridad de lectura.
