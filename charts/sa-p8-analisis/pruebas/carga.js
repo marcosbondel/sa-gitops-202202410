@@ -78,8 +78,8 @@
  */
 
 import http from 'k6/http';
-import { check } from 'k6';
-import { Rate, Trend } from 'k6/metrics';
+import { check, sleep } from 'k6';
+import { Counter, Rate, Trend } from 'k6/metrics';
 
 const SERVICIO = __ENV.SERVICIO_CANARY;
 const NAMESPACE = __ENV.NAMESPACE;
@@ -100,6 +100,17 @@ const latenciaSalud = new Trend('latencia_salud', true);
 const latenciaCatalogo = new Trend('latencia_catalogo', true);
 const tasaError = new Rate('tasa_de_error');
 
+// Contador delator. El gateway limita peticiones por IP y k6 llega desde una
+// sola: si la prueba empuja más de lo que el límite permite, el gateway
+// responde 429 barato y la medición deja de ser sobre la aplicación.
+//
+// Sin esta métrica el síntoma es desconcertante —una tasa de error alta y
+// estable que no se corresponde con nada roto—; con ella, el veredicto dice
+// exactamente qué pasó. Se descubrió así: la corrida de calibración marcaba un
+// 37 % de error constante mientras las mismas peticiones, sueltas, devolvían
+// 200.
+const respuestas429 = new Counter('respuestas_429');
+
 export const options = {
   scenarios: {
     constante: {
@@ -115,6 +126,12 @@ export const options = {
       { threshold: `p(95)<${UMBRAL_P95}`, abortOnFail: true },
       { threshold: `p(99)<${UMBRAL_P99}`, abortOnFail: true },
     ],
+
+    // Ni un solo 429. No es un umbral de calidad de la versión candidata: es
+    // una comprobación de que la prueba está midiendo lo que cree medir. Si
+    // salta, el problema está en la prueba o en `RATE_LIMIT_MAX`, no en el
+    // código bajo análisis.
+    respuestas_429: [{ threshold: 'count < 1', abortOnFail: true }],
   },
 
   // Sin esto, cada iteración negociaría TCP de nuevo y se mediría el costo de
@@ -143,6 +160,7 @@ export default function () {
   // regresión en su cliente HTTP o en su manejo de concurrencia.
   const salud = http.get(`${BASE}/health`, params);
   latenciaSalud.add(salud.timings.duration);
+  respuestas429.add(salud.status === 429 ? 1 : 0);
   const saludOk = check(salud, {
     'salud responde 200': (r) => r.status === 200,
     'salud dice ok': (r) => r.status === 200 && r.json('status') === 'ok',
@@ -163,6 +181,7 @@ export default function () {
   // consumidor tendría que drenar durante horas.
   const catalogo = http.post(`${BASE}/api/catalog/graphql`, CONSULTA_CATALOGO, params);
   latenciaCatalogo.add(catalogo.timings.duration);
+  respuestas429.add(catalogo.status === 429 ? 1 : 0);
   const catalogoOk = check(catalogo, {
     'catálogo responde 200': (r) => r.status === 200,
     // GraphQL devuelve 200 aunque la consulta falle, con los errores dentro
@@ -172,6 +191,23 @@ export default function () {
     'catálogo sin errores GraphQL': (r) => r.status === 200 && !r.body.includes('"errors"'),
   });
   tasaError.add(!catalogoOk);
+
+  // --- El ritmo ------------------------------------------------------------
+  //
+  // Sin esta pausa, k6 encadena iteraciones tan rápido como el servidor
+  // responda: la primera calibración generó 94 000 peticiones en 90 segundos
+  // —más de 1000 por segundo con 15 usuarios—. Eso no es una carga realista,
+  // es un bucle cerrado, y mide el techo de rendimiento del gateway en lugar
+  // de la latencia que percibiría un usuario.
+  //
+  // Peor para el propósito de esta prueba: a ese ritmo la latencia está
+  // dominada por el encolamiento, así que TODA versión parece lenta y el
+  // umbral p95 deja de distinguir la buena de la defectuosa.
+  //
+  // Un segundo por iteración, con 15 usuarios y dos peticiones cada una, da
+  // unas 30 peticiones por segundo: ~2700 en los noventa segundos. Es la cifra
+  // sobre la que está calculado el umbral del 1 % de errores.
+  sleep(1);
 }
 
 /**

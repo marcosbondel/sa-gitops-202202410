@@ -67,6 +67,30 @@ api-gateway:
   config:
     CORS_ORIGINS: "http://sa-p8-stage.local:8080"
 
+    # ## El limitador de peticiones, durante el análisis del canary
+    #
+    # `RATE_LIMIT_MAX` por defecto son 3000 peticiones por minuto y por proceso
+    # (`express-rate-limit` cuenta en la memoria de cada réplica). La prueba de
+    # carga llega desde una sola IP —el pod del Job de k6—, así que todo su
+    # tráfico cae en el mismo contador.
+    #
+    # Con el valor por defecto, la corrida de calibración chocaba contra el 429
+    # y reportaba un 37 % de error constante. El diagnóstico es traicionero: las
+    # mismas peticiones, hechas sueltas, devuelven 200, así que parece un
+    # problema intermitente de la aplicación cuando es el gateway rechazando
+    # barato y a propósito.
+    #
+    # Se sube para que la prueba mida la aplicación y no el limitador. La
+    # alternativa —bajar el ritmo de k6 hasta caber en 3000/min— dejaría la
+    # carga tan baja que no ejercitaría nada.
+    #
+    # Lo que NO se hace es desactivarlo: sigue habiendo un límite, y la prueba
+    # cuenta explícitamente los 429 con umbral cero
+    # (`respuestas_429` en `carga.js`), de modo que si algún día se vuelve a
+    # cruzar, el veredicto lo dirá con todas las letras en lugar de disfrazarse
+    # de versión defectuosa.
+    RATE_LIMIT_MAX: "100000"
+
   rollout:
     enabled: true
 
