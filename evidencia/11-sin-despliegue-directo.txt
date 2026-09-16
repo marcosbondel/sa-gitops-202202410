@@ -1,5 +1,5 @@
 # Prohibición de despliegue directo
-# Generado por P8/scripts/05-recoger-evidencia.sh el 2026-09-15 19:23:52 CST
+# Generado por P8/scripts/05-recoger-evidencia.sh el 2026-09-16 08:12:33 CST
 #
 # Comando: P8/scripts/99-guardian.sh
 # 

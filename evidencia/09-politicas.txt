@@ -1,5 +1,5 @@
 # Kyverno — políticas de admisión y un despliegue rechazado
-# Generado por P8/scripts/05-recoger-evidencia.sh el 2026-09-15 19:23:52 CST
+# Generado por P8/scripts/05-recoger-evidencia.sh el 2026-09-16 08:12:33 CST
 #
 # Las tres políticas que exige el enunciado (§3.2), aplicadas por ArgoCD
 # desde el repositorio GitOps, y la prueba de que rechazan.
