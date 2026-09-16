@@ -115,3 +115,27 @@ limiteSegundos:
   humo: 120
   integracion: 180
   carga: 150
+
+# ---------------------------------------------------------------------------
+# redes — el permiso que las pruebas necesitan para alcanzar al gateway
+#
+# El namespace tiene `default-deny`. Ver el comentario extenso en
+# `templates/networkpolicy.yaml` para por qué esto hace falta y por qué vive
+# aquí y no en el chart de la plataforma.
+# ---------------------------------------------------------------------------
+redes:
+  enabled: true
+
+  # Cómo se identifica al `api-gateway` dentro del namespace.
+  #
+  # Se declara como selector de etiquetas y no como nombre de Service porque
+  # una NetworkPolicy no selecciona Services: selecciona PODS. Es una confusión
+  # habitual —se escribe el nombre del Service, la política se aplica y no
+  # permite nada, porque ningún pod lleva ese nombre como etiqueta—.
+  #
+  # Estas dos etiquetas las pone `sa-platform.selectorLabels` del chart de la
+  # plataforma, y son las mismas que usan el Service estable y el canary. Por
+  # eso una sola regla cubre las dos versiones durante el canary.
+  selectorGateway:
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/instance: sa-platform

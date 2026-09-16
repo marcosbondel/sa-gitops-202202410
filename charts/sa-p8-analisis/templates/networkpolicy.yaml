@@ -1,0 +1,91 @@
+{{/*
+networkpolicy.yaml — El permiso de red de las pruebas.
+
+## Por qué esto existe, y por qué está en ESTE chart
+
+El namespace tiene `default-deny` sobre entrada y salida (chart de la
+plataforma, `templates/networkpolicies.yaml`). La única política que autoriza
+llegar al `api-gateway` selecciona como origen al namespace del controlador de
+Ingress: el tráfico legítimo entra por ahí y por ningún otro sitio.
+
+Los Jobs de análisis no son el controlador de Ingress. Corren dentro del
+namespace y golpean al Service canary por DNS interno, así que la política no
+los cubre y sus conexiones mueren por tiempo de espera.
+
+El síntoma cuando falta es caro de leer, y se comprobó: k6 reporta el 100 % de
+error con `request timeout`, el análisis marca la versión candidata como rota,
+y el canary revierte. Es decir, **la reversión automática funciona
+perfectamente y revierte por el motivo equivocado**. Una configuración de red
+incompleta se manifiesta como «todas las versiones son defectuosas».
+
+Vive en el chart de análisis y no en el de la plataforma a propósito: es el
+permiso que necesitan ESTAS pruebas, así que se instala y se retira con ellas.
+Si mañana se quitan las plantillas de análisis, este agujero se cierra solo. En
+el chart de la plataforma habría quedado un permiso abierto para unos pods que
+ya no existen.
+
+## Por qué hacen falta las dos mitades
+
+Con `default-deny` sobre Ingress **y** Egress, una conexión necesita permiso de
+salida en el origen y permiso de entrada en el destino. Autorizar solo una
+mitad produce un bloqueo que parece intermitente —«a veces funciona»— cuando en
+realidad nunca funcionó.
+
+El DNS ya lo cubre la política `allow-dns` del chart de la plataforma, cuyo
+`podSelector: {}` alcanza a todos los pods del namespace, estos incluidos.
+*/}}
+{{- if .Values.redes.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sa-p8-analisis-egress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "analisis.labels" . | nindent 4 }}
+spec:
+  # Selecciona a los pods de prueba por la etiqueta que este chart les pone.
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- toYaml .Values.redes.selectorGateway | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.puerto }}
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sa-p8-analisis-ingress-al-gateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "analisis.labels" . | nindent 4 }}
+spec:
+  # La otra mitad: el gateway acepta entrada desde los pods de prueba.
+  #
+  # Las NetworkPolicies son ADITIVAS: esta se suma a
+  # `sa-platform-allow-ingress-to-gateway` en vez de reemplazarla. El gateway
+  # sigue aceptando al controlador de Ingress y acepta además a estos pods.
+  # No hay forma de «restringir» con una política; solo de permitir más.
+  podSelector:
+    matchLabels:
+      {{- toYaml .Values.redes.selectorGateway | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ .Chart.Name }}
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.puerto }}
+{{- end }}
