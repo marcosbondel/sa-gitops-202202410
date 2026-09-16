@@ -151,11 +151,17 @@ export default function () {
 
   // --- Catálogo: trabajo real, con base de datos detrás -------------------
   //
+  // La ruta termina en `/graphql`. El gateway proxea `/api/catalog` con
+  // `upstreamPrefix: ''`, así que reenvía la subruta tal cual, y Apollo escucha
+  // en `/graphql`. Sin ese sufijo la petición llega como `POST /` y Express
+  // devuelve 404 «Cannot POST /»: la prueba mediría un 50 % de error constante
+  // que no tiene nada que ver con la versión bajo prueba.
+  //
   // Es una lectura idempotente: se puede repetir miles de veces sin ensuciar
   // la base ni llenar la cola del broker. Una prueba de carga que creara
   // pedidos mediría lo mismo y dejaría decenas de miles de filas basura que el
   // consumidor tendría que drenar durante horas.
-  const catalogo = http.post(`${BASE}/api/catalog`, CONSULTA_CATALOGO, params);
+  const catalogo = http.post(`${BASE}/api/catalog/graphql`, CONSULTA_CATALOGO, params);
   latenciaCatalogo.add(catalogo.timings.duration);
   const catalogoOk = check(catalogo, {
     'catálogo responde 200': (r) => r.status === 200,

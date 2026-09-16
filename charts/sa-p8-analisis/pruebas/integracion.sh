@@ -118,6 +118,12 @@ paso "identidad de la sesión" GET "/api/auth/me" 200 "" "${CORREO}" || true
 # ---------------------------------------------------------------------------
 # 4 · Catálogo — GraphQL, otro lenguaje y otro estilo de API
 #
+# La ruta lleva `/graphql` al final y no es un detalle cosmético: el gateway
+# proxea `/api/catalog` con `upstreamPrefix: ''`, así que reenvía la subruta
+# tal cual. Apollo sirve en `/graphql` dentro de catalog-service, de modo que
+# `POST /api/catalog` a secas llega como `POST /` y devuelve
+# «Cannot POST /» con un 404 de Express —no un error de GraphQL—.
+#
 # catalog-service es Node.js con Apollo, mientras que auth y order son Python
 # con FastAPI. Incluirlo prueba que el gateway proxea correctamente un POST con
 # cuerpo GraphQL, que es un camino distinto del de un GET REST.
@@ -126,7 +132,7 @@ paso "identidad de la sesión" GET "/api/auth/me" 200 "" "${CORREO}" || true
 # 200 incluso cuando la consulta falla, con los errores dentro del cuerpo. Una
 # prueba que solo mirara el código de estado aprobaría un catálogo roto.
 # ---------------------------------------------------------------------------
-paso "consulta GraphQL del catálogo" POST "/api/catalog" 200 \
+paso "consulta GraphQL del catálogo" POST "/api/catalog/graphql" 200 \
   '{"query":"{ products(limit: 5) { items { id sku name price } total } }"}' \
   '"products"' || true
 
