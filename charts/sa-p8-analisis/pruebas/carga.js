@@ -93,6 +93,11 @@ const UMBRAL_P99 = __ENV.UMBRAL_P99 || '600';
 const VUS = parseInt(__ENV.VUS || '15', 10);
 const DURACION = __ENV.DURACION || '90s';
 
+// Cuánto se genera carga ANTES de empezar a medir. Ver el comentario extenso
+// sobre los dos escenarios, más abajo: sin esta fase, el p95 de las primeras
+// muestras es el del pod arrancando y la prueba rechaza versiones sanas.
+const CALENTAMIENTO = __ENV.CALENTAMIENTO || '15s';
+
 // Métricas propias. Separar la latencia por tipo de petición evita que el
 // promedio mezcle una consulta GraphQL con una sonda de salud y esconda cuál
 // de las dos se degradó —que es justo lo que hay que saber para el informe de
@@ -113,26 +118,74 @@ const tasaError = new Rate('tasa_de_error');
 const respuestas429 = new Counter('respuestas_429');
 
 export const options = {
+  // ═══════════════════════════════════════════════════════════════════════
+  //  DOS FASES: CALENTAMIENTO Y MEDICIÓN
+  // ═══════════════════════════════════════════════════════════════════════
+  //
+  // La primera versión tenía un solo escenario, y produjo un falso positivo
+  // que conviene dejar escrito porque es el modo de fallo más caro que puede
+  // tener una puerta de calidad.
+  //
+  // El canary promovía la versión `1.0.0` —sana, la misma que llevaba horas
+  // corriendo— y el análisis la rechazó:
+  //
+  //     60 peticiones · 15 usuarios virtuales · 90s
+  //     ✗ latencia p95   387 ms   umbral < 300 ms
+  //
+  // Sesenta peticiones. La prueba abortó a los dos segundos de empezar.
+  //
+  // La causa es la combinación de dos cosas correctas por separado. Con
+  // `abortOnFail`, k6 evalúa el umbral CONTINUAMENTE desde la primera muestra;
+  // y las primeras peticiones contra un pod recién creado son lentas por
+  // naturaleza: hay que abrir la conexión TCP, llenar el pool de PostgreSQL,
+  // establecer el canal con el broker y calentar el JIT de Node. Con sesenta
+  // muestras, el p95 ES el arranque.
+  //
+  // El umbral no estaba mal: lo que estaba mal era el momento de medir. Una
+  // prueba que penaliza a toda versión por arrancar rechaza también las sanas,
+  // y un canary que rechaza versiones sanas enseña a promover a mano.
+  //
+  // La solución son dos escenarios. El primero genera carga durante quince
+  // segundos y sus muestras llevan la etiqueta `fase: calentamiento`; el
+  // segundo arranca después con `fase: medicion`. Los umbrales se aplican
+  // SOLO a las muestras de la segunda fase.
+  //
+  // `delayAbortEval` es el cinturón además de los tirantes: impide que k6
+  // evalúe el abort durante los primeros veinte segundos, cuando el umbral
+  // etiquetado todavía no tiene ninguna muestra.
   scenarios: {
-    constante: {
+    calentamiento: {
+      executor: 'constant-vus',
+      vus: VUS,
+      duration: CALENTAMIENTO,
+      tags: { fase: 'calentamiento' },
+    },
+    medicion: {
       executor: 'constant-vus',
       vus: VUS,
       duration: DURACION,
+      startTime: CALENTAMIENTO,
+      tags: { fase: 'medicion' },
     },
   },
 
   thresholds: {
-    tasa_de_error: [{ threshold: `rate<${UMBRAL_ERRORES}`, abortOnFail: true }],
-    http_req_duration: [
-      { threshold: `p(95)<${UMBRAL_P95}`, abortOnFail: true },
-      { threshold: `p(99)<${UMBRAL_P99}`, abortOnFail: true },
+    'tasa_de_error{fase:medicion}': [
+      { threshold: `rate<${UMBRAL_ERRORES}`, abortOnFail: true, delayAbortEval: '20s' },
+    ],
+    'http_req_duration{fase:medicion}': [
+      { threshold: `p(95)<${UMBRAL_P95}`, abortOnFail: true, delayAbortEval: '20s' },
+      { threshold: `p(99)<${UMBRAL_P99}`, abortOnFail: true, delayAbortEval: '20s' },
     ],
 
     // Ni un solo 429. No es un umbral de calidad de la versión candidata: es
     // una comprobación de que la prueba está midiendo lo que cree medir. Si
     // salta, el problema está en la prueba o en `RATE_LIMIT_MAX`, no en el
     // código bajo análisis.
-    respuestas_429: [{ threshold: 'count < 1', abortOnFail: true }],
+    //
+    // Sin etiquetar: un 429 durante el calentamiento también significa que
+    // algo va mal con el limitador, y da igual en qué fase aparezca.
+    respuestas_429: [{ threshold: 'count < 1', abortOnFail: true, delayAbortEval: '20s' }],
   },
 
   // Sin esto, cada iteración negociaría TCP de nuevo y se mediría el costo de
@@ -221,17 +274,24 @@ export default function () {
  */
 export function handleSummary(datos) {
   const m = datos.metrics;
-  const err = (m.tasa_de_error?.values?.rate ?? 0) * 100;
-  const p95 = m.http_req_duration?.values?.['p(95)'] ?? 0;
-  const p99 = m.http_req_duration?.values?.['p(99)'] ?? 0;
-  const total = m.http_reqs?.values?.count ?? 0;
+  // Se leen las métricas ETIQUETADAS, que son sobre las que se evalúan los
+  // umbrales. Leer las globales daría un número distinto del que decidió la
+  // promoción —incluiría el calentamiento— y el veredicto impreso no
+  // coincidiría con el veredicto real.
+  const sub = (nombre) => m[`${nombre}{fase:medicion}`] ?? m[nombre];
+  const err = (sub('tasa_de_error')?.values?.rate ?? 0) * 100;
+  const dur = sub('http_req_duration')?.values ?? {};
+  const p95 = dur['p(95)'] ?? 0;
+  const p99 = dur['p(99)'] ?? 0;
+  const total = sub('http_reqs')?.values?.count ?? m.http_reqs?.values?.count ?? 0;
 
   const linea = (etiqueta, valor, umbral, ok) =>
     `  ${ok ? '✓' : '✗'} ${etiqueta.padEnd(22)} ${valor.padEnd(12)} umbral ${umbral}\n`;
 
   const veredicto =
     `\n── CARGA contra ${BASE}\n` +
-    `   ${total} peticiones · ${VUS} usuarios virtuales · ${DURACION}\n\n` +
+    `   ${total} peticiones medidas · ${VUS} usuarios virtuales\n` +
+    `   ${CALENTAMIENTO} de calentamiento (descartado) + ${DURACION} de medición\n\n` +
     linea('tasa de error', `${err.toFixed(2)} %`, `< ${(UMBRAL_ERRORES * 100).toFixed(2)} %`, err < UMBRAL_ERRORES * 100) +
     linea('latencia p95', `${p95.toFixed(0)} ms`, `< ${UMBRAL_P95} ms`, p95 < UMBRAL_P95) +
     linea('latencia p99', `${p99.toFixed(0)} ms`, `< ${UMBRAL_P99} ms`, p99 < UMBRAL_P99) +

@@ -157,7 +157,12 @@ cadencia:
 limiteSegundos:
   humo: 120
   integracion: 180
-  carga: 150
+  # 200 y no 150: la prueba de carga dura 15 s de calentamiento + 90 s de
+  # medición = 105 s, más el arranque del contenedor y la descarga de la
+  # imagen de k6. Con 150 el Job se quedaba al borde, y un `activeDeadline`
+  # que expira se registra como fallo de la versión candidata —no como lo que
+  # es, un tiempo mal calculado—.
+  carga: 200
 
 # ---------------------------------------------------------------------------
 # redes — el permiso que las pruebas necesitan para alcanzar al gateway
