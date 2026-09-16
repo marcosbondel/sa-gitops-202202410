@@ -1,0 +1,84 @@
+# Ciclo completo: etiqueta de Git → Pull Request → merge → ArgoCD → canary
+# Generado el 2026-09-16 08:09:57 CST
+#
+# Es la demostración de punta a punta del flujo. Nadie ejecutó kubectl ni
+# helm contra el clúster en ningún momento del recorrido.
+
+## 1 · La etiqueta
+   git tag p8-v1.0.0 && git push origin p8-v1.0.0
+
+## 2 · El pipeline
+   https://github.com/marcosbondel/Practicas-SA-B-202202410/actions/runs/35102330752
+   6 imágenes construidas, escaneadas, publicadas, firmadas y verificadas.
+   Ver 13-cadena-de-suministro.txt.
+
+## 3 · El Pull Request que abrió el pipeline
+   https://github.com/marcosbondel/sa-gitops-202202410/pull/1
+   Diff completo:
+       envs/stage/values.yaml  +1/-1
+       -    tag: "1.0.1"
+       +    tag: "1.0.0"
+
+   Una línea. Es lo que hace que la revisión humana sea posible en diez
+   segundos en vez de un trámite.
+
+## 4 · El merge (07:34:48 UTC, commit 8b4135cd)
+
+## 5 · El canary, disparado por ArgoCD sin intervención
+[   0s] Status: ॥ Paused   Step: 1/7   ActualWeight: 10  
+[  45s] Status: ॥ Paused   Step: 1/7   ActualWeight: 10  
+[  91s] Status: ॥ Paused   Step: 1/7   ActualWeight: 10  
+[ 136s] Status: ॥ Paused   Step: 3/7   ActualWeight: 30  
+[ 181s] Status: ॥ Paused   Step: 3/7   ActualWeight: 30  
+[ 226s] Status: ◌ Progressing   Step: 4/7   ActualWeight: 30  
+[ 271s] Status: ॥ Paused   Step: 5/7   ActualWeight: 60  
+[ 317s] Status: ॥ Paused   Step: 5/7   ActualWeight: 60  
+[ 362s] Status: ॥ Paused   Step: 5/7   ActualWeight: 60  
+[ 407s] Status: ॥ Paused   Step: 5/7   ActualWeight: 60  
+[ 452s] Status: ✔ Healthy   Step: 7/7   ActualWeight: 100  
+
+## 6 · La medición que autorizó la promoción
+
+── CARGA contra http://sa-platform-api-gateway-canary.sa-p8-stage.svc.cluster.local:8080
+   3118 peticiones medidas · 15 usuarios virtuales
+   15s de calentamiento (descartado) + 90s de medición
+
+  ✓ tasa de error          0.00 %       umbral < 1.00 %
+  ✓ latencia p95           14 ms        umbral < 300 ms
+  ✓ latencia p99           156 ms       umbral < 600 ms
+
+
+## 7 · Estado final
+Name:            sa-platform-api-gateway
+Namespace:       sa-p8-stage
+Status:          ✔ Healthy
+Strategy:        Canary
+  Step:          7/7
+  SetWeight:     100
+  ActualWeight:  100
+Images:          ghcr.io/marcosbondel/api-gateway:1.0.0 (stable)
+Replicas:
+  Desired:       2
+  Current:       2
+  Updated:       2
+
+   sa-p8-analisis-prod      Synced     Healthy
+   sa-p8-analisis-stage     Synced     Healthy
+   sa-p8-plataforma-prod    Synced     Healthy
+   sa-p8-plataforma-stage   Synced     Healthy
+   sa-p8-politicas          Synced     Healthy
+   sa-p8-raiz               Synced     Healthy
+   sa-p8-secretos-prod      Synced     Healthy
+   sa-p8-secretos-stage     Synced     Healthy
+
+## Nota sobre el intento previo
+   El primer recorrido de este mismo ciclo ABORTÓ, y por un falso positivo:
+   la prueba de carga evaluaba el umbral desde la primera muestra, cuando el
+   pod candidato todavía estaba abriendo conexiones. Midió p95 387 ms sobre
+   60 peticiones y rechazó la versión 1.0.0, que es sana.
+
+   Corregido separando calentamiento de medición (carga.js). El mismo
+   rollout, reintentado, mide ahora p95 14 ms sobre 3118 peticiones.
+
+   Se deja anotado porque un canary que rechaza versiones sanas es el modo
+   de fallo más caro de una puerta de calidad: enseña a promover a mano.

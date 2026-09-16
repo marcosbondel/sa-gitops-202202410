@@ -1,0 +1,85 @@
+# Despliegue RECHAZADO por política de admisión
+# Generado el 2026-09-15 19:23:16 CST
+#
+# Comando: P8/scripts/06-probar-politicas.sh
+# Manifiestos: P8/pruebas-de-politica/
+#
+# Tres Deployments, cada uno diseñado para violar UNA de las tres políticas
+# que exige el enunciado (§3.2) y cumplir las otras dos, de modo que el
+# mensaje de rechazo señale a una sola política.
+#
+# Las políticas las aplicó ArgoCD desde el repositorio GitOps; nadie las
+# instaló a mano. Ver 09-politicas.txt.
+
+──────────────────────────────────────────────────────────────────────
+── 01-viola-latest.yaml
+  ✓ RECHAZADO
+        Error from server: error when creating 
+  "/Users/marcosbondel/Documents/uni/2026/segundo 
+  semestre/SA/lab/Practicas-SA-B-202202410/P8/pruebas-de-politica/01-viola-lates
+  t.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
+        resource Deployment/sa-p8-stage/violador-latest was blocked due to the 
+  following policies 
+        sa-p8-prohibir-latest:
+          autogen-prohibir-etiqueta-latest: 'validation error: RECHAZADO por 
+  sa-p8-prohibir-latest: la etiqueta `latest` está prohibida. Es mutable, así 
+  que dos pods creados desde el mismo manifiesto pueden correr código distinto 
+  y la reversión automática se queda sin destino al que volver. rule 
+  autogen-prohibir-etiqueta-latest failed at path 
+  /spec/template/spec/containers/0/image/'
+
+── 02-viola-limites.yaml
+  ✓ RECHAZADO
+        Error from server: error when creating 
+  "/Users/marcosbondel/Documents/uni/2026/segundo 
+  semestre/SA/lab/Practicas-SA-B-202202410/P8/pruebas-de-politica/02-viola-limit
+  es.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
+        resource Deployment/sa-p8-stage/violador-limites was blocked due to the 
+  following policies 
+        sa-p8-exigir-limites:
+          autogen-exigir-requests-y-limits: 'validation error: RECHAZADO por 
+  sa-p8-exigir-limites: todo contenedor debe declarar 
+  resources.requests.{cpu,memory} y resources.limits.{cpu,memory}. Sin requests 
+  el pod queda en QoS BestEffort y el HPA no puede medirlo; sin limits una fuga 
+  de memoria se lleva por delante al resto del nodo. rule 
+  autogen-exigir-requests-y-limits failed at path 
+  /spec/template/spec/containers/0/resources/limits/'
+
+── 03-viola-no-root.yaml
+  ✓ RECHAZADO
+        Warning: would violate PodSecurity "restricted:latest": 
+  allowPrivilegeEscalation != false (container "app" must set 
+  securityContext.allowPrivilegeEscalation=false), unrestricted capabilities 
+  (container "app" must set securityContext.capabilities.drop=["ALL"]), 
+  runAsNonRoot != true (pod or container "app" must set 
+  securityContext.runAsNonRoot=true), seccompProfile (pod or container "app" 
+  must set securityContext.seccompProfile.type to "RuntimeDefault" or 
+  "Localhost")
+        Error from server: error when creating 
+  "/Users/marcosbondel/Documents/uni/2026/segundo 
+  semestre/SA/lab/Practicas-SA-B-202202410/P8/pruebas-de-politica/03-viola-no-ro
+  ot.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
+        resource Deployment/sa-p8-stage/violador-root was blocked due to the 
+  following policies 
+        sa-p8-exigir-no-root:
+          autogen-descartar-todas-las-capacidades: 'validation error: RECHAZADO 
+  por sa-p8-exigir-no-root: todo contenedor debe descartar todas las 
+  capacidades (capabilities.drop incluyendo ALL). Las capacidades son root 
+  troceado: CAP_SYS_ADMIN monta sistemas de archivos y CAP_NET_RAW permite 
+  falsificar paquetes. rule autogen-descartar-todas-las-capacidades failed at 
+  path /spec/template/spec/containers/0/securityContext/'
+          autogen-exigir-run-as-non-root: 'validation error: RECHAZADO por 
+  sa-p8-exigir-no-root: el pod debe declarar runAsNonRoot:true, en 
+  securityContext del pod o en el de cada contenedor. rule 
+  autogen-exigir-run-as-non-root[0] failed at path 
+  /spec/template/spec/securityContext/runAsNonRoot/ rule 
+  autogen-exigir-run-as-non-root[1] failed at path 
+  /spec/template/spec/containers/0/securityContext/'
+          autogen-prohibir-escalada-de-privilegios: 'validation error: 
+  RECHAZADO por sa-p8-exigir-no-root: todo contenedor debe declarar 
+  allowPrivilegeEscalation:false. Sin esto, un binario setuid dentro del 
+  contenedor recupera privilegios y runAsNonRoot deja de significar nada. rule 
+  autogen-prohibir-escalada-de-privilegios failed at path 
+  /spec/template/spec/containers/0/securityContext/'
+
+✓ Las tres políticas rechazan.

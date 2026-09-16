@@ -1,0 +1,43 @@
+# Calibración de la línea base — prueba de carga contra la versión ESTABLE
+# Generado el 2026-09-15 18:50:50 CST contra sa-p8-stage, api-gateway:1.0.0
+#
+# Se ejecutó con los umbrales desactivados (UMBRAL_P95=999999, etc.) para
+# MEDIR en lugar de validar. Los umbrales de charts/sa-p8-analisis/values.yaml
+# salen de estos números.
+
+## Prueba de humo
+── Prueba de humo contra http://sa-platform-api-gateway.sa-p8-stage.svc.cluster.local:8080
+
+  ✓ liveness del gateway                           HTTP 200
+  ✓ readiness del gateway                          HTTP 200
+  ✓ salud agregada de los 4 servicios              HTTP 200
+  ✓ mapa de la API                                 HTTP 200
+  ✓ introspect sigue cerrada                       HTTP 404
+  ✓ pedidos exigen sesión                         HTTP 401
+
+── HUMO: todo correcto
+
+## Prueba de integración
+── Prueba de integración contra http://sa-platform-api-gateway.sa-p8-stage.svc.cluster.local:8080
+   usuario de la prueba: canary-racion-8nssb-1789519655@sa-p8.gt
+
+  ✓ registro de usuario                          HTTP 201
+  ✓ inicio de sesión                            HTTP 200
+  ✓ identidad de la sesión                      HTTP 200
+  ✓ consulta GraphQL del catálogo               HTTP 200
+  ✓ listado de pedidos del usuario               HTTP 200
+  ✓ bandeja de notificaciones                    HTTP 200
+  ✓ cierre de sesión                            HTTP 200
+  ✓ la sesión quedó cerrada                    HTTP 401
+
+── INTEGRACIÓN: los 8 pasos del flujo completo pasaron
+
+## Prueba de carga
+
+── CARGA contra http://sa-platform-api-gateway.sa-p8-stage.svc.cluster.local:8080
+   2670 peticiones · 15 usuarios virtuales · 90s
+
+  ✓ tasa de error          0.00 %       umbral < 1.00 %
+  ✓ latencia p95           9 ms         umbral < 800 ms
+  ✓ latencia p99           22 ms        umbral < 2000 ms
+

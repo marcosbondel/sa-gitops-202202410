@@ -1,0 +1,26 @@
+# Prohibición de despliegue directo
+# Generado por P8/scripts/05-recoger-evidencia.sh el 2026-09-15 19:23:52 CST
+#
+# Comando: P8/scripts/99-guardian.sh
+# 
+# El requisito de la rúbrica (§8.1). La comprobación corre en cada Pull
+# Request, así que no depende de que alguien la recuerde antes de entregar.
+
+▸ Revisando 2 workflow(s) de la Práctica 8
+
+  ✓ sin kubectl apply/create/patch/delete/replace/set image/rollout
+  ✓ sin helm upgrade/install/uninstall
+  ✓ sin kubeconfig ni get-credentials
+  ✓ sin secretos de clúster
+
+✓ El pipeline de la Práctica 8 no puede desplegar.
+
+## Lo que declaran los workflows de la P8
+### p8-ci.yml
+  permisos:
+      contents: read
+### p8-release.yml
+  permisos:
+      contents: read
+      packages: write
+      id-token: write

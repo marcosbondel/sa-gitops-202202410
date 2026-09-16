@@ -1,0 +1,83 @@
+# Terraform — estado de la infraestructura del clúster
+# Generado por P8/scripts/05-recoger-evidencia.sh el 2026-09-15 19:23:16 CST
+#
+# Comando: terraform -chdir=P8/terraform plan
+# 
+# Un plan que NO propone cambios es la evidencia más fuerte que este archivo
+# puede contener: significa que el estado real del clúster coincide, recurso
+# por recurso, con lo que declara el código. Es la respuesta directa a la
+# tercera debilidad que señala el enunciado en §3.1 —«el estado real del
+# clúster puede diferir del estado declarado y nadie lo detecta»—.
+# 
+# La salida de un apply real está en 02-terraform-apply.txt.
+
+## terraform plan
+kubernetes_namespace.argo_rollouts[0]: Refreshing state... [id=argo-rollouts]
+kubernetes_namespace.ambiente["prod"]: Refreshing state... [id=sa-p8-prod]
+kubernetes_namespace.ambiente["stage"]: Refreshing state... [id=sa-p8-stage]
+kubernetes_cluster_role.auditor: Refreshing state... [id=sa-p8-auditor]
+kubernetes_service_account.lectura["prod"]: Refreshing state... [id=sa-p8-prod/sa-p8-lectura]
+kubernetes_limit_range.ambiente["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-limits]
+kubernetes_resource_quota.ambiente["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-quota]
+kubernetes_service_account.lectura["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-lectura]
+kubernetes_resource_quota.ambiente["prod"]: Refreshing state... [id=sa-p8-prod/sa-p8-quota]
+kubernetes_limit_range.ambiente["prod"]: Refreshing state... [id=sa-p8-prod/sa-p8-limits]
+helm_release.argo_rollouts[0]: Refreshing state... [id=argo-rollouts]
+kubernetes_role.lectura["prod"]: Refreshing state... [id=sa-p8-prod/sa-p8-lectura]
+kubernetes_role.lectura["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-lectura]
+kubernetes_cluster_role_binding.auditor: Refreshing state... [id=sa-p8-auditor]
+kubernetes_role.operador_rollouts["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-operador-rollouts]
+kubernetes_role_binding.operador_rollouts["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-operador-rollouts]
+kubernetes_role_binding.lectura["prod"]: Refreshing state... [id=sa-p8-prod/sa-p8-lectura]
+kubernetes_role_binding.lectura["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-lectura]
+helm_release.argo_cd[0]: Refreshing state... [id=argocd]
+helm_release.semilla_gitops[0]: Refreshing state... [id=sa-p8-semilla]
+
+No changes. Your infrastructure matches the configuration.
+
+Terraform has compared your real infrastructure against your configuration
+and found no differences, so no changes are needed.
+
+## terraform state list — los recursos que Terraform posee
+helm_release.argo_cd[0]
+helm_release.argo_rollouts[0]
+helm_release.kyverno[0]
+helm_release.metrics_server[0]
+helm_release.sealed_secrets[0]
+helm_release.semilla_gitops[0]
+kubernetes_cluster_role.auditor
+kubernetes_cluster_role_binding.auditor
+kubernetes_limit_range.ambiente["prod"]
+kubernetes_limit_range.ambiente["stage"]
+kubernetes_namespace.ambiente["prod"]
+kubernetes_namespace.ambiente["stage"]
+kubernetes_namespace.argo_rollouts[0]
+kubernetes_resource_quota.ambiente["prod"]
+kubernetes_resource_quota.ambiente["stage"]
+kubernetes_role.lectura["prod"]
+kubernetes_role.lectura["stage"]
+kubernetes_role.operador_rollouts["stage"]
+kubernetes_role_binding.lectura["prod"]
+kubernetes_role_binding.lectura["stage"]
+kubernetes_role_binding.operador_rollouts["stage"]
+kubernetes_service_account.auditor
+kubernetes_service_account.lectura["prod"]
+kubernetes_service_account.lectura["stage"]
+
+## terraform output
+argocd_password = "kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d"
+argocd_url = "http://argocd.sa-p8.local:8080"
+cuentas_de_servicio = {
+  "auditor" = "sa-p8-auditor (kube-system) — solo lectura, alcance de clúster"
+  "lectura" = "sa-p8-lectura (por ambiente) — solo get/list/watch; sin acceso a secrets"
+  "operador" = "sa-p8-operador-rollouts — promover/abortar canary, SOLO en stage"
+}
+cuotas = {
+  "prod" = "cpu 4/16 · mem 6Gi/14Gi · pods 40"
+  "stage" = "cpu 2/12 · mem 3Gi/10Gi · pods 30"
+}
+namespaces = {
+  "prod" = "sa-p8-prod"
+  "stage" = "sa-p8-stage"
+}
+siguiente_paso = "P8/scripts/02-sellar-secretos.sh  →  luego empujar el repositorio GitOps"

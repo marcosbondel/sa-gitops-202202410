@@ -1,0 +1,100 @@
+# Cadena de suministro — Trivy, SBOM y firma con Cosign
+# Generado el 2026-09-16 07:34:19
+#
+# Run: https://github.com/marcosbondel/Practicas-SA-B-202202410/actions/runs/35102330752
+# Tag: p8-v1.0.0  ->  imagenes ghcr.io/marcosbondel/<servicio>:1.0.0
+#
+# Artefactos descargados con `gh run download`. Todo lo de abajo lo produjo
+# el pipeline, no esta maquina.
+
+## 1 · Firmas verificadas
+
+   `cosign verify` se ejecuto DENTRO del pipeline, justo despues de firmar.
+   Verificar la firma que uno mismo acaba de poner no es redundante: es lo
+   que demuestra que es VERIFICABLE, y no solo que se ejecuto el comando.
+
+   ── api-gateway
+      imagen   ghcr.io/marcosbondel/api-gateway:1.0.0
+      digest   sha256:e16188752c54089de730c4021b7322d2a4a718c04bba952ca502bc51d176a95f
+      firmante https://github.com/marcosbondel/Practicas-SA-B-202202410/.github/workflows/p8-release.yml@refs/tags/p8-v1.0.0
+      emisor   https://token.actions.githubusercontent.com
+      Rekor    logIndex 2861877174
+
+   ── auth-service
+      imagen   ghcr.io/marcosbondel/auth-service:1.0.0
+      digest   sha256:50a9fd9aa3c2e3358b4b85d72bba231522caada0654e5eee53f201f90d7dc052
+      firmante https://github.com/marcosbondel/Practicas-SA-B-202202410/.github/workflows/p8-release.yml@refs/tags/p8-v1.0.0
+      emisor   https://token.actions.githubusercontent.com
+      Rekor    logIndex 2861881359
+
+   ── catalog-service
+      imagen   ghcr.io/marcosbondel/catalog-service:1.0.0
+      digest   sha256:b72d7a5e741f3c1ce786fe57855b878bdce2bfaafa0ad4a4ab53cbe0369f9094
+      firmante https://github.com/marcosbondel/Practicas-SA-B-202202410/.github/workflows/p8-release.yml@refs/tags/p8-v1.0.0
+      emisor   https://token.actions.githubusercontent.com
+      Rekor    logIndex 2861876021
+
+   ── cronjobs
+      imagen   ghcr.io/marcosbondel/cronjobs:1.0.0
+      digest   sha256:fa58de9996db4923208ad459a1b09014aa23d42a49236288f0fd7a9b6473db94
+      firmante https://github.com/marcosbondel/Practicas-SA-B-202202410/.github/workflows/p8-release.yml@refs/tags/p8-v1.0.0
+      emisor   https://token.actions.githubusercontent.com
+      Rekor    logIndex 2861878159
+
+   ── notification-service
+      imagen   ghcr.io/marcosbondel/notification-service:1.0.0
+      digest   sha256:561e51b5bc1b3ddc91ceda77dac932f5ce414ef234218b68d2f11d1c06f7b5e6
+      firmante https://github.com/marcosbondel/Practicas-SA-B-202202410/.github/workflows/p8-release.yml@refs/tags/p8-v1.0.0
+      emisor   https://token.actions.githubusercontent.com
+      Rekor    logIndex 2861882682
+
+   ── order-service
+      imagen   ghcr.io/marcosbondel/order-service:1.0.0
+      digest   sha256:8e8d7933b6a2fd0e786ce2fb9be14a6e2ea32c7c17b780bbf1ac014b8aa1d50b
+      firmante https://github.com/marcosbondel/Practicas-SA-B-202202410/.github/workflows/p8-release.yml@refs/tags/p8-v1.0.0
+      emisor   https://token.actions.githubusercontent.com
+      Rekor    logIndex 2861880614
+
+   El campo `firmante` es el contenido real de la verificacion. No dice
+   «alguien con una clave»: dice que firmo el workflow p8-release.yml de
+   ESTE repositorio, en ESTE tag. Sin las banderas
+   --certificate-identity-regexp y --certificate-oidc-issuer, cualquier
+   firma valida de cualquier persona pasaria la verificacion.
+
+   No hay ninguna clave privada que custodiar: el certificado es efimero y
+   se obtiene de Fulcio a cambio de un token OIDC de GitHub Actions.
+
+## 2 · Trivy — ninguna CVE critica con parche disponible
+
+   api-gateway            HIGH:2  MEDIUM:6  LOW:2
+   auth-service           HIGH:17  MEDIUM:13  LOW:5
+   catalog-service        HIGH:3  MEDIUM:5  LOW:2
+   cronjobs               HIGH:9  MEDIUM:6  LOW:1
+   notification-service   HIGH:12  MEDIUM:10  LOW:2
+   order-service          HIGH:12  MEDIUM:10  LOW:2
+
+   Lo que BLOQUEA la entrega es solo CRITICAL, y solo si tiene parche
+   (`ignore-unfixed`). El criterio esta razonado en P8/trivy.yaml: una
+   puerta que bloquea por cualquier hallazgo se desactiva en la primera
+   semana, y una puerta desactivada no protege nada.
+
+   La prueba de que SI bloquea cuando debe esta en
+   12-pr-bloqueado-por-cve.txt.
+
+## 3 · SBOM — la lista de materiales
+
+   Formato CycloneDX, generado de la imagen CONSTRUIDA y no del
+   package-lock: lo que corre en produccion es la imagen, y dentro hay
+   ademas paquetes del sistema base que ningun manifiesto del lenguaje
+   menciona.
+
+   api-gateway             112 componentes   (126 KiB)
+   auth-service             91 componentes   (103 KiB)
+   catalog-service         184 componentes   (206 KiB)
+   cronjobs                 69 componentes   (81 KiB)
+   notification-service     93 componentes   (105 KiB)
+   order-service            93 componentes   (105 KiB)
+
+   Responde en segundos a la pregunta que se hace el dia que sale una
+   vulnerabilidad nueva: «¿tenemos esa libreria, y en que version?». Sin
+   SBOM habria que reconstruir cada imagen y mirar dentro.

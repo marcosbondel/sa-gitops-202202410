@@ -1,0 +1,63 @@
+# Promoción canary EXITOSA — api-gateway 1.0.0 → 1.0.1
+# sa-p8-stage · 2026-09-15 19:00:07 CST
+#
+# Disparada por un solo commit en el repositorio GitOps:
+#   envs/stage/values.yaml  api-gateway.image.tag: "1.0.0" -> "1.0.1"
+# Nadie ejecutó kubectl ni helm contra el clúster.
+
+## Recorrido de los pasos (muestreado cada 30 s)
+  [  0s]  Degraded  step 0/7  peso   0%   (revisión anterior abortada)
+  [ 61s]  Paused    step 1/7  peso  10%   ← primer escalón, análisis midiendo
+  [122s]  Paused    step 1/7  peso  10%
+  [183s]  Paused    step 3/7  peso  30%   ← promovido: el análisis seguía en verde
+  [243s]  Paused    step 3/7  peso  30%
+  [304s]  Paused    step 5/7  peso  60%   ← promovido
+  [426s]  Paused    step 5/7  peso  60%
+  [~470s] Healthy   step 7/7  peso 100%   ← promoción completa
+
+## Estado final del Rollout
+Name:            sa-platform-api-gateway
+Namespace:       sa-p8-stage
+Status:          ✔ Healthy
+Strategy:        Canary
+  Step:          7/7
+  SetWeight:     100
+  ActualWeight:  100
+Images:          ghcr.io/marcosbondel/api-gateway:1.0.1 (stable)
+Replicas:
+  Desired:       2
+  Current:       2
+  Updated:       2
+  Ready:         2
+  Available:     2
+
+NAME                                                           KIND         STATUS          AGE    INFO
+⟳ sa-platform-api-gateway                                      Rollout      ✔ Healthy       17h    
+├──# revision:3                                                                                    
+│  ├──⧉ sa-platform-api-gateway-7964865d79                     ReplicaSet   ✔ Healthy       7m44s  stable
+│  │  ├──□ sa-platform-api-gateway-7964865d79-xkshc            Pod          ✔ Running       7m43s  ready:1/1
+│  │  └──□ sa-platform-api-gateway-7964865d79-ffs6l            Pod          ✔ Running       3m39s  ready:1/1
+│  └──α sa-platform-api-gateway-7964865d79-3                   AnalysisRun  ? Inconclusive  7m43s  ✔ 15,? 1
+│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.integracion.1  Job          ✔ Successful    6m43s  
+│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.integracion.2  Job          ✔ Successful    5m37s  
+│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.integracion.3  Job          ✔ Successful    4m31s  
+│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.integracion.4  Job          ✔ Successful    3m25s  
+│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.integracion.5  Job          ✔ Successful    2m19s  
+│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.integracion.6  Job          ✔ Successful    73s    
+│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.humo.1         Job          ✔ Successful    6m43s  
+│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.humo.2         Job          ✔ Successful    5m54s  
+│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.humo.3         Job          ✔ Successful    5m5s   
+│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.humo.4         Job          ✔ Successful    4m14s  
+│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.humo.5         Job          ✔ Successful    3m25s  
+│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.humo.6         Job          ✔ Successful    2m36s  
+│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.humo.7         Job          ✔ Successful    107s   
+│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.humo.8         Job          ✔ Successful    58s    
+│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.carga.1        Job          ✔ Successful    6m13s  
+│     └──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.carga.2        Job          ? Inconclusive  93s    
+├──# revision:2                                                                                    
+│  ├──⧉ sa-platform-api-gateway-5df766fdfb                     ReplicaSet   • ScaledDown    21m    delay:passed
+
+## Resultado del análisis de fondo
+integracion: Successful  exitosas=6 fallidas= inconclusas=
+humo: Successful  exitosas=8 fallidas= inconclusas=
+carga: Inconclusive  exitosas=1 fallidas= inconclusas=1

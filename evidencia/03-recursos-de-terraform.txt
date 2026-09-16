@@ -1,0 +1,83 @@
+# Infraestructura creada por Terraform
+# Generado por P8/scripts/05-recoger-evidencia.sh el 2026-09-15 19:23:51 CST
+#
+# Comando: kubectl get ... -l app.kubernetes.io/managed-by=Terraform
+# 
+# Todos los objetos que crea el módulo llevan esa etiqueta. Es lo que permite
+# responder con un comando a la exigencia del enunciado de que no haya
+# infraestructura creada a mano: lo que no aparezca aquí ni en el repositorio
+# GitOps, lo creó alguien manualmente.
+
+## Namespaces, cuotas y límites
+NAME                      STATUS   AGE
+namespace/argo-rollouts   Active   18h
+namespace/sa-p8-prod      Active   18h
+namespace/sa-p8-stage     Active   18h
+
+NAMESPACE     NAME                        REQUEST                                                                                      LIMIT                                              AGE
+sa-p8-prod    resourcequota/sa-p8-quota   persistentvolumeclaims: 2/5, pods: 15/40, requests.cpu: 1/4, requests.memory: 3200Mi/6Gi     limits.cpu: 9/16, limits.memory: 7424Mi/14Gi       18h
+sa-p8-stage   resourcequota/sa-p8-quota   persistentvolumeclaims: 2/5, pods: 9/30, requests.cpu: 325m/2, requests.memory: 1376Mi/3Gi   limits.cpu: 3500m/12, limits.memory: 3328Mi/10Gi   18h
+
+NAMESPACE     NAME                      CREATED AT
+sa-p8-prod    limitrange/sa-p8-limits   2026-09-15T06:41:56Z
+sa-p8-stage   limitrange/sa-p8-limits   2026-09-15T06:41:56Z
+
+## RBAC de namespace
+NAMESPACE     NAME                           AGE
+kube-system   serviceaccount/sa-p8-auditor   3m21s
+sa-p8-prod    serviceaccount/sa-p8-lectura   18h
+sa-p8-stage   serviceaccount/sa-p8-lectura   18h
+
+NAMESPACE     NAME                                                     CREATED AT
+sa-p8-prod    role.rbac.authorization.k8s.io/sa-p8-lectura             2026-09-15T06:41:56Z
+sa-p8-stage   role.rbac.authorization.k8s.io/sa-p8-lectura             2026-09-15T06:41:56Z
+sa-p8-stage   role.rbac.authorization.k8s.io/sa-p8-operador-rollouts   2026-09-15T06:41:56Z
+
+NAMESPACE     NAME                                                            ROLE                           AGE
+sa-p8-prod    rolebinding.rbac.authorization.k8s.io/sa-p8-lectura             Role/sa-p8-lectura             18h
+sa-p8-stage   rolebinding.rbac.authorization.k8s.io/sa-p8-lectura             Role/sa-p8-lectura             18h
+sa-p8-stage   rolebinding.rbac.authorization.k8s.io/sa-p8-operador-rollouts   Role/sa-p8-operador-rollouts   18h
+
+## RBAC de clúster
+NAME                                                  CREATED AT
+clusterrole.rbac.authorization.k8s.io/sa-p8-auditor   2026-09-15T06:41:56Z
+
+NAME                                                         ROLE                        AGE
+clusterrolebinding.rbac.authorization.k8s.io/sa-p8-auditor   ClusterRole/sa-p8-auditor   18h
+
+## Detalle de las cuotas
+### sa-p8-stage
+  Name:                   sa-p8-quota
+  Namespace:              sa-p8-stage
+  Resource                Used    Hard
+  --------                ----    ----
+  limits.cpu              3500m   12
+  limits.memory           3328Mi  10Gi
+  persistentvolumeclaims  2       5
+  pods                    9       30
+  requests.cpu            325m    2
+  requests.memory         1376Mi  3Gi
+### sa-p8-prod
+  Name:                   sa-p8-quota
+  Namespace:              sa-p8-prod
+  Resource                Used    Hard
+  --------                ----    ----
+  limits.cpu              9       16
+  limits.memory           7424Mi  14Gi
+  persistentvolumeclaims  2       5
+  pods                    15      40
+  requests.cpu            1       4
+  requests.memory         3200Mi  6Gi
+
+## Lo que las cuentas NO pueden hacer
+# kubectl auth can-i, suplantando cada ServiceAccount
+  sa-p8-stage  create pods           → no
+  sa-p8-stage  delete pods           → no
+  sa-p8-stage  get    secrets        → no
+  sa-p8-stage  create deployments    → no
+  sa-p8-stage  patch  rollouts       → no
+  sa-p8-prod   create pods           → no
+  sa-p8-prod   delete pods           → no
+  sa-p8-prod   get    secrets        → no
+  sa-p8-prod   create deployments    → no
+  sa-p8-prod   patch  rollouts       → no

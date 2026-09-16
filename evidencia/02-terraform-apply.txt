@@ -1,0 +1,65 @@
+# Terraform — plan y apply reales
+# Generado el 2026-09-15 19:20:14 CST
+#
+# La infraestructura ya estaba aplicada, así que un apply corriente no
+# mostraría nada. Para dejar evidencia de un ciclo completo se fuerza el
+# reemplazo de un recurso inocuo —la ServiceAccount del auditor, que solo
+# tiene permisos de lectura— con -replace.
+#
+# Se eligió ese recurso a propósito: destruirlo y recrearlo no interrumpe
+# nada. Hacer lo mismo con un namespace se habría llevado por delante la
+# plataforma entera, y con un helm_release habría reinstalado ArgoCD.
+
+## terraform plan -replace=kubernetes_service_account.auditor
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+-/+ destroy and then create replacement
+
+Terraform will perform the following actions:
+
+  # kubernetes_service_account.auditor will be replaced, as requested
+-/+ resource "kubernetes_service_account" "auditor" {
+      + default_secret_name             = (known after apply)
+      ~ id                              = "kube-system/sa-p8-auditor" -> (known after apply)
+        # (1 unchanged attribute hidden)
+
+      ~ metadata {
+          ~ generation       = 0 -> (known after apply)
+            name             = "sa-p8-auditor"
+          ~ resource_version = "1467" -> (known after apply)
+          ~ uid              = "761aa093-05ea-4f5f-925f-c37ea6fd2bac" -> (known after apply)
+            # (4 unchanged attributes hidden)
+        }
+    }
+
+Plan: 1 to add, 0 to change, 1 to destroy.
+
+─────────────────────────────────────────────────────────────────────────────
+
+Saved the plan to: /tmp/ev.tfplan
+
+To perform exactly these actions, run the following command to apply:
+    terraform apply "/tmp/ev.tfplan"
+
+## terraform apply
+Apply complete! Resources: 1 added, 0 changed, 1 destroyed.
+
+Outputs:
+
+argocd_password = "kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d"
+argocd_url = "http://argocd.sa-p8.local:8080"
+cuentas_de_servicio = {
+  "auditor" = "sa-p8-auditor (kube-system) — solo lectura, alcance de clúster"
+  "lectura" = "sa-p8-lectura (por ambiente) — solo get/list/watch; sin acceso a secrets"
+  "operador" = "sa-p8-operador-rollouts — promover/abortar canary, SOLO en stage"
+}
+cuotas = {
+  "prod" = "cpu 4/16 · mem 6Gi/14Gi · pods 40"
+  "stage" = "cpu 2/12 · mem 3Gi/10Gi · pods 30"
+}
+namespaces = {
+  "prod" = "sa-p8-prod"
+  "stage" = "sa-p8-stage"
+}
+siguiente_paso = "P8/scripts/02-sellar-secretos.sh  →  luego empujar el repositorio GitOps"

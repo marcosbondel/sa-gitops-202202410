@@ -1,0 +1,72 @@
+# ArgoCD — aplicaciones e historial de sincronización
+# Generado por P8/scripts/05-recoger-evidencia.sh el 2026-09-15 19:23:51 CST
+#
+# Comando: kubectl get application -n argocd
+# 
+# El requisito de la rúbrica (§8.1) es que la aplicación esté Synced y Healthy
+# al momento de la calificación.
+
+## Aplicaciones
+NAME                     SYNC STATUS   HEALTH STATUS   REVISION                                   PROJECT
+sa-p8-analisis-prod      Synced        Healthy                                                    sa-p8
+sa-p8-analisis-stage     Synced        Healthy                                                    sa-p8
+sa-p8-plataforma-prod    Synced        Healthy                                                    sa-p8
+sa-p8-plataforma-stage   Synced        Healthy                                                    sa-p8
+sa-p8-politicas          Synced        Healthy         feb98e030c8f7a59f6939fb77dde0fc0b4eb2f9e   sa-p8
+sa-p8-raiz               Synced        Healthy         feb98e030c8f7a59f6939fb77dde0fc0b4eb2f9e   sa-p8
+sa-p8-secretos-prod      Synced        Healthy         feb98e030c8f7a59f6939fb77dde0fc0b4eb2f9e   sa-p8
+sa-p8-secretos-stage     Synced        Healthy         feb98e030c8f7a59f6939fb77dde0fc0b4eb2f9e   sa-p8
+
+## Ondas de sincronización (el orden en que ArgoCD las aplica)
+NOMBRE                   ONDA     SYNC     SALUD
+sa-p8-raiz               <none>   Synced   Healthy
+sa-p8-politicas          -20      Synced   Healthy
+sa-p8-secretos-prod      -10      Synced   Healthy
+sa-p8-secretos-stage     -10      Synced   Healthy
+sa-p8-analisis-prod      -5       Synced   Healthy
+sa-p8-analisis-stage     -5       Synced   Healthy
+sa-p8-plataforma-prod    0        Synced   Healthy
+sa-p8-plataforma-stage   0        Synced   Healthy
+
+## AppProject — la frontera de lo que ArgoCD puede hacer
+spec:
+  clusterResourceWhitelist:
+  - group: kyverno.io
+    kind: ClusterPolicy
+  description: Plataforma de microservicios — Práctica 8 (202202410).
+  destinations:
+  - namespace: sa-p8-prod
+    server: https://kubernetes.default.svc
+  - namespace: sa-p8-stage
+    server: https://kubernetes.default.svc
+  - namespace: argocd
+    server: https://kubernetes.default.svc
+  namespaceResourceBlacklist:
+  - group: ""
+    kind: ResourceQuota
+  - group: ""
+    kind: LimitRange
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+  sourceRepos:
+  - https://github.com/marcosbondel/sa-gitops-202202410.git
+
+## Historial de sincronizaciones de la plataforma
+### sa-p8-plataforma-stage
+  revisión 0:  — 2026-09-15T07:10:54Z
+  revisión 1:  — 2026-09-16T00:38:30Z
+  revisión 2:  — 2026-09-16T00:52:24Z
+  revisión 3:  — 2026-09-16T01:00:43Z
+  revisión 4:  — 2026-09-16T01:03:26Z
+### sa-p8-plataforma-prod
+  revisión 0:  — 2026-09-15T07:10:55Z
+  revisión 1:  — 2026-09-16T00:38:30Z
+  revisión 2:  — 2026-09-16T01:07:03Z
+
+## El repositorio que ArgoCD lee (público, sin credenciales)
+  repoURL: https://github.com/marcosbondel/sa-gitops-202202410.git
+  rama: main
+  ruta: apps
+  credenciales configuradas: 0 (cero = repositorio público)

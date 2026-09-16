@@ -1,0 +1,17 @@
+# Kyverno — políticas de admisión y un despliegue rechazado
+# Generado por P8/scripts/05-recoger-evidencia.sh el 2026-09-15 19:23:52 CST
+#
+# Las tres políticas que exige el enunciado (§3.2), aplicadas por ArgoCD
+# desde el repositorio GitOps, y la prueba de que rechazan.
+
+## Políticas activas
+NOMBRE                  ACCIÓN    FONDO   LISTA
+sa-p8-exigir-limites    Enforce   true    <none>
+sa-p8-exigir-no-root    Enforce   true    <none>
+sa-p8-prohibir-latest   Enforce   true    <none>
+
+## Quién las aplicó
+  sa-p8-exigir-limites: 
+  sa-p8-exigir-no-root: 
+  sa-p8-prohibir-latest: 
+  (sa-p8-politicas = la Application de ArgoCD; nadie las aplicó a mano)

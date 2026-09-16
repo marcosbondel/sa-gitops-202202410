@@ -1,0 +1,57 @@
+# Fallo inducido y REVERSIÓN AUTOMÁTICA — api-gateway 1.0.1 → 1.0.2 (defectuosa)
+# sa-p8-stage · 2026-09-15 19:03:01 CST
+#
+# El defecto: pbkdf2Sync(150 000 iteraciones) en el middleware de correlación,
+# que se ejecuta en todas las peticiones y bloquea el bucle de eventos de Node.
+# Ver P8/fallo-inducido/README.md y correlation.patch.
+#
+# Publicado con un solo commit en el repositorio GitOps. Nadie tocó el clúster.
+
+## Cronología (T0 = commit que publica 1.0.2)
+[  10s] Status: ✔ Healthy   Step: 7/7   ActualWeight: 100  
+[  31s] Status: ॥ Paused  Message: CanaryPauseStep   Step: 1/7   ActualWeight: 10  
+[  51s] Status: ॥ Paused  Message: CanaryPauseStep   Step: 1/7   ActualWeight: 10  
+[  71s] Status: ॥ Paused  Message: CanaryPauseStep   Step: 1/7   ActualWeight: 10  
+[  91s] Status: ॥ Paused  Message: CanaryPauseStep   Step: 1/7   ActualWeight: 10  
+[ 111s] Status: ✖ Degraded  Message: RolloutAborted: Rollout aborted update to revision 4: Background analysis phase error/failed: Metric "carga" assessed Failed due to failed (1) > failureLimit (0)   Step: 0/7   ActualWeight: 0  
+
+## Veredicto de las tres puertas de calidad
+  integracion: Successful
+  humo: Successful
+  carga: Failed
+
+## La puerta que lo detectó: la prueba de carga
+
+── CARGA contra http://sa-platform-api-gateway-canary.sa-p8-stage.svc.cluster.local:8080
+   18 peticiones · 15 usuarios virtuales · 90s
+
+  ✓ tasa de error          0.00 %       umbral < 1.00 %
+  ✗ latencia p95           1675 ms      umbral < 300 ms
+  ✗ latencia p99           1837 ms      umbral < 600 ms
+
+time="2026-09-16T01:02:18Z" level=error msg="thresholds on metrics 'http_req_duration' were crossed; at least one has abortOnFail enabled, stopping test prematurely"
+
+## Comparación con la línea base
+                   estable 1.0.1  defectuosa 1.0.2 factor
+  latencia p95     9 ms           1675 ms        186x
+  latencia p99     22 ms          1837 ms        84x
+  tasa de error    0.00 %         0.00 %         -
+
+  La tasa de error NO cambió: el defecto no rompe nada, solo lo hace lento.
+  Por eso las puertas de humo e integración pasaron.
+
+## Estado final del Rollout
+Name:            sa-platform-api-gateway
+Namespace:       sa-p8-stage
+Status:          ✖ Degraded
+Message:         RolloutAborted: Rollout aborted update to revision 4: Background analysis phase error/failed: Metric "carga" assessed Failed due to failed (1) > failureLimit (0)
+Strategy:        Canary
+  Step:          0/7
+  SetWeight:     0
+  ActualWeight:  0
+Images:          ghcr.io/marcosbondel/api-gateway:1.0.1 (stable)
+Replicas:
+  Desired:       2
+  Current:       2
+  Updated:       0
+  Ready:         2

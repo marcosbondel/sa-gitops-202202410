@@ -1,0 +1,54 @@
+# Pull Request BLOQUEADO por vulnerabilidad crítica
+# Generado el 2026-09-16 07:28:16 CST
+#
+# PR:  https://github.com/marcosbondel/Practicas-SA-B-202202410/pull/1
+# Run: https://github.com/marcosbondel/Practicas-SA-B-202202410/actions/runs/35045492747
+#
+# La rama demo/cve-critica agrega lodash@4.17.11 a las dependencias del
+# api-gateway. Es una version con CVE-2019-10744 (CRITICAL, prototype
+# pollution en defaultsDeep) PARCHEADA en 4.17.12: una vulnerabilidad
+# critica con solucion disponible, que es exactamente el caso que la
+# puerta debe detener.
+
+## Resultado de los 10 jobs
+  ✓  Guardián · sin despliegue directo
+  ✓  Helm · lint y render
+  ✓  Imagen · auth-service
+  ✓  Imagen · catalog-service
+  ✓  Imagen · cronjobs
+  ✓  Imagen · notification-service
+  ✓  Imagen · order-service
+  ✓  Seguridad · Trivy sobre el repositorio
+  ✓  Terraform · validate
+  ✗  Imagen · api-gateway
+
+  Solo falla el api-gateway. Los otros cinco componentes pasan en verde:
+  fail-fast: false esta puesto para que el reporte este completo en la
+  primera ejecucion en vez de descubrir las CVE de una en una.
+
+## El hallazgo que bloqueo
+  Node.js (node-pkg)
+  ==================
+  Total: 1 (CRITICAL: 1)
+  ┌───────────────────────┬────────────────┬──────────┬────────┬───────────────────┬───────────────┬─────────────────────────────────────────────────────────────┐
+  │        Library        │ Vulnerability  │ Severity │ Status │ Installed Version │ Fixed Version │                            Title                            │
+  ├───────────────────────┼────────────────┼──────────┼────────┼───────────────────┼───────────────┼─────────────────────────────────────────────────────────────┤
+  │ lodash (package.json) │ CVE-2019-10744 │ CRITICAL │ fixed  │ 4.17.11           │ 4.17.12       │ nodejs-lodash: prototype pollution in defaultsDeep function │
+  │                       │                │          │        │                   │               │ leading to modifying properties                             │
+  │                       │                │          │        │                   │               │ https://avd.aquasec.com/nvd/cve-2019-10744                  │
+  └───────────────────────┴────────────────┴──────────┴────────┴───────────────────┴───────────────┴─────────────────────────────────────────────────────────────┘
+
+## Donde bloquea
+  El paso es «Trivy · bloquear por CVE critica», con exit-code: 1 y
+  severity: CRITICAL. En p8-release.yml el mismo escaneo va ENTRE construir
+  y publicar (push: false), de modo que una imagen con una CVE critica nunca
+  llega al registro.
+
+## Lo que se descubrio montando esta evidencia
+  El primer intento NO disparo el workflow. Los filtros de ruta de p8-ci.yml
+  no incluian P5/**, y el PR solo tocaba P5/gateway/package.json: el escaneo
+  nunca corrio y el Pull Request aparecio en verde.
+
+  Una puerta de seguridad que no se ejecuta es peor que no tenerla, porque da
+  una senal de aprobacion que nadie comprobo. Corregido en el commit que
+  agrega P5/** a los filtros.
