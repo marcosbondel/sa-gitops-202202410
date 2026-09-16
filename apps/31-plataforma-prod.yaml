@@ -101,7 +101,20 @@ spec:
     # Con esta excepción, el selector queda fuera de la comparación y cada
     # controlador manda en lo suyo.
     # ---------------------------------------------------------------------
-    - group: ""
-      kind: Service
+    # Sin `group: ""`.
+    #
+    # El grupo del API core se escribe como cadena vacía, y Kubernetes OMITE
+    # los campos vacíos al serializar el objeto. Así que el manifiesto del
+    # repositorio tiene `group: ""` y el objeto vivo no tiene `group` en
+    # absoluto: ArgoCD compara los dos, encuentra una diferencia que nunca
+    # podrá reconciliar y deja la Application `OutOfSync` para siempre.
+    #
+    # El síntoma es de los peores que puede tener un flujo GitOps: la
+    # aplicación está perfectamente sincronizada, todo funciona, y el panel
+    # dice que no. Una alarma permanente que no significa nada es una alarma
+    # que se deja de mirar.
+    #
+    # Para los recursos del grupo core, el campo simplemente se omite.
+    - kind: Service
       jsonPointers:
         - /spec/selector
