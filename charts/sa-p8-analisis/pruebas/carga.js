@@ -51,26 +51,27 @@
  *   · `UMBRAL_ERRORES` (1 %). No es cero, y la razón importa: durante el
  *     canary conviven dos ReplicaSets y el controlador de Ingress recarga su
  *     configuración cada vez que cambia el peso. Esa recarga cierra conexiones
- *     en vuelo, y con `noConnectionReuse: false` eso produce algún error
- *     aislado que no tiene nada que ver con el código. Poner el umbral en cero
- *     haría que el canary abortara por su propio funcionamiento —un falso
- *     positivo que enseña a la gente a ignorar la alarma—.
+ *     en vuelo, y eso produce algún error aislado que no tiene nada que ver
+ *     con el código. Poner el umbral en cero haría que el canary abortara por
+ *     su propio funcionamiento —un falso positivo que enseña a la gente a
+ *     ignorar la alarma—.
  *
- *     Un 1 % sobre ~2700 peticiones son 27 fallos: muy por encima de las dos o
- *     tres recargas esperables, y muy por debajo de lo que produce un defecto
- *     real, que rompe una proporción del tráfico, no un puñado de peticiones.
+ *     Un 1 % sobre las ~2670 peticiones de una corrida son 26 fallos: muy por
+ *     encima de las dos o tres recargas esperables, y muy por debajo de lo que
+ *     produce un defecto real.
  *
- *   · `UMBRAL_P95` (800 ms). La versión estable mide un p95 de ~180 ms en este
- *     clúster. El umbral está a más del cuádruple a propósito: p95 es sensible
- *     a que un pod nuevo esté calentando su JIT y sus pools de conexiones
- *     durante los primeros segundos, y un umbral pegado a la medición
- *     abortaría rollouts sanos. Lo que sí atrapa es el orden de magnitud: una
- *     consulta sin índice, un `await` en serie donde había paralelismo o un
- *     upstream que empezó a reintentar llevan el p95 a segundos, no a 900 ms.
+ *   · `UMBRAL_P95` (300 ms). La versión estable mide **9 ms** en este clúster
+ *     (ver `P8/docs/evidencias/05-calibracion-linea-base.txt`). El umbral está
+ *     treinta y tres veces por encima a propósito: la medición de referencia se
+ *     tomó con la plataforma en reposo, y durante un canary el pod candidato
+ *     está calentando sus pools de conexiones, nginx recarga su configuración
+ *     en cada cambio de peso y los otros dos Jobs de análisis compiten por la
+ *     CPU. Un umbral pegado a los 9 ms abortaría rollouts sanos.
  *
- *   · `UMBRAL_P99` (2000 ms). Va aparte porque captura algo que el p95 esconde:
- *     una fuga que degrada solo a una de cada cien peticiones. Sin él, un
- *     defecto que afecta al 1 % del tráfico pasaría las tres puertas.
+ *   · `UMBRAL_P99` (600 ms). Va aparte porque captura algo que el p95 esconde:
+ *     una degradación que afecta solo a una de cada cien peticiones. Sin él,
+ *     un defecto que toca el 1 % del tráfico pasaría las tres puertas. La
+ *     línea base es de 22 ms.
  *
  * Los tres son umbrales `abortOnFail`, así que k6 termina en cuanto uno se
  * rompe en lugar de gastar los 90 segundos completos. El canary aborta antes
@@ -87,8 +88,8 @@ const PUERTO = __ENV.PUERTO || '8080';
 const BASE = `http://${SERVICIO}.${NAMESPACE}.svc.cluster.local:${PUERTO}`;
 
 const UMBRAL_ERRORES = __ENV.UMBRAL_ERRORES || '0.01';
-const UMBRAL_P95 = __ENV.UMBRAL_P95 || '800';
-const UMBRAL_P99 = __ENV.UMBRAL_P99 || '2000';
+const UMBRAL_P95 = __ENV.UMBRAL_P95 || '300';
+const UMBRAL_P99 = __ENV.UMBRAL_P99 || '600';
 const VUS = parseInt(__ENV.VUS || '15', 10);
 const DURACION = __ENV.DURACION || '90s';
 

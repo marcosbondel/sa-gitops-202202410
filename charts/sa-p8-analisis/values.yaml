@@ -62,22 +62,65 @@ recursos:
 # ---------------------------------------------------------------------------
 # Umbrales de la prueba de carga
 #
-# Justificados en detalle en `pruebas/carga.js` y en
-# `P8/docs/03-pruebas-y-umbrales.md`, con la corrida de calibración que los
-# produjo. Resumen:
+# ## De dónde salen estos números
 #
-#   · errores 1 %  — por encima del ruido que generan las recargas de nginx al
-#                    cambiar el peso del canary, muy por debajo de lo que
-#                    produce un defecto real.
-#   · p95 800 ms   — más del cuádruple de los ~180 ms de la versión estable.
-#                    Atrapa cambios de orden de magnitud, no calentamientos.
-#   · p99 2000 ms  — atrapa lo que el p95 esconde: una degradación que afecta
-#                    solo a una de cada cien peticiones.
+# De medir la versión estable en este mismo ambiente, con esta misma prueba y
+# con los umbrales desactivados. La corrida está en
+# `P8/docs/evidencias/05-calibracion-linea-base.txt`:
+#
+#     2670 peticiones · 15 usuarios virtuales · 90s
+#     tasa de error   0.00 %
+#     latencia p95       9 ms
+#     latencia p99      22 ms
+#
+# No se inventó ninguno. Un umbral sin una medición detrás es una cifra que
+# alguien copió de otro proyecto, y el primer aborto que provoque se atribuirá
+# al entorno en lugar de al código.
+#
+# ## Por qué el margen es tan amplio
+#
+# 300 ms sobre una línea base de 9 ms son treinta y tres veces. Parece
+# excesivo, y no lo es: la medición de arriba se tomó con la plataforma en
+# reposo, y durante un canary el ambiente es peor por razones que no tienen
+# que ver con la versión candidata.
+#
+#   · El pod candidato acaba de arrancar. Node compila en caliente y los pools
+#     de conexiones a PostgreSQL y al broker se llenan en las primeras
+#     peticiones. Los primeros segundos de cualquier versión son lentos.
+#   · El controlador de Ingress recarga su configuración cada vez que cambia
+#     el peso del canary, y esa recarga se paga en latencia.
+#   · Los otros dos Jobs de análisis corren a la vez y compiten por la CPU del
+#     mismo nodo.
+#
+# Un umbral pegado a la línea base abortaría rollouts sanos, y un canary que
+# aborta por ruido enseña a la gente a promover a mano —que es exactamente el
+# hábito que esta práctica intenta eliminar—.
+#
+# ## Y por qué no más amplio todavía
+#
+# La primera versión de este archivo tenía 800 ms, que son casi noventa veces
+# la línea base. Con ese margen, una regresión que multiplicara por cincuenta
+# la latencia pasaría la puerta. 300 ms deja pasar el ruido y no una
+# degradación real: el defecto inducido de `P8/fallo-inducido/` lleva el p95 a
+# varios segundos, y cualquier cosa de ese orden se detiene aquí.
+#
+# ## La tasa de error
+#
+# 1 %, y no cero. Durante el canary conviven dos ReplicaSets y el controlador
+# de Ingress recarga su configuración al cambiar el peso; esa recarga cierra
+# conexiones en vuelo y produce algún error aislado que no tiene nada que ver
+# con el código. Poner el umbral en cero haría que el canary abortara por su
+# propio funcionamiento.
+#
+# 1 % sobre las ~2670 peticiones de una corrida son 26 fallos: muy por encima
+# de las dos o tres recargas esperables, y muy por debajo de lo que produce un
+# defecto real —que rompe una proporción del tráfico, no un puñado de
+# peticiones—.
 # ---------------------------------------------------------------------------
 carga:
   umbralErrores: "0.01"
-  umbralP95: "800"
-  umbralP99: "2000"
+  umbralP95: "300"
+  umbralP99: "600"
   usuariosVirtuales: "15"
   duracion: "90s"
 

@@ -25,16 +25,22 @@
 carga:
   # 0.5 % en vez de 1 %. Con el HPA manteniendo capacidad, los únicos errores
   # esperables siguen siendo los de la recarga de nginx al cambiar el peso del
-  # canary: un puñado sobre ~5400 peticiones (el doble de VU durante lo mismo).
+  # canary: un puñado sobre ~5300 peticiones (el doble de usuarios virtuales
+  # durante la misma ventana).
   umbralErrores: "0.005"
 
-  # 500 ms en vez de 800. Producción mide ~140 ms en estable —menos que stage
-  # porque no comparte CPU con las pruebas de otros—, así que 500 ms sigue
-  # siendo más del triple del valor observado.
-  umbralP95: "500"
-
-  # 1200 ms en vez de 2000.
-  umbralP99: "1200"
+  # 200 ms en vez de los 300 de stage.
+  #
+  # La línea base de stage es de 9 ms (p95) con la plataforma en reposo.
+  # Producción tiene el HPA y más réplicas, así que reparte mejor y su latencia
+  # bajo carga es más estable —no más baja necesariamente, pero sí con menos
+  # varianza—. Eso permite apretar el margen sin generar falsos positivos.
+  #
+  # Sigue siendo más de veinte veces la línea base: lo que cambia entre los dos
+  # ambientes es cuánta degradación se tolera antes de parar, no el orden de
+  # magnitud.
+  umbralP95: "200"
+  umbralP99: "400"
 
   # Más carga: con 3 a 6 réplicas, 15 usuarios virtuales no llegarían a
   # ejercitar nada. 30 es lo que hace que la medición diga algo.

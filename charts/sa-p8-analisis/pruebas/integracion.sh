@@ -37,10 +37,33 @@ GALLETAS=$(mktemp)
 CUERPO=$(mktemp)
 FALLOS=0
 
-# Identidad única por ejecución. `HOSTNAME` es el nombre del pod del Job, que
-# Kubernetes garantiza distinto en cada intento.
-SUFIJO="${HOSTNAME:-local}-$(date +%s)"
-CORREO="canary-${SUFIJO}@sa-p8.test"
+# Identidad única por ejecución.
+#
+# `HOSTNAME` es el nombre del pod del Job, que Kubernetes garantiza distinto en
+# cada intento; se recortan los últimos caracteres porque el nombre completo de
+# un pod de AnalysisRun pasa de sesenta y deja un correo ilegible en los
+# registros.
+#
+# ## El dominio NO puede ser `.test`
+#
+# La primera versión usaba `@sa-p8.test` —el TLD que la RFC 2606 reserva
+# justamente para pruebas— y auth-service la rechazó con un 422:
+#
+#     value is not a valid email address: The part after the @-sign is a
+#     special-use or reserved name that cannot be used with email.
+#
+# `EmailStr` de Pydantic delega en `email-validator`, que rechaza por diseño
+# los nombres de uso especial: `.test`, `.example`, `.invalid` y `.localhost`.
+# Se usa `.gt`, un TLD real. El correo no se envía a ninguna parte —el registro
+# solo lo almacena— así que un dominio real que no existe es más seguro que uno
+# reservado que la librería conoce.
+#
+# Conviene señalarlo porque el canary abortó por esto, y el veredicto fue
+# «versión candidata defectuosa» cuando el defecto estaba en la prueba. Es el
+# modo de fallo más caro de una puerta de calidad: un falso positivo enseña a
+# la gente a promover a mano.
+SUFIJO="$(printf '%s' "${HOSTNAME:-local}" | tail -c 12)-$(date +%s)"
+CORREO="canary-${SUFIJO}@sa-p8.gt"
 CLAVE="CanarioSeguro123"
 
 limpiar() { rm -f "$GALLETAS" "$CUERPO"; }
