@@ -43,7 +43,7 @@ api-gateway:
     # repositorio GitOps. Es lo ÚNICO que el flujo automático modifica, y por
     # eso está sola en su línea: un `sed` sobre este archivo no puede tocar
     # nada más por accidente.
-    tag: "1.1.0"
+    tag: "1.2.0"
 
   # Dos réplicas, no una.
   #
@@ -120,7 +120,7 @@ auth-service:
   image:
     registry: ghcr.io/marcosbondel
     repository: auth-service
-    tag: "1.1.0"
+    tag: "1.2.0"
   replicaCount: 1
   autoscaling:
     enabled: false
@@ -134,7 +134,7 @@ catalog-service:
   image:
     registry: ghcr.io/marcosbondel
     repository: catalog-service
-    tag: "1.1.0"
+    tag: "1.2.0"
   replicaCount: 1
   autoscaling:
     enabled: false
@@ -148,7 +148,7 @@ order-service:
   image:
     registry: ghcr.io/marcosbondel
     repository: order-service
-    tag: "1.1.0"
+    tag: "1.2.0"
   replicaCount: 1
   autoscaling:
     enabled: false
@@ -162,7 +162,7 @@ notification-service:
   image:
     registry: ghcr.io/marcosbondel
     repository: notification-service
-    tag: "1.1.0"
+    tag: "1.2.0"
   replicaCount: 1
   autoscaling:
     enabled: false
