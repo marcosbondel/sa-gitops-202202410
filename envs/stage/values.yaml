@@ -43,7 +43,7 @@ api-gateway:
     # repositorio GitOps. Es lo ÚNICO que el flujo automático modifica, y por
     # eso está sola en su línea: un `sed` sobre este archivo no puede tocar
     # nada más por accidente.
-    tag: "1.2.0"
+    tag: "1.2.1-fallo"
 
   # Dos réplicas, no una.
   #
