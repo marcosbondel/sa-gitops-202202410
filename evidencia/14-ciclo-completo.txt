@@ -1,84 +1,39 @@
-# Ciclo completo: etiqueta de Git → Pull Request → merge → ArgoCD → canary
-# Generado el 2026-09-16 08:09:57 CST
+# Ciclo completo: etiqueta de Git → pipeline → Pull Request → ArgoCD → canary → prod
+# Generado el 2026-09-19 08:45:59 CST
 #
-# Es la demostración de punta a punta del flujo. Nadie ejecutó kubectl ni
-# helm contra el clúster en ningún momento del recorrido.
+# La demostración de punta a punta del flujo con la versión 1.2.0. Nadie
+# ejecutó kubectl ni helm contra el clúster para desplegar en ningún punto.
 
 ## 1 · La etiqueta
-   git tag p8-v1.0.0 && git push origin p8-v1.0.0
+   git tag p8-v1.2.0 && git push origin p8-v1.2.0          (08:17 UTC)
 
-## 2 · El pipeline
-   https://github.com/marcosbondel/Practicas-SA-B-202202410/actions/runs/35102330752
-   6 imágenes construidas, escaneadas, publicadas, firmadas y verificadas.
+## 2 · El pipeline de entrega (6 min 30 s)
+   https://github.com/marcosbondel/Practicas-SA-B-202202410/actions/runs/35431569959
+   6 imágenes × 2 arquitecturas: construidas, escaneadas con Trivy ANTES de
+   publicar, con SBOM, publicadas, firmadas con Cosign y verificadas.
    Ver 13-cadena-de-suministro.txt.
 
 ## 3 · El Pull Request que abrió el pipeline
-   https://github.com/marcosbondel/sa-gitops-202202410/pull/1
-   Diff completo:
-       envs/stage/values.yaml  +1/-1
-       -    tag: "1.0.1"
-       +    tag: "1.0.0"
+   https://github.com/marcosbondel/sa-gitops-202202410/pull/4
+   envs/stage/values.yaml  +5/-5   (una línea por servicio: tag "1.2.0")
 
-   Una línea. Es lo que hace que la revisión humana sea posible en diez
-   segundos en vez de un trámite.
+## 4 · La revisión humana y el merge   (08:25:25 UTC)
 
-## 4 · El merge (07:34:48 UTC, commit 8b4135cd)
+## 5 · El canary de stage, disparado por ArgoCD
+   10 % → puerta → 30 % → puerta → 60 % → puerta → 100 % en 412 s.
+   Detalle y veredicto de cada puerta en 06-promocion-canary-exitosa.txt.
 
-## 5 · El canary, disparado por ArgoCD sin intervención
-[   0s] Status: ॥ Paused   Step: 1/7   ActualWeight: 10  
-[  45s] Status: ॥ Paused   Step: 1/7   ActualWeight: 10  
-[  91s] Status: ॥ Paused   Step: 1/7   ActualWeight: 10  
-[ 136s] Status: ॥ Paused   Step: 3/7   ActualWeight: 30  
-[ 181s] Status: ॥ Paused   Step: 3/7   ActualWeight: 30  
-[ 226s] Status: ◌ Progressing   Step: 4/7   ActualWeight: 30  
-[ 271s] Status: ॥ Paused   Step: 5/7   ActualWeight: 60  
-[ 317s] Status: ॥ Paused   Step: 5/7   ActualWeight: 60  
-[ 362s] Status: ॥ Paused   Step: 5/7   ActualWeight: 60  
-[ 407s] Status: ॥ Paused   Step: 5/7   ActualWeight: 60  
-[ 452s] Status: ✔ Healthy   Step: 7/7   ActualWeight: 100  
+## 6 · La promoción a prod, SIN reconstruir
+   gh workflow run p8-release.yml -f version=1.2.0 -f ambiente=prod
+   https://github.com/marcosbondel/Practicas-SA-B-202202410/actions/runs/35447508318  (35 s)
+   Comprueba que existe la etiqueta p8-v1.2.0, verifica la firma de las seis
+   imágenes que ya están en el registro y abre el PR contra prod:
+   https://github.com/marcosbondel/sa-gitops-202202410/pull/5   envs/prod/values.yaml +6/-6
+   Lo que llega a producción es, byte a byte, lo que pasó el canary de stage.
 
-## 6 · La medición que autorizó la promoción
+## 7 · El canary de prod   (merge 14:04:45 UTC → Healthy 14:12:10 UTC)
+   Mismas tres puertas con umbrales más estrictos y el doble de usuarios
+   virtuales: p95 14, 12 y 13 ms contra un umbral de 200 ms.
 
-── CARGA contra http://sa-platform-api-gateway-canary.sa-p8-stage.svc.cluster.local:8080
-   3118 peticiones medidas · 15 usuarios virtuales
-   15s de calentamiento (descartado) + 90s de medición
-
-  ✓ tasa de error          0.00 %       umbral < 1.00 %
-  ✓ latencia p95           14 ms        umbral < 300 ms
-  ✓ latencia p99           156 ms       umbral < 600 ms
-
-
-## 7 · Estado final
-Name:            sa-platform-api-gateway
-Namespace:       sa-p8-stage
-Status:          ✔ Healthy
-Strategy:        Canary
-  Step:          7/7
-  SetWeight:     100
-  ActualWeight:  100
-Images:          ghcr.io/marcosbondel/api-gateway:1.0.0 (stable)
-Replicas:
-  Desired:       2
-  Current:       2
-  Updated:       2
-
-   sa-p8-analisis-prod      Synced     Healthy
-   sa-p8-analisis-stage     Synced     Healthy
-   sa-p8-plataforma-prod    Synced     Healthy
-   sa-p8-plataforma-stage   Synced     Healthy
-   sa-p8-politicas          Synced     Healthy
-   sa-p8-raiz               Synced     Healthy
-   sa-p8-secretos-prod      Synced     Healthy
-   sa-p8-secretos-stage     Synced     Healthy
-
-## Nota sobre el intento previo
-   El primer recorrido de este mismo ciclo ABORTÓ, y por un falso positivo:
-   la prueba de carga evaluaba el umbral desde la primera muestra, cuando el
-   pod candidato todavía estaba abriendo conexiones. Midió p95 387 ms sobre
-   60 peticiones y rechazó la versión 1.0.0, que es sana.
-
-   Corregido separando calentamiento de medición (carga.js). El mismo
-   rollout, reintentado, mide ahora p95 14 ms sobre 3118 peticiones.
-
-   Se deja anotado porque un canary que rechaza versiones sanas es el modo
-   de fallo más caro de una puerta de calidad: enseña a promover a mano.
+## 8 · Estado final
+   Los dos ambientes con 1.2.0, las ocho Applications Synced/Healthy. Ver 08-argocd.txt.

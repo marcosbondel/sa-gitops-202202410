@@ -1,16 +1,30 @@
 # Despliegue RECHAZADO por política de admisión
-# Generado el 2026-09-15 19:23:16 CST
+# Generado el 2026-09-19 08:15:12 CST
 #
 # Comando: P8/scripts/06-probar-politicas.sh
 # Manifiestos: P8/pruebas-de-politica/
 #
-# Tres Deployments, cada uno diseñado para violar UNA de las tres políticas
-# que exige el enunciado (§3.2) y cumplir las otras dos, de modo que el
-# mensaje de rechazo señale a una sola política.
+# Cuatro manifiestos, cada uno diseñado para violar UNA de las cuatro
+# políticas y cumplir las otras tres, de modo que el mensaje de rechazo señale
+# a una sola política:
+#
+#   01  imagen con :latest                     → sa-p8-prohibir-latest
+#   02  contenedor sin limits                  → sa-p8-exigir-limites
+#   03  sin securityContext                    → sa-p8-exigir-no-root
+#   04  imagen de este registro SIN la firma   → sa-p8-verificar-firma
+#       del pipeline de la P8 (la publicó la P7)
+#
+# Se aplican con --dry-run=server: el servidor de API los evalúa completos,
+# webhooks de admisión incluidos, y no se crea nada.
 #
 # Las políticas las aplicó ArgoCD desde el repositorio GitOps; nadie las
-# instaló a mano. Ver 09-politicas.txt.
+# instaló a mano. Ver 09-politicas.txt. La cuarta llegó por el Pull Request
+# https://github.com/marcosbondel/sa-gitops-202202410/pull/6
 
+──────────────────────────────────────────────────────────────────────
+──────────────────────────────────────────────────────────────────────
+  clúster sa-p8 · ambientes sa-p8-stage / sa-p8-prod
+  GitOps  https://github.com/marcosbondel/sa-gitops-202202410.git (main)
 ──────────────────────────────────────────────────────────────────────
 ── 01-viola-latest.yaml
   ✓ RECHAZADO
@@ -82,4 +96,17 @@
   autogen-prohibir-escalada-de-privilegios failed at path 
   /spec/template/spec/containers/0/securityContext/'
 
-✓ Las tres políticas rechazan.
+── 04-viola-firma.yaml
+  ✓ RECHAZADO
+        Error from server: error when creating 
+  "/Users/marcosbondel/Documents/uni/2026/segundo 
+  semestre/SA/lab/Practicas-SA-B-202202410/P8/pruebas-de-politica/04-viola-firma
+  .yaml": admission webhook "mutate.kyverno.svc-fail" denied the request: 
+        resource Pod/sa-p8-stage/violador-firma was blocked due to the 
+  following policies 
+        sa-p8-verificar-firma:
+          firma-del-pipeline-p8: 'failed to verify image 
+  ghcr.io/marcosbondel/api-gateway:sha-9a2d402: 
+  .attestors[0].entries[0].keyless: no signatures found'
+
+✓ Las cuatro políticas rechazan.

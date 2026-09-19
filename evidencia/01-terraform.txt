@@ -1,5 +1,5 @@
 # Terraform — estado de la infraestructura del clúster
-# Generado por P8/scripts/05-recoger-evidencia.sh el 2026-09-16 08:12:25 CST
+# Generado por P8/scripts/05-recoger-evidencia.sh el 2026-09-19 08:53:20 CST
 #
 # Comando: terraform -chdir=P8/terraform plan
 # 
@@ -12,24 +12,24 @@
 # La salida de un apply real está en 02-terraform-apply.txt.
 
 ## terraform plan
+kubernetes_namespace.argo_rollouts[0]: Refreshing state... [id=argo-rollouts]
+kubernetes_namespace.ambiente["stage"]: Refreshing state... [id=sa-p8-stage]
+kubernetes_service_account.auditor: Refreshing state... [id=kube-system/sa-p8-auditor]
 kubernetes_cluster_role.auditor: Refreshing state... [id=sa-p8-auditor]
-helm_release.sealed_secrets[0]: Refreshing state... [id=sealed-secrets]
-helm_release.kyverno[0]: Refreshing state... [id=kyverno]
-helm_release.metrics_server[0]: Refreshing state... [id=metrics-server]
-helm_release.argo_rollouts[0]: Refreshing state... [id=argo-rollouts]
-kubernetes_service_account.lectura["prod"]: Refreshing state... [id=sa-p8-prod/sa-p8-lectura]
-kubernetes_service_account.lectura["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-lectura]
-kubernetes_role.lectura["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-lectura]
-kubernetes_role.lectura["prod"]: Refreshing state... [id=sa-p8-prod/sa-p8-lectura]
-kubernetes_role.operador_rollouts["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-operador-rollouts]
-kubernetes_limit_range.ambiente["prod"]: Refreshing state... [id=sa-p8-prod/sa-p8-limits]
-kubernetes_limit_range.ambiente["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-limits]
 kubernetes_resource_quota.ambiente["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-quota]
 kubernetes_resource_quota.ambiente["prod"]: Refreshing state... [id=sa-p8-prod/sa-p8-quota]
-kubernetes_role_binding.operador_rollouts["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-operador-rollouts]
+kubernetes_service_account.lectura["prod"]: Refreshing state... [id=sa-p8-prod/sa-p8-lectura]
+kubernetes_service_account.lectura["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-lectura]
+helm_release.argo_rollouts[0]: Refreshing state... [id=argo-rollouts]
+kubernetes_role.lectura["prod"]: Refreshing state... [id=sa-p8-prod/sa-p8-lectura]
+kubernetes_role.lectura["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-lectura]
+kubernetes_limit_range.ambiente["prod"]: Refreshing state... [id=sa-p8-prod/sa-p8-limits]
+kubernetes_role.operador_rollouts["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-operador-rollouts]
+kubernetes_limit_range.ambiente["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-limits]
 kubernetes_cluster_role_binding.auditor: Refreshing state... [id=sa-p8-auditor]
-kubernetes_role_binding.lectura["prod"]: Refreshing state... [id=sa-p8-prod/sa-p8-lectura]
 kubernetes_role_binding.lectura["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-lectura]
+kubernetes_role_binding.lectura["prod"]: Refreshing state... [id=sa-p8-prod/sa-p8-lectura]
+kubernetes_role_binding.operador_rollouts["stage"]: Refreshing state... [id=sa-p8-stage/sa-p8-operador-rollouts]
 helm_release.argo_cd[0]: Refreshing state... [id=argocd]
 helm_release.semilla_gitops[0]: Refreshing state... [id=sa-p8-semilla]
 
@@ -41,6 +41,7 @@ and found no differences, so no changes are needed.
 ## terraform state list — los recursos que Terraform posee
 helm_release.argo_cd[0]
 helm_release.argo_rollouts[0]
+helm_release.ingress_nginx[0]
 helm_release.kyverno[0]
 helm_release.metrics_server[0]
 helm_release.sealed_secrets[0]

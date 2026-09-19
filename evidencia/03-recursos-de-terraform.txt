@@ -1,5 +1,5 @@
 # Infraestructura creada por Terraform
-# Generado por P8/scripts/05-recoger-evidencia.sh el 2026-09-16 08:12:32 CST
+# Generado por P8/scripts/05-recoger-evidencia.sh el 2026-09-19 08:53:34 CST
 #
 # Comando: kubectl get ... -l app.kubernetes.io/managed-by=Terraform
 # 
@@ -10,13 +10,13 @@
 
 ## Namespaces, cuotas y límites
 NAME                      STATUS   AGE
-namespace/argo-rollouts   Active   31h
-namespace/sa-p8-prod      Active   31h
-namespace/sa-p8-stage     Active   31h
+namespace/argo-rollouts   Active   4d8h
+namespace/sa-p8-prod      Active   4d8h
+namespace/sa-p8-stage     Active   4d8h
 
 NAMESPACE     NAME                        REQUEST                                                                                      LIMIT                                              AGE
-sa-p8-prod    resourcequota/sa-p8-quota   persistentvolumeclaims: 2/5, pods: 15/40, requests.cpu: 1/4, requests.memory: 3200Mi/6Gi     limits.cpu: 9/16, limits.memory: 7424Mi/14Gi       31h
-sa-p8-stage   resourcequota/sa-p8-quota   persistentvolumeclaims: 2/5, pods: 9/30, requests.cpu: 325m/2, requests.memory: 1376Mi/3Gi   limits.cpu: 3500m/12, limits.memory: 3328Mi/10Gi   31h
+sa-p8-prod    resourcequota/sa-p8-quota   persistentvolumeclaims: 2/5, pods: 15/40, requests.cpu: 1/4, requests.memory: 3200Mi/6Gi     limits.cpu: 9/16, limits.memory: 7424Mi/14Gi       4d8h
+sa-p8-stage   resourcequota/sa-p8-quota   persistentvolumeclaims: 2/5, pods: 9/30, requests.cpu: 325m/2, requests.memory: 1376Mi/3Gi   limits.cpu: 3500m/12, limits.memory: 3328Mi/10Gi   4d8h
 
 NAMESPACE     NAME                      CREATED AT
 sa-p8-prod    limitrange/sa-p8-limits   2026-09-15T06:41:56Z
@@ -24,9 +24,9 @@ sa-p8-stage   limitrange/sa-p8-limits   2026-09-15T06:41:56Z
 
 ## RBAC de namespace
 NAMESPACE     NAME                           AGE
-kube-system   serviceaccount/sa-p8-auditor   12h
-sa-p8-prod    serviceaccount/sa-p8-lectura   31h
-sa-p8-stage   serviceaccount/sa-p8-lectura   31h
+kube-system   serviceaccount/sa-p8-auditor   3d13h
+sa-p8-prod    serviceaccount/sa-p8-lectura   4d8h
+sa-p8-stage   serviceaccount/sa-p8-lectura   4d8h
 
 NAMESPACE     NAME                                                     CREATED AT
 sa-p8-prod    role.rbac.authorization.k8s.io/sa-p8-lectura             2026-09-15T06:41:56Z
@@ -34,16 +34,16 @@ sa-p8-stage   role.rbac.authorization.k8s.io/sa-p8-lectura             2026-09-1
 sa-p8-stage   role.rbac.authorization.k8s.io/sa-p8-operador-rollouts   2026-09-15T06:41:56Z
 
 NAMESPACE     NAME                                                            ROLE                           AGE
-sa-p8-prod    rolebinding.rbac.authorization.k8s.io/sa-p8-lectura             Role/sa-p8-lectura             31h
-sa-p8-stage   rolebinding.rbac.authorization.k8s.io/sa-p8-lectura             Role/sa-p8-lectura             31h
-sa-p8-stage   rolebinding.rbac.authorization.k8s.io/sa-p8-operador-rollouts   Role/sa-p8-operador-rollouts   31h
+sa-p8-prod    rolebinding.rbac.authorization.k8s.io/sa-p8-lectura             Role/sa-p8-lectura             4d8h
+sa-p8-stage   rolebinding.rbac.authorization.k8s.io/sa-p8-lectura             Role/sa-p8-lectura             4d8h
+sa-p8-stage   rolebinding.rbac.authorization.k8s.io/sa-p8-operador-rollouts   Role/sa-p8-operador-rollouts   4d8h
 
 ## RBAC de clúster
 NAME                                                  CREATED AT
 clusterrole.rbac.authorization.k8s.io/sa-p8-auditor   2026-09-15T06:41:56Z
 
 NAME                                                         ROLE                        AGE
-clusterrolebinding.rbac.authorization.k8s.io/sa-p8-auditor   ClusterRole/sa-p8-auditor   31h
+clusterrolebinding.rbac.authorization.k8s.io/sa-p8-auditor   ClusterRole/sa-p8-auditor   4d8h
 
 ## Detalle de las cuotas
 ### sa-p8-stage

@@ -1,19 +1,27 @@
 # Prohibición de despliegue directo
-# Generado por P8/scripts/05-recoger-evidencia.sh el 2026-09-16 08:12:33 CST
+# Generado por P8/scripts/05-recoger-evidencia.sh el 2026-09-19 08:53:35 CST
 #
 # Comando: P8/scripts/99-guardian.sh
 # 
-# El requisito de la rúbrica (§8.1). La comprobación corre en cada Pull
-# Request, así que no depende de que alguien la recuerde antes de entregar.
+# El requisito de la rúbrica (§8.1), sobre TODOS los workflows del
+# repositorio. La comprobación corre en cada Pull Request que toque uno,
+# así que no depende de que alguien la recuerde antes de entregar.
 
-▸ Revisando 2 workflow(s) de la Práctica 8
+▸ Revisando 5 workflow(s) del repositorio
 
+    · .github/workflows/p7-ci.yml
+    · .github/workflows/p7-pipeline.yml
+    · .github/workflows/p7-release.yml
+    · .github/workflows/p8-ci.yml
+    · .github/workflows/p8-release.yml
+
+  ✓ ninguna credencial de clúster (kubeconfig, get-credentials, GCP_*, GKE_*, KUBE_*)
   ✓ sin kubectl apply/create/patch/delete/replace/set image/rollout
   ✓ sin helm upgrade/install/uninstall
-  ✓ sin kubeconfig ni get-credentials
-  ✓ sin secretos de clúster
+  · 2 línea(s) exentas en .github/workflows/p7-pipeline.yml, job «desplegar» (líneas 555–841):
+    clúster kind creado y destruido dentro del propio job, sin más secreto que GITHUB_TOKEN
 
-✓ El pipeline de la Práctica 8 no puede desplegar.
+✓ Ningún workflow puede desplegar en el clúster.
 
 ## Lo que declaran los workflows de la P8
 ### p8-ci.yml

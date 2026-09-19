@@ -1,0 +1,112 @@
+# Incidentes reales — lo que salió mal sin que nadie lo provocara
+# Generado el 2026-09-19 08:45:59 CST
+#
+# Dos fallos que NO eran el fallo inducido, ocurridos mientras se entregaba
+# la plataforma. Se documentan porque demuestran lo mismo que el fallo
+# inducido, por otra vía: el canary contuvo los dos sin afectar a nadie.
+
+═══════════════════════════════════════════════════════════════════════════
+## 1 · La versión 1.1.0 solo existía para amd64, y el nodo es arm64
+═══════════════════════════════════════════════════════════════════════════
+
+   Qué pasó: el pipeline heredaba de la P6 `platforms: linux/amd64`, porque
+   los nodos de GKE son amd64. El nodo de kind corre en un Mac con Apple
+   Silicon. Al fusionar el PR de 1.1.0
+   (https://github.com/marcosbondel/sa-gitops-202202410/pull/3), el kubelet
+   respondió «no match for platform in manifest».
+
+   Cómo se contuvo: el pod canary nunca estuvo listo, así que el Rollout
+   nunca completó el primer setWeight. El peso del Ingress canary se quedó
+   en 0 % y los usuarios siguieron recibiendo 200 de la versión estable.
+
+   Corrección: imágenes para amd64 y arm64, cada una escaneada antes de
+   publicar (PR #5 del repositorio de código), y versión 1.2.0.
+
+   ## 2026-09-19 08:10:08 UTC — sa-p8-stage con 1.1.0 (solo amd64) en un nodo arm64
+   
+   NODO                  ARQUITECTURA
+   sa-p8-control-plane   arm64
+   
+   Name:            sa-platform-api-gateway
+   Namespace:       sa-p8-stage
+   Status:          ◌ Progressing
+   Message:         more replicas need to be updated
+   Strategy:        Canary
+     Step:          0/7
+     SetWeight:     10
+     ActualWeight:  0
+   Images:          ghcr.io/marcosbondel/api-gateway:1.0.0 (stable)
+                    ghcr.io/marcosbondel/api-gateway:1.1.0 (canary)
+   Replicas:
+     Desired:       2
+     Current:       3
+     Updated:       1
+     Ready:         2
+     Available:     2
+   
+   NAME                                                           KIND         STATUS              AGE    INFO
+   ⟳ sa-platform-api-gateway                                      Rollout      ◌ Progressing       4d
+   ├──# revision:7
+   │  └──⧉ sa-platform-api-gateway-6685f799bc                     ReplicaSet   ◌ Progressing       5m56s  canary
+   │     └──□ sa-platform-api-gateway-6685f799bc-7sgbk            Pod          ⚠ ImagePullBackOff  5m56s  ready:0/1
+   ├──# revision:6
+   │  ├──⧉ sa-platform-api-gateway-5df766fdfb                     ReplicaSet   ✔ Healthy           3d7h   stable
+   │  │  ├──□ sa-platform-api-gateway-5df766fdfb-tvv84            Pod          ✔ Running           2d18h  ready:1/1,restarts:1
+   
+   ## Peso del Ingress canary
+   canary-weight=0
+   
+   ## Eventos del pod canary
+   2m4s        Warning   Failed   pod/sa-platform-api-gateway-6685f799bc-7sgbk            Failed to pull image "ghcr.io/marcosbondel/api-gateway:1.1.0": rpc error: code = NotFound des
+   2m4s        Warning   Failed   pod/sa-platform-api-gateway-6685f799bc-7sgbk            Error: ErrImagePull
+   34s         Warning   Failed   pod/sa-platform-api-gateway-6685f799bc-7sgbk            Error: ImagePullBackOff
+   
+   ## Salud vista por un usuario durante el incidente
+   200 200 200 200 200
+
+═══════════════════════════════════════════════════════════════════════════
+## 2 · El portátil se suspendió en plena puerta de análisis
+═══════════════════════════════════════════════════════════════════════════
+
+   Qué pasó: el primer canary de 1.2.0 en stage subió al 10 % a las 08:28 y
+   el Mac se suspendió con la prueba de carga corriendo. Al despertar, el Job
+   había superado su activeDeadlineSeconds (200 s):
+
+      Failed=True DeadlineExceeded: Job was active longer than specified deadline
+
+   La métrica «carga» quedó en Failed y el Rollout abortó una versión sana.
+
+   Por qué es el comportamiento correcto: una puerta que no llega a un
+   veredicto no puede aprobar. El sistema FALLÓ CERRADO: devolvió el tráfico
+   a la versión estable en vez de promover algo que nadie había medido.
+
+   Cómo se resolvió: `kubectl argo rollouts retry rollout` —la acción para
+   la que existe el rol sa-p8-operador-rollouts de Terraform—, que no cambia
+   el estado declarado en Git: vuelve a intentar la misma versión. El
+   reintento promovió en 412 s (06-promocion-canary-exitosa.txt).
+
+   Prevención: `caffeinate -dims` durante cualquier demostración.
+
+   Registro del intento suspendido (los saltos de hora son la suspensión):
+   08:26:20  T+   0s  fase=Progressing paso=0/7  peso-canary=  0%  abort=false  analysisrun=sa-platform-api-gateway-5df766fdfb-6.1 Inconclusive
+   08:26:35  T+  15s  fase=Progressing paso=0/7  peso-canary=  0%  abort=false  analysisrun=sa-platform-api-gateway-5df766fdfb-6.1 Inconclusive
+   08:26:50  T+  30s  fase=Progressing paso=0/7  peso-canary=  0%  abort=false  analysisrun=sa-platform-api-gateway-5df766fdfb-6.1 Inconclusive
+   08:27:05  T+  45s  fase=Progressing paso=0/7  peso-canary=  0%  abort=false  analysisrun=sa-platform-api-gateway-5df766fdfb-6.1 Inconclusive
+   08:27:21  T+  61s  fase=Progressing paso=0/7  peso-canary=  0%  abort=false  analysisrun=sa-platform-api-gateway-5df766fdfb-6.1 Inconclusive
+   08:27:36  T+  76s  fase=Progressing paso=0/7  peso-canary=  0%  abort=false  analysisrun=sa-platform-api-gateway-5df766fdfb-6.1 Inconclusive
+   08:27:51  T+  91s  fase=Progressing paso=0/7  peso-canary=  0%  abort=false  analysisrun=sa-platform-api-gateway-5df766fdfb-6.1 Inconclusive
+   08:28:06  T+ 106s  fase=Progressing paso=0/7  peso-canary=  0%  abort=false  analysisrun=sa-platform-api-gateway-5df766fdfb-6.1 Inconclusive
+   08:28:21  T+ 121s  fase=Progressing paso=0/7  peso-canary=  0%  abort=false  analysisrun=sa-platform-api-gateway-5df766fdfb-6.1 Inconclusive
+   08:28:37  T+ 137s  fase=Progressing paso=1/7  peso-canary= 10%  abort=false  analysisrun=sa-platform-api-gateway-86bd6d9c94-8-1 Running
+   08:28:52  T+ 152s  fase=Progressing paso=1/7  peso-canary= 10%  abort=false  analysisrun=sa-platform-api-gateway-86bd6d9c94-8-1 Running
+   09:03:11  T+2211s  fase=Progressing paso=1/7  peso-canary= 10%  abort=false  analysisrun=sa-platform-api-gateway-86bd6d9c94-8-1 Running
+   09:52:00  T+5140s  fase=Progressing paso=1/7  peso-canary= 10%  abort=false  analysisrun=sa-platform-api-gateway-86bd6d9c94-8-1 Running
+   09:52:16  T+5156s  fase=Progressing paso=1/7  peso-canary= 10%  abort=false  analysisrun=sa-platform-api-gateway-86bd6d9c94-8-1 Running
+   10:07:31  T+6071s  fase=Progressing paso=1/7  peso-canary= 10%  abort=false  analysisrun=sa-platform-api-gateway-86bd6d9c94-8-1 Running
+   10:30:01  T+7421s  fase=Progressing paso=1/7  peso-canary= 10%  abort=false  analysisrun=sa-platform-api-gateway-86bd6d9c94-8-1 Running
+   10:30:16  T+7436s  fase=Progressing paso=1/7  peso-canary= 10%  abort=false  analysisrun=sa-platform-api-gateway-86bd6d9c94-8-1 Running
+   10:30:31  T+7451s  fase=Progressing paso=1/7  peso-canary= 10%  abort=false  analysisrun=sa-platform-api-gateway-86bd6d9c94-8-1 Running
+   11:03:54  T+9454s  fase=Progressing paso=1/7  peso-canary= 10%  abort=false  analysisrun=sa-platform-api-gateway-86bd6d9c94-8-1 Running
+   11:30:59  T+11079s  fase=Progressing paso=1/7  peso-canary= 10%  abort=false  analysisrun=sa-platform-api-gateway-86bd6d9c94-8-1 Running
+   11:31:14  T+11094s  fase=Progressing paso=1/7  peso-canary= 10%  abort=false  analysisrun=sa-platform-api-gateway-86bd6d9c94-8-1 Running
+   11:31:29  T+11109s  fase=Degraded    paso=0/7  peso-canary=  0%  abort=true   analysisrun=sa-platform-api-gateway-86bd6d9c94-8-1 Failed
