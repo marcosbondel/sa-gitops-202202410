@@ -1,100 +1,104 @@
-# Cadena de suministro — Trivy, SBOM y firma con Cosign
-# Generado el 2026-09-16 07:34:19
+# Cadena de suministro — Trivy, SBOM, firma con Cosign y verificación en el clúster
+# Generado el 2026-09-19 08:44:37 CST
 #
-# Run: https://github.com/marcosbondel/Practicas-SA-B-202202410/actions/runs/35102330752
-# Tag: p8-v1.0.0  ->  imagenes ghcr.io/marcosbondel/<servicio>:1.0.0
+# Run: https://github.com/marcosbondel/Practicas-SA-B-202202410/actions/runs/35431569959
+# Tag: p8-v1.2.0  ->  imagenes ghcr.io/marcosbondel/<servicio>:1.2.0 (amd64 + arm64)
 #
-# Artefactos descargados con `gh run download`. Todo lo de abajo lo produjo
-# el pipeline, no esta maquina.
+# Las secciones 1 a 3 salen de los artefactos del pipeline (`gh run download`).
+# La 4 se ejecutó desde fuera, SIN credenciales, como lo haría el evaluador.
+# La 5 es el clúster haciendo la misma verificación al admitir cada pod.
 
-## 1 · Firmas verificadas
+## 1 · Firmas verificadas dentro del pipeline
 
-   `cosign verify` se ejecuto DENTRO del pipeline, justo despues de firmar.
-   Verificar la firma que uno mismo acaba de poner no es redundante: es lo
-   que demuestra que es VERIFICABLE, y no solo que se ejecuto el comando.
+   `cosign verify` se ejecutó DENTRO del pipeline, justo después de firmar,
+   exigiendo la identidad del workflow p8-release.yml de ESTE repositorio.
 
    ── api-gateway
-      imagen   ghcr.io/marcosbondel/api-gateway:1.0.0
-      digest   sha256:e16188752c54089de730c4021b7322d2a4a718c04bba952ca502bc51d176a95f
-      firmante https://github.com/marcosbondel/Practicas-SA-B-202202410/.github/workflows/p8-release.yml@refs/tags/p8-v1.0.0
+      firmante https://github.com/marcosbondel/Practicas-SA-B-202202410/.github/workflows/p8-release.yml@refs/tags/p8-v1.2.0
       emisor   https://token.actions.githubusercontent.com
-      Rekor    logIndex 2861877174
-
+      Rekor    logIndex 2891886393
    ── auth-service
-      imagen   ghcr.io/marcosbondel/auth-service:1.0.0
-      digest   sha256:50a9fd9aa3c2e3358b4b85d72bba231522caada0654e5eee53f201f90d7dc052
-      firmante https://github.com/marcosbondel/Practicas-SA-B-202202410/.github/workflows/p8-release.yml@refs/tags/p8-v1.0.0
+      firmante https://github.com/marcosbondel/Practicas-SA-B-202202410/.github/workflows/p8-release.yml@refs/tags/p8-v1.2.0
       emisor   https://token.actions.githubusercontent.com
-      Rekor    logIndex 2861881359
-
+      Rekor    logIndex 2891894988
    ── catalog-service
-      imagen   ghcr.io/marcosbondel/catalog-service:1.0.0
-      digest   sha256:b72d7a5e741f3c1ce786fe57855b878bdce2bfaafa0ad4a4ab53cbe0369f9094
-      firmante https://github.com/marcosbondel/Practicas-SA-B-202202410/.github/workflows/p8-release.yml@refs/tags/p8-v1.0.0
+      firmante https://github.com/marcosbondel/Practicas-SA-B-202202410/.github/workflows/p8-release.yml@refs/tags/p8-v1.2.0
       emisor   https://token.actions.githubusercontent.com
-      Rekor    logIndex 2861876021
-
+      Rekor    logIndex 2891886967
    ── cronjobs
-      imagen   ghcr.io/marcosbondel/cronjobs:1.0.0
-      digest   sha256:fa58de9996db4923208ad459a1b09014aa23d42a49236288f0fd7a9b6473db94
-      firmante https://github.com/marcosbondel/Practicas-SA-B-202202410/.github/workflows/p8-release.yml@refs/tags/p8-v1.0.0
+      firmante https://github.com/marcosbondel/Practicas-SA-B-202202410/.github/workflows/p8-release.yml@refs/tags/p8-v1.2.0
       emisor   https://token.actions.githubusercontent.com
-      Rekor    logIndex 2861878159
-
+      Rekor    logIndex 2891889461
    ── notification-service
-      imagen   ghcr.io/marcosbondel/notification-service:1.0.0
-      digest   sha256:561e51b5bc1b3ddc91ceda77dac932f5ce414ef234218b68d2f11d1c06f7b5e6
-      firmante https://github.com/marcosbondel/Practicas-SA-B-202202410/.github/workflows/p8-release.yml@refs/tags/p8-v1.0.0
+      firmante https://github.com/marcosbondel/Practicas-SA-B-202202410/.github/workflows/p8-release.yml@refs/tags/p8-v1.2.0
       emisor   https://token.actions.githubusercontent.com
-      Rekor    logIndex 2861882682
-
+      Rekor    logIndex 2891891452
    ── order-service
-      imagen   ghcr.io/marcosbondel/order-service:1.0.0
-      digest   sha256:8e8d7933b6a2fd0e786ce2fb9be14a6e2ea32c7c17b780bbf1ac014b8aa1d50b
-      firmante https://github.com/marcosbondel/Practicas-SA-B-202202410/.github/workflows/p8-release.yml@refs/tags/p8-v1.0.0
+      firmante https://github.com/marcosbondel/Practicas-SA-B-202202410/.github/workflows/p8-release.yml@refs/tags/p8-v1.2.0
       emisor   https://token.actions.githubusercontent.com
-      Rekor    logIndex 2861880614
+      Rekor    logIndex 2891891734
 
-   El campo `firmante` es el contenido real de la verificacion. No dice
-   «alguien con una clave»: dice que firmo el workflow p8-release.yml de
-   ESTE repositorio, en ESTE tag. Sin las banderas
-   --certificate-identity-regexp y --certificate-oidc-issuer, cualquier
-   firma valida de cualquier persona pasaria la verificacion.
-
-   No hay ninguna clave privada que custodiar: el certificado es efimero y
+   No hay ninguna clave privada que custodiar: el certificado es efímero y
    se obtiene de Fulcio a cambio de un token OIDC de GitHub Actions.
 
-## 2 · Trivy — ninguna CVE critica con parche disponible
+## 2 · Trivy — ninguna CVE crítica con parche disponible, en amd64 NI en arm64
 
-   api-gateway            HIGH:2  MEDIUM:6  LOW:2
-   auth-service           HIGH:17  MEDIUM:13  LOW:5
-   catalog-service        HIGH:3  MEDIUM:5  LOW:2
-   cronjobs               HIGH:9  MEDIUM:6  LOW:1
-   notification-service   HIGH:12  MEDIUM:10  LOW:2
-   order-service          HIGH:12  MEDIUM:10  LOW:2
+   api-gateway            CRITICAL:0  HIGH:2  MEDIUM:6  LOW:2
+   auth-service           CRITICAL:0  HIGH:10  MEDIUM:13  LOW:5
+   catalog-service        CRITICAL:0  HIGH:3  MEDIUM:5  LOW:2
+   cronjobs               CRITICAL:0  HIGH:2  MEDIUM:6  LOW:1
+   notification-service   CRITICAL:0  HIGH:5  MEDIUM:10  LOW:2
+   order-service          CRITICAL:0  HIGH:5  MEDIUM:10  LOW:2
 
-   Lo que BLOQUEA la entrega es solo CRITICAL, y solo si tiene parche
-   (`ignore-unfixed`). El criterio esta razonado en P8/trivy.yaml: una
-   puerta que bloquea por cualquier hallazgo se desactiva en la primera
-   semana, y una puerta desactivada no protege nada.
-
-   La prueba de que SI bloquea cuando debe esta en
+   Cada arquitectura se construyó y se escaneó por separado ANTES de publicar,
+   con una puerta CRITICAL en cada una. El reporte completo de arriba es el
+   de amd64. Lo que BLOQUEA es solo CRITICAL con parche (`ignore-unfixed`);
+   el criterio está en P8/trivy.yaml, y la prueba de que sí bloquea está en
    12-pr-bloqueado-por-cve.txt.
 
-## 3 · SBOM — la lista de materiales
+## 3 · SBOM — CycloneDX, una por arquitectura
 
-   Formato CycloneDX, generado de la imagen CONSTRUIDA y no del
-   package-lock: lo que corre en produccion es la imagen, y dentro hay
-   ademas paquetes del sistema base que ningun manifiesto del lenguaje
-   menciona.
+   api-gateway            amd64 112 componentes · arm64 112 componentes   (125 KiB c/u)
+   auth-service           amd64  91 componentes · arm64  91 componentes   (103 KiB c/u)
+   catalog-service        amd64 184 componentes · arm64 184 componentes   (206 KiB c/u)
+   cronjobs               amd64  69 componentes · arm64  69 componentes   (81 KiB c/u)
+   notification-service   amd64  93 componentes · arm64  93 componentes   (105 KiB c/u)
+   order-service          amd64  93 componentes · arm64  93 componentes   (105 KiB c/u)
 
-   api-gateway             112 componentes   (126 KiB)
-   auth-service             91 componentes   (103 KiB)
-   catalog-service         184 componentes   (206 KiB)
-   cronjobs                 69 componentes   (81 KiB)
-   notification-service     93 componentes   (105 KiB)
-   order-service            93 componentes   (105 KiB)
+   Generadas de la imagen CONSTRUIDA, no del package-lock: dentro hay además
+   paquetes del sistema base que ningún manifiesto del lenguaje menciona.
 
-   Responde en segundos a la pregunta que se hace el dia que sale una
-   vulnerabilidad nueva: «¿tenemos esa libreria, y en que version?». Sin
-   SBOM habria que reconstruir cada imagen y mirar dentro.
+## 4 · La misma verificación, desde fuera y sin credenciales
+
+   cosign verify ghcr.io/marcosbondel/<servicio>:1.2.0 \
+     --certificate-identity-regexp '^https://github.com/marcosbondel/Practicas-SA-B-202202410/\.github/workflows/p8-release\.yml@refs/' \
+     --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+   ✓ api-gateway            sha256:ee80a4f414b0ec0afbcdb6f1e58bebceb1d25e200be43327564b00628530645b
+   ✓ auth-service           sha256:baeae2d30d61ed88128fa2a8c83d0e19a93f1812fb6456424251069411ad9648
+   ✓ catalog-service        sha256:83b0bcdeb809dc5e1626f2f4f5ff55e6073941f7cd84a4717836a2b99183699f
+   ✓ cronjobs               sha256:bb3d61efcb434c2ab851f6387e0f4f9cb6d605ce2a0935875345b4978e594783
+   ✓ notification-service   sha256:a9c95714a9401da2db8098e2767dd2e0f9222b5a5b34dd7cffd3dc160f3923cb
+   ✓ order-service          sha256:18ec5dbb1ad25380c21a2f05b2c773748416c7e53291cdaa884132829ef540d9
+
+   Plataformas publicadas en cada índice: linux/amd64, linux/arm64.
+
+## 5 · El clúster verifica la firma al admitir cada pod (Kyverno)
+
+   Política sa-p8-verificar-firma (policies/04-verificar-firma.yaml): exige
+   la misma identidad que el paso 4, y con mutateDigest fija cada pod al
+   digest que verificó. Extracto del registro del controlador de admisión:
+
+   2026-09-19T14:14:47Z ERR  > failed to verify image error=".attestors[0].entries[0].keyless: no signatures found" image=ghcr.io/marcosbondel/api-gateway:sha-9a2d402 logger=engine.verify new.kind=Pod ne
+   2026-09-19T14:14:47Z INF  > image attestors verification failed errors=".attestors[0].entries[0].keyless: no signatures found" image=ghcr.io/marcosbondel/api-gateway:sha-9a2d402 logger=engine.verify n
+   2026-09-19T14:16:00Z TRC  > image attestors verification succeeded image=ghcr.io/marcosbondel/cronjobs:1.2.0 logger=engine.verify new.kind=Pod new.name= new.namespace=sa-p8-prod policy.apply=All polic
+   2026-09-19T14:38:10Z TRC  > image attestors verification succeeded image=ghcr.io/marcosbondel/api-gateway:1.2.1-fallo logger=engine.verify new.kind=Pod new.name= new.namespace=sa-p8-stage policy.apply
+
+   Pods de CronJob de prod creados después de activar la política: la
+   imagen quedó fijada al digest verificado.
+
+      sa-platform-heartbeat-writer-…  ghcr.io/marcosbondel/cronjobs:1.2.0@sha256:bb3d61efcb434c2ab851f6387e0f4f9cb6d605ce2a0935875345b4978e594783
+
+   Y la imagen de la Práctica 7, que existe en el mismo registro pero no
+   la firmó este pipeline, se rechaza: `no signatures found`. Ver
+   04-despliegue-rechazado.txt.

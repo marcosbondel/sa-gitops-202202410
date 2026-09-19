@@ -1,63 +1,173 @@
-# Promoción canary EXITOSA — api-gateway 1.0.0 → 1.0.1
-# sa-p8-stage · 2026-09-15 19:00:07 CST
+# Promoción canary EXITOSA — plataforma 1.2.0, en stage y en prod
+# Generado el 2026-09-19 08:45:25 CST
 #
-# Disparada por un solo commit en el repositorio GitOps:
-#   envs/stage/values.yaml  api-gateway.image.tag: "1.0.0" -> "1.0.1"
-# Nadie ejecutó kubectl ni helm contra el clúster.
+# Cada escalón está condicionado a una puerta de análisis: el Rollout no
+# sube de 10 a 30 ni de 30 a 60 ni de 60 a 100 % hasta que humo,
+# integración y carga pasan contra el Service canary. Nadie ejecutó
+# kubectl ni helm para desplegar: lo disparó el merge de un Pull Request
+# en el repositorio GitOps.
+#
+#   stage: PR https://github.com/marcosbondel/sa-gitops-202202410/pull/4
+#   prod:  PR https://github.com/marcosbondel/sa-gitops-202202410/pull/5
+#          (lo abrió el pipeline en modo promoción, run 35447508318: verificó
+#          las firmas de las seis imágenes 1.2.0 y NO reconstruyó nada)
 
-## Recorrido de los pasos (muestreado cada 30 s)
-  [  0s]  Degraded  step 0/7  peso   0%   (revisión anterior abortada)
-  [ 61s]  Paused    step 1/7  peso  10%   ← primer escalón, análisis midiendo
-  [122s]  Paused    step 1/7  peso  10%
-  [183s]  Paused    step 3/7  peso  30%   ← promovido: el análisis seguía en verde
-  [243s]  Paused    step 3/7  peso  30%
-  [304s]  Paused    step 5/7  peso  60%   ← promovido
-  [426s]  Paused    step 5/7  peso  60%
-  [~470s] Healthy   step 7/7  peso 100%   ← promoción completa
+## Stage · 15 usuarios virtuales · umbrales p95 < 300 ms, p99 < 600 ms
+#  (primer intento abortado por la suspensión del portátil y reintentado con
+#   `kubectl argo rollouts retry`; ver 15-incidentes-reales.txt)
 
-## Estado final del Rollout
-Name:            sa-platform-api-gateway
-Namespace:       sa-p8-stage
-Status:          ✔ Healthy
-Strategy:        Canary
-  Step:          7/7
-  SetWeight:     100
-  ActualWeight:  100
-Images:          ghcr.io/marcosbondel/api-gateway:1.0.1 (stable)
-Replicas:
-  Desired:       2
-  Current:       2
-  Updated:       2
-  Ready:         2
-  Available:     2
+  13:54:30  T+   0s  Progressing paso 1/7  peso canary  10 %
+  13:56:48  T+ 138s  Progressing paso 3/7  peso canary  30 %
+  13:59:05  T+ 275s  Progressing paso 5/7  peso canary  60 %
+  14:01:22  T+ 412s  Healthy     paso 7/7  peso canary   0 %
 
-NAME                                                           KIND         STATUS          AGE    INFO
-⟳ sa-platform-api-gateway                                      Rollout      ✔ Healthy       17h    
-├──# revision:3                                                                                    
-│  ├──⧉ sa-platform-api-gateway-7964865d79                     ReplicaSet   ✔ Healthy       7m44s  stable
-│  │  ├──□ sa-platform-api-gateway-7964865d79-xkshc            Pod          ✔ Running       7m43s  ready:1/1
-│  │  └──□ sa-platform-api-gateway-7964865d79-ffs6l            Pod          ✔ Running       3m39s  ready:1/1
-│  └──α sa-platform-api-gateway-7964865d79-3                   AnalysisRun  ? Inconclusive  7m43s  ✔ 15,? 1
-│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.integracion.1  Job          ✔ Successful    6m43s  
-│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.integracion.2  Job          ✔ Successful    5m37s  
-│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.integracion.3  Job          ✔ Successful    4m31s  
-│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.integracion.4  Job          ✔ Successful    3m25s  
-│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.integracion.5  Job          ✔ Successful    2m19s  
-│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.integracion.6  Job          ✔ Successful    73s    
-│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.humo.1         Job          ✔ Successful    6m43s  
-│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.humo.2         Job          ✔ Successful    5m54s  
-│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.humo.3         Job          ✔ Successful    5m5s   
-│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.humo.4         Job          ✔ Successful    4m14s  
-│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.humo.5         Job          ✔ Successful    3m25s  
-│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.humo.6         Job          ✔ Successful    2m36s  
-│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.humo.7         Job          ✔ Successful    107s   
-│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.humo.8         Job          ✔ Successful    58s    
-│     ├──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.carga.1        Job          ✔ Successful    6m13s  
-│     └──⊞ f7ba40ed-a5d9-4b0b-a29a-ae1e8bb54346.carga.2        Job          ? Inconclusive  93s    
-├──# revision:2                                                                                    
-│  ├──⧉ sa-platform-api-gateway-5df766fdfb                     ReplicaSet   • ScaledDown    21m    delay:passed
+### Veredicto de cada puerta
+  ════ AnalysisRun sa-platform-api-gateway-86bd6d9c94-8-1.1 — Successful
+    integracion: Successful (ok=1 fallos=)
+    humo: Successful (ok=1 fallos=)
+    carga: Successful (ok=1 fallos=)
+    ── humo
+         ✓ liveness del gateway                           HTTP 200
+         ✓ readiness del gateway                          HTTP 200
+         ✓ salud agregada de los 4 servicios              HTTP 200
+         ✓ mapa de la API                                 HTTP 200
+         ✓ introspect sigue cerrada                       HTTP 404
+         ✓ pedidos exigen sesión                         HTTP 401
+    ── integracion
+         ✓ registro de usuario                          HTTP 201
+         ✓ inicio de sesión                            HTTP 200
+         ✓ identidad de la sesión                      HTTP 200
+         ✓ consulta GraphQL del catálogo               HTTP 200
+         ✓ listado de pedidos del usuario               HTTP 200
+         ✓ bandeja de notificaciones                    HTTP 200
+         ✓ cierre de sesión                            HTTP 200
+         ✓ la sesión quedó cerrada                    HTTP 401
+    ── carga
+          3102 peticiones medidas · 15 usuarios virtuales
+         ✓ tasa de error          0.00 %       umbral < 1.00 %
+         ✓ latencia p95           12 ms        umbral < 300 ms
+         ✓ latencia p99           61 ms        umbral < 600 ms
+  ════ AnalysisRun sa-platform-api-gateway-86bd6d9c94-8-3 — Successful
+    integracion: Successful (ok=1 fallos=)
+    carga: Successful (ok=1 fallos=)
+    humo: Successful (ok=1 fallos=)
+    ── humo
+         ✓ liveness del gateway                           HTTP 200
+         ✓ readiness del gateway                          HTTP 200
+         ✓ salud agregada de los 4 servicios              HTTP 200
+         ✓ mapa de la API                                 HTTP 200
+         ✓ introspect sigue cerrada                       HTTP 404
+         ✓ pedidos exigen sesión                         HTTP 401
+    ── integracion
+         ✓ registro de usuario                          HTTP 201
+         ✓ inicio de sesión                            HTTP 200
+         ✓ identidad de la sesión                      HTTP 200
+         ✓ consulta GraphQL del catálogo               HTTP 200
+         ✓ listado de pedidos del usuario               HTTP 200
+         ✓ bandeja de notificaciones                    HTTP 200
+         ✓ cierre de sesión                            HTTP 200
+         ✓ la sesión quedó cerrada                    HTTP 401
+    ── carga
+          3116 peticiones medidas · 15 usuarios virtuales
+         ✓ tasa de error          0.00 %       umbral < 1.00 %
+         ✓ latencia p95           11 ms        umbral < 300 ms
+         ✓ latencia p99           59 ms        umbral < 600 ms
+  ════ AnalysisRun sa-platform-api-gateway-86bd6d9c94-8-5 — Successful
+    integracion: Successful (ok=1 fallos=)
+    humo: Successful (ok=1 fallos=)
+    carga: Successful (ok=1 fallos=)
+    ── humo
+         ✓ liveness del gateway                           HTTP 200
+         ✓ readiness del gateway                          HTTP 200
+         ✓ salud agregada de los 4 servicios              HTTP 200
+         ✓ mapa de la API                                 HTTP 200
+         ✓ introspect sigue cerrada                       HTTP 404
+         ✓ pedidos exigen sesión                         HTTP 401
+    ── integracion
+         ✓ registro de usuario                          HTTP 201
+         ✓ inicio de sesión                            HTTP 200
+         ✓ identidad de la sesión                      HTTP 200
+         ✓ consulta GraphQL del catálogo               HTTP 200
+         ✓ listado de pedidos del usuario               HTTP 200
+         ✓ bandeja de notificaciones                    HTTP 200
+         ✓ cierre de sesión                            HTTP 200
+         ✓ la sesión quedó cerrada                    HTTP 401
+    ── carga
+          3120 peticiones medidas · 15 usuarios virtuales
+         ✓ tasa de error          0.00 %       umbral < 1.00 %
+         ✓ latencia p95           10 ms        umbral < 300 ms
+         ✓ latencia p99           18 ms        umbral < 600 ms
 
-## Resultado del análisis de fondo
-integracion: Successful  exitosas=6 fallidas= inconclusas=
-humo: Successful  exitosas=8 fallidas= inconclusas=
-carga: Inconclusive  exitosas=1 fallidas= inconclusas=1
+### Estado final
+  Name:            sa-platform-api-gateway
+  Namespace:       sa-p8-stage
+  Status:          ✔ Healthy
+  Strategy:        Canary
+    Step:          7/7
+    SetWeight:     100
+    ActualWeight:  100
+  Images:          ghcr.io/marcosbondel/api-gateway:1.2.0 (stable)
+  Replicas:
+    Desired:       2
+    Current:       2
+    Updated:       2
+    Ready:         2
+    Available:     2
+  
+  NAME                                                           KIND         STATUS          AGE    INFO
+  ⟳ sa-platform-api-gateway                                      Rollout      ✔ Healthy       4d6h   
+  ├──# revision:8                                                                                    
+  │  ├──⧉ sa-platform-api-gateway-86bd6d9c94                     ReplicaSet   ✔ Healthy       5h35m  stable
+  │  │  ├──□ sa-platform-api-gateway-86bd6d9c94-zldln            Pod          ✔ Running       7m21s  ready:1/1
+  │  │  └──□ sa-platform-api-gateway-86bd6d9c94-b5g9b            Pod          ✔ Running       2m50s  ready:1/1
+  │  ├──α sa-platform-api-gateway-86bd6d9c94-8-1                 AnalysisRun  ✖ Failed        5h33m  ✔ 2,✖ 1
+
+## Prod · 30 usuarios virtuales · umbrales más estrictos: p95 < 200 ms, p99 < 400 ms, error < 0,5 %
+
+  14:05:19  T+   0s  Progressing paso 1/7  peso canary  10 %
+  14:07:36  T+ 137s  Progressing paso 3/7  peso canary  30 %
+  14:09:38  T+ 259s  Progressing paso 4/7  peso canary  30 %
+  14:09:53  T+ 274s  Progressing paso 5/7  peso canary  60 %
+  14:11:55  T+ 396s  Progressing paso 6/7  peso canary  60 %
+  14:12:10  T+ 411s  Healthy     paso 7/7  peso canary   0 %
+
+### Veredicto de la prueba de carga en cada puerta
+  == sa-platform-api-gateway-585fc84d45-4-1 Successful
+        6240 peticiones medidas · 30 usuarios virtuales
+       ✓ tasa de error          0.00 %       umbral < 0.50 %
+       ✓ latencia p95           14 ms        umbral < 200 ms
+       ✓ latencia p99           41 ms        umbral < 400 ms
+  == sa-platform-api-gateway-585fc84d45-4-3 Successful
+        6240 peticiones medidas · 30 usuarios virtuales
+       ✓ tasa de error          0.00 %       umbral < 0.50 %
+       ✓ latencia p95           12 ms        umbral < 200 ms
+       ✓ latencia p99           35 ms        umbral < 400 ms
+  == sa-platform-api-gateway-585fc84d45-4-5 Successful
+        6240 peticiones medidas · 30 usuarios virtuales
+       ✓ tasa de error          0.00 %       umbral < 0.50 %
+       ✓ latencia p95           13 ms        umbral < 200 ms
+       ✓ latencia p99           19 ms        umbral < 400 ms
+
+### Estado final
+  Name:            sa-platform-api-gateway
+  Namespace:       sa-p8-prod
+  Status:          ✔ Healthy
+  Strategy:        Canary
+    Step:          7/7
+    SetWeight:     100
+    ActualWeight:  100
+  Images:          ghcr.io/marcosbondel/api-gateway:1.2.0 (stable)
+  Replicas:
+    Desired:       3
+    Current:       3
+    Updated:       3
+    Ready:         3
+    Available:     3
+  
+  NAME                                                           KIND         STATUS          AGE    INFO
+  ⟳ sa-platform-api-gateway                                      Rollout      ✔ Healthy       4d7h   
+  ├──# revision:4                                                                                    
+  │  ├──⧉ sa-platform-api-gateway-585fc84d45                     ReplicaSet   ✔ Healthy       7m27s  stable
+  │  │  ├──□ sa-platform-api-gateway-585fc84d45-tm8qs            Pod          ✔ Running       7m27s  ready:1/1
+  │  │  ├──□ sa-platform-api-gateway-585fc84d45-c5jln            Pod          ✔ Running       2m54s  ready:1/1
+  │  │  └──□ sa-platform-api-gateway-585fc84d45-dzrtg            Pod          ✔ Running       37s    ready:1/1

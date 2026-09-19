@@ -1,57 +1,103 @@
-# Fallo inducido y REVERSIÓN AUTOMÁTICA — api-gateway 1.0.1 → 1.0.2 (defectuosa)
-# sa-p8-stage · 2026-09-15 19:03:01 CST
+# Fallo inducido y REVERSIÓN AUTOMÁTICA — api-gateway 1.2.1-fallo
+# Generado el 2026-09-19 08:45:25 CST
 #
-# El defecto: pbkdf2Sync(150 000 iteraciones) en el middleware de correlación,
-# que se ejecuta en todas las peticiones y bloquea el bucle de eventos de Node.
-# Ver P8/fallo-inducido/README.md y correlation.patch.
-#
-# Publicado con un solo commit en el repositorio GitOps. Nadie tocó el clúster.
+# El defecto (P8/fallo-inducido/correlation.patch): pbkdf2Sync en el
+# middleware de correlación. Se publicó por el pipeline real:
+#   git tag p8-v1.2.1-fallo
+#   run  https://github.com/marcosbondel/Practicas-SA-B-202202410/actions/runs/35448183687
+#   PR   https://github.com/marcosbondel/sa-gitops-202202410/pull/7   (una línea)
+# Trivy no lo vio, la firma es válida y Kyverno lo admitió (sección 4): el
+# defecto no es de seguridad. Lo paró la primera puerta del canary.
 
-## Cronología (T0 = commit que publica 1.0.2)
-[  10s] Status: ✔ Healthy   Step: 7/7   ActualWeight: 100  
-[  31s] Status: ॥ Paused  Message: CanaryPauseStep   Step: 1/7   ActualWeight: 10  
-[  51s] Status: ॥ Paused  Message: CanaryPauseStep   Step: 1/7   ActualWeight: 10  
-[  71s] Status: ॥ Paused  Message: CanaryPauseStep   Step: 1/7   ActualWeight: 10  
-[  91s] Status: ॥ Paused  Message: CanaryPauseStep   Step: 1/7   ActualWeight: 10  
-[ 111s] Status: ✖ Degraded  Message: RolloutAborted: Rollout aborted update to revision 4: Background analysis phase error/failed: Metric "carga" assessed Failed due to failed (1) > failureLimit (0)   Step: 0/7   ActualWeight: 0  
+## 1 · Cronología (UTC)
 
-## Veredicto de las tres puertas de calidad
-  integracion: Successful
+  14:36:42  T+  0 s   merge del PR #7: tag "1.2.0" → "1.2.1-fallo"
+  14:38:09  T+ 87 s   ArgoCD sincroniza; RolloutUpdated → revisión 9
+  14:38:35  T+113 s   SwitchService: el Service canary apunta a 1.2.1-fallo; peso 10 %
+  14:39:20  T+158 s   k6 cruza el umbral de p95 y corta la prueba (abortOnFail)
+  14:39:25  T+163 s   AnalysisRunFailed + RolloutAborted → peso 0 %, 100 % en 1.2.0
+
+  Tráfico afectado: 10 % durante ~50 s. Recuperación: 2 min 43 s.
+
+## 2 · Lo que vio el registro, cada 15 s
+
+  14:38:15  T+   0s  Progressing paso 0/7  peso canary   0 %
+  14:38:45  T+  30s  Progressing paso 1/7  peso canary  10 %
+  14:39:31  T+  76s  Degraded    paso 0/7  peso canary   0 %
+
+## 3 · La puerta que lo detuvo
+
+  == AnalysisRun sa-platform-api-gateway-5977f465d6-9-1: Failed · inicio 2026-09-19T14:38:35Z
   humo: Successful
   carga: Failed
+  integracion: Successful
 
-## La puerta que lo detectó: la prueba de carga
+  ── carga
+  ── CARGA contra http://sa-platform-api-gateway-canary.sa-p8-stage.svc.cluster.local:8080
+     232 peticiones medidas · 15 usuarios virtuales
+     15s de calentamiento (descartado) + 90s de medición
+    ✓ tasa de error          0.00 %       umbral < 1.00 %
+    ✗ latencia p95           2584 ms      umbral < 300 ms
+    ✗ latencia p99           3020 ms      umbral < 600 ms
+  time="2026-09-19T14:39:20Z" level=error msg="thresholds on metrics 'http_req_duration{fase:medicion}' were crossed; at least one has abortOnFail enabled, stopping test prematurely"
 
-── CARGA contra http://sa-platform-api-gateway-canary.sa-p8-stage.svc.cluster.local:8080
-   18 peticiones · 15 usuarios virtuales · 90s
+## 4 · Kyverno admitió la imagen: tenía la firma del pipeline
 
-  ✓ tasa de error          0.00 %       umbral < 1.00 %
-  ✗ latencia p95           1675 ms      umbral < 300 ms
-  ✗ latencia p99           1837 ms      umbral < 600 ms
+  2026-09-19T14:38:09Z TRC  > cache entry not found imageRef=ghcr.io/marcosbondel/api-gateway:1.2.1-fallo logger=engine.verify namespace= new.kind=Pod new.name= new.namespace=sa-p8-stage polic
+  2026-09-19T14:38:09Z TRC  > verifying image signatures attestations=0 attestors=1 image=ghcr.io/marcosbondel/api-gateway:1.2.1-fallo logger=engine.verify new.kind=Pod new.name= new.namespace
+  2026-09-19T14:38:10Z TRC  > image attestors verification succeeded image=ghcr.io/marcosbondel/api-gateway:1.2.1-fallo logger=engine.verify new.kind=Pod new.name= new.namespace=sa-p8-stage po
 
-time="2026-09-16T01:02:18Z" level=error msg="thresholds on metrics 'http_req_duration' were crossed; at least one has abortOnFail enabled, stopping test prematurely"
+## 5 · Eventos del Rollout
 
-## Comparación con la línea base
-                   estable 1.0.1  defectuosa 1.0.2 factor
-  latencia p95     9 ms           1675 ms        186x
-  latencia p99     22 ms          1837 ms        84x
-  tasa de error    0.00 %         0.00 %         -
+  2026-09-19T14:38:09Z   NewReplicaSetCreated    Created ReplicaSet sa-platform-api-gateway-5977f465d6 (revision 9)
+  2026-09-19T14:38:09Z   RolloutUpdated          Rollout updated to revision 9
+  2026-09-19T14:38:09Z   TrafficWeightUpdated    Traffic weight updated
+  2026-09-19T14:38:09Z   RolloutNotCompleted     Rollout not completed, started update to revision 9 (5977f465d6)
+  2026-09-19T14:38:09Z   ScalingReplicaSet       Scaled up ReplicaSet sa-platform-api-gateway-5977f465d6 (revision 9) from 0 to 1
+  2026-09-19T14:38:35Z   PatchingCanaryIngress   Updating Ingress `sa-platform-api-gateway-sa-platform-canary` to desiredWeight '10'
+  2026-09-19T14:38:35Z   SwitchService           Switched selector for service 'sa-platform-api-gateway-canary' from '86bd6d9c94' to '5977f465d6'
+  2026-09-19T14:39:25Z   AnalysisRunFailed       Step Analysis Run 'sa-platform-api-gateway-5977f465d6-9-1' Status New: 'Failed' Previous: 'Running'
+  2026-09-19T14:39:25Z   RolloutAborted          Rollout aborted update to revision 9: Step-based analysis phase error/failed: Metric "carga" assessed Failed due to failed (1) > failureLimit (0)
 
-  La tasa de error NO cambió: el defecto no rompe nada, solo lo hace lento.
-  Por eso las puertas de humo e integración pasaron.
+## 6 · Estado final
 
-## Estado final del Rollout
-Name:            sa-platform-api-gateway
-Namespace:       sa-p8-stage
-Status:          ✖ Degraded
-Message:         RolloutAborted: Rollout aborted update to revision 4: Background analysis phase error/failed: Metric "carga" assessed Failed due to failed (1) > failureLimit (0)
-Strategy:        Canary
-  Step:          0/7
-  SetWeight:     0
-  ActualWeight:  0
-Images:          ghcr.io/marcosbondel/api-gateway:1.0.1 (stable)
-Replicas:
-  Desired:       2
-  Current:       2
-  Updated:       0
-  Ready:         2
+  Name:            sa-platform-api-gateway
+  Namespace:       sa-p8-stage
+  Status:          ✖ Degraded
+  Message:         RolloutAborted: Rollout aborted update to revision 9: Step-based analysis phase error/failed: Metric "carga" assessed Failed due to failed (1) > failureLimit (0)
+  Strategy:        Canary
+    Step:          0/7
+    SetWeight:     0
+    ActualWeight:  0
+  Images:          ghcr.io/marcosbondel/api-gateway:1.2.0 (stable)
+                   ghcr.io/marcosbondel/api-gateway:1.2.1-fallo (canary)
+  Replicas:
+    Desired:       2
+    Current:       3
+    Updated:       1
+    Ready:         3
+    Available:     3
+  
+  NAME                                                           KIND         STATUS          AGE    INFO
+  ⟳ sa-platform-api-gateway                                      Rollout      ✖ Degraded      4d7h   
+  ├──# revision:9                                                                                    
+  │  ├──⧉ sa-platform-api-gateway-5977f465d6                     ReplicaSet   ✔ Healthy       102s   canary,delay:3s
+  │  │  └──□ sa-platform-api-gateway-5977f465d6-w24vw            Pod          ✔ Running       101s   ready:1/1
+
+## Comparación con la versión estable
+
+  métrica          1.2.0 (estable)    1.2.1-fallo       umbral
+  p95              12 ms              2584 ms           < 300 ms   ✗
+  p99              61 ms              3020 ms           < 600 ms   ✗
+  tasa de error    0,00 %             0,00 %            < 1 %      ✓
+
+  La tasa de error no cambió: el defecto no rompe nada, solo lo hace lento.
+  Por eso humo e integración pasaron, y por eso las tres puertas existen.
+
+## 7 · El repositorio vuelve a la versión estable, por el pipeline
+
+  gh workflow run p8-release.yml -f version=1.2.0 -f ambiente=stage
+  run  https://github.com/marcosbondel/Practicas-SA-B-202202410/actions/runs/35449447313
+  PR   https://github.com/marcosbondel/sa-gitops-202202410/pull/8   (una línea)
+  No forma parte de la recuperación, que ya había ocurrido: existe para que
+  la fuente de verdad no siga declarando una versión que el sistema rechazó.
