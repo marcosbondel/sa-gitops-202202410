@@ -174,26 +174,31 @@ spec:
 
        ## Qué significa cada paso
 
-       `setWeight: N` manda el N % del tráfico a la versión nueva. `pause`
-       detiene el avance hasta que algo lo reanude: un tiempo, o el resultado
-       de un análisis.
+       `setWeight: N` manda el N % del tráfico a la versión nueva. Un paso
+       `analysis:` lanza un AnalysisRun con las plantillas indicadas y NO deja
+       avanzar hasta que termina: si pasa, el rollout sigue con el siguiente
+       `setWeight`; si falla, Argo Rollouts aborta y devuelve el 100 % del
+       tráfico a la versión estable, sin que nadie intervenga.
 
-       ## Por qué el análisis va en `analysis.templates` y no dentro de los pasos
+       ## Por qué el análisis va DENTRO de los pasos
 
-       Hay dos formas de condicionar un canary a un análisis. Una es intercalar
-       pasos `analysis:` entre los `setWeight`, que ejecuta el análisis UNA vez
-       en ese punto y sigue si pasa. La otra —la de aquí— es declarar un
-       análisis **de fondo** que arranca con el rollout y corre durante toda la
-       promoción.
+       El enunciado pide «al menos tres pasos de promoción, cada uno
+       condicionado a un AnalysisTemplate». Con un paso `analysis:` después de
+       cada `setWeight` intermedio, la condición es literal: 10 % → puerta →
+       30 % → puerta → 60 % → puerta → 100 %. Ningún escalón se sube por haber
+       pasado un tiempo, sino porque las tres pruebas acaban de pasar contra la
+       versión candidata CON ese porcentaje de tráfico encima.
 
-       Se eligió la de fondo porque detecta antes. Con análisis por pasos, un
-       defecto que aparece treinta segundos después de promover al 30 % no se
-       nota hasta el siguiente punto de control; con análisis de fondo, la
-       medición que falla aborta el rollout en el momento, esté donde esté.
+       La primera versión de esta práctica usaba análisis de fondo con pausas
+       por tiempo. Detectaba igual de rápido, pero la promoción la decidía el
+       reloj: si el análisis se quedaba sin medir —un Job que no arranca, una
+       métrica `Inconclusive`—, la pausa vencía y el canary subía de escalón
+       igualmente. Con el análisis en los pasos eso es imposible: sin veredicto
+       no hay promoción.
 
-       Los `pause` con duración son los que hacen que el análisis de fondo
-       tenga tiempo de medir: sin ellos, los cuatro `setWeight` se ejecutarían
-       en segundos y el canary llegaría al 100 % antes de la primera muestra.
+       Los pasos se generan a partir de `rollout.pesos`, y no se escriben a
+       mano en los values, para que no pueda existir un `setWeight` intermedio
+       sin su puerta detrás.
        --------------------------------------------------------------------- */}}
   strategy:
     canary:
@@ -222,31 +227,25 @@ spec:
       {{- end }}
       {{- end }}
 
-      {{- with .Values.rollout.analysis }}
-      {{- if .enabled }}
-      # El análisis de fondo. Arranca con el rollout y no para hasta que el
-      # rollout termina o él mismo falla.
-      analysis:
-        templates:
-          {{- range .templates }}
-          - templateName: {{ . }}
-          {{- end }}
-        args:
-          # El nombre del Service canary, para que la plantilla de análisis
-          # sepa contra QUIÉN probar. Sin esto, las pruebas golpearían al
-          # Service estable y medirían la versión vieja: el análisis pasaría
-          # siempre y el canary promovería cualquier cosa.
-          - name: servicio-canary
-            value: {{ $fullname }}-canary
-          - name: namespace
-            value: {{ $ns }}
-      {{- end }}
-      {{- end }}
-
       steps:
-        {{- range .Values.rollout.steps }}
-        {{- toYaml (list .) | nindent 8 }}
+        {{- range $peso := .Values.rollout.pesos }}
+        - setWeight: {{ $peso }}
+        - analysis:
+            templates:
+              {{- range $.Values.rollout.analysis.templates }}
+              - templateName: {{ . }}
+              {{- end }}
+            args:
+              # El nombre del Service canary, para que la plantilla de análisis
+              # sepa contra QUIÉN probar. Sin esto, las pruebas golpearían al
+              # Service estable y medirían la versión vieja: el análisis
+              # pasaría siempre y el canary promovería cualquier cosa.
+              - name: servicio-canary
+                value: {{ $fullname }}-canary
+              - name: namespace
+                value: {{ $ns }}
         {{- end }}
+        - setWeight: 100
   {{- else }}
   strategy:
     type: RollingUpdate

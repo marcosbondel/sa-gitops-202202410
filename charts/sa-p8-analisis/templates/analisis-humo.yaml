@@ -35,6 +35,7 @@ spec:
   metrics:
     - name: humo
       interval: {{ .Values.cadencia.humo.intervalo }}
+      count: {{ .Values.cadencia.humo.mediciones }}
       initialDelay: {{ .Values.cadencia.humo.retrasoInicial }}
       failureLimit: 0
 
