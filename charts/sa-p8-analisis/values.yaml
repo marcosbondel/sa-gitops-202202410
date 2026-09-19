@@ -125,31 +125,41 @@ carga:
   duracion: "90s"
 
 # ---------------------------------------------------------------------------
-# Cadencia del análisis de fondo
+# Cadencia de las puertas
 #
-# `intervalo` es cada cuánto se repite la medición mientras el rollout avanza.
-# `retrasoInicial` es lo que se espera antes de la primera: sin él, la primera
-# medición saldría mientras el pod canary todavía está pasando su startup probe
-# y el análisis abortaría el rollout por no haber esperado a que arrancara.
+# Cada plantilla se usa como PUERTA: el Rollout la lanza en un paso
+# `analysis:` después de cada `setWeight` intermedio y no avanza hasta tener
+# el veredicto. Por eso todas llevan `mediciones` (el `count` de Argo
+# Rollouts): una puerta tiene que terminar. Sin `count`, la métrica se
+# repetiría mientras viva el AnalysisRun y el paso no acabaría nunca.
 #
-# Ninguna lleva `count`. En un análisis de fondo, omitirlo significa «repite
-# mientras el rollout siga vivo», que es lo que se quiere: con un número fijo,
-# el análisis terminaría con éxito a mitad de la promoción y los pasos
-# restantes avanzarían sin nadie vigilando.
+# Una medición por puerta y por escalón. Con tres escalones son tres
+# mediciones de cada prueba por promoción, cada una con más tráfico real
+# encima de la versión candidata que la anterior.
+#
+# `retrasoInicial` es lo que se espera antes de medir. El `setWeight` ya
+# garantiza que los pods canary están listos; estos segundos cubren lo que
+# tarda el Service en publicar sus endpoints y nginx en recargar el peso.
+#
+# `intervalo` solo se usaría con más de una medición; se deja declarado
+# porque Argo Rollouts lo exige en cuanto `mediciones` pasa de 1.
 # ---------------------------------------------------------------------------
 cadencia:
   humo:
-    intervalo: 45s
-    retrasoInicial: 60s
+    mediciones: 1
+    intervalo: 30s
+    retrasoInicial: 20s
   integracion:
-    intervalo: 60s
-    retrasoInicial: 60s
+    mediciones: 1
+    intervalo: 30s
+    retrasoInicial: 20s
   carga:
+    mediciones: 1
     # Mayor que la duración de la prueba (90s) por obligación: con un intervalo
     # menor, Argo Rollouts lanzaría un Job nuevo con el anterior todavía
     # corriendo y las dos corridas se medirían la carga la una a la otra.
     intervalo: 3m
-    retrasoInicial: 90s
+    retrasoInicial: 20s
 
 # Tiempo máximo que puede vivir un Job de prueba antes de que Kubernetes lo
 # mate. Es la red de seguridad para un `curl` que se quedó esperando a un

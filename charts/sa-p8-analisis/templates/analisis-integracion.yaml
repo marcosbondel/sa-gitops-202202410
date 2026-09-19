@@ -4,14 +4,13 @@ analisis-integracion.yaml — Puerta 2: ¿funciona un flujo completo de usuario?
 Ocho pasos que atraviesan los cuatro microservicios, PostgreSQL y RabbitMQ.
 Ver `pruebas/integracion.sh` para el detalle de cada uno y de por qué está.
 
-## Por qué el intervalo es mayor que el del humo
+## Lo que deja en la base de datos
 
 Cada ejecución crea un usuario nuevo en la base de datos —tiene que hacerlo,
 o la segunda chocaría con un 409— y deja un pedido consultado y una sesión
-cerrada. A 45 segundos como el humo, una ventana de canary de siete minutos
-dejaría una decena de usuarios de prueba; a 60 segundos son siete. No es
-gratis, y por eso `scripts/05-recoger-evidencia.sh` los cuenta y el informe
-lo menciona.
+cerrada. Como puerta corre una vez por escalón, así que una promoción completa
+deja tres usuarios de prueba. No es gratis, y por eso
+`scripts/05-recoger-evidencia.sh` los cuenta y el informe lo menciona.
 
 La alternativa —limpiar al terminar— se descartó: un borrado al final del
 script no se ejecuta cuando el script falla a la mitad, que es justamente
@@ -31,6 +30,7 @@ spec:
   metrics:
     - name: integracion
       interval: {{ .Values.cadencia.integracion.intervalo }}
+      count: {{ .Values.cadencia.integracion.mediciones }}
       initialDelay: {{ .Values.cadencia.integracion.retrasoInicial }}
       failureLimit: 0
 

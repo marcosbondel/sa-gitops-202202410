@@ -40,6 +40,7 @@ spec:
   metrics:
     - name: carga
       interval: {{ .Values.cadencia.carga.intervalo }}
+      count: {{ .Values.cadencia.carga.mediciones }}
       initialDelay: {{ .Values.cadencia.carga.retrasoInicial }}
       failureLimit: 0
 

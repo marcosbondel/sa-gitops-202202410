@@ -187,12 +187,11 @@ rollout:
       stableIngress: sa-platform
 
   analysis:
-    enabled: true
-
     # Las tres puertas de calidad del enunciado (§3.2, «Validación automatizada
-    # como puerta de calidad»), como tres AnalysisTemplate independientes.
+    # como puerta de calidad»), como tres AnalysisTemplate independientes. Las
+    # tres corren en CADA escalón, en paralelo dentro del mismo AnalysisRun.
     #
-    # Son tres y no uno porque miden cosas distintas y fallan por motivos
+    # Son tres y no una porque miden cosas distintas y fallan por motivos
     # distintos: si el análisis fuera uno solo, «el canary falló» no diría si
     # fue el humo, la integración o la carga, y el informe de incidente tendría
     # que empezar por averiguarlo.
@@ -201,37 +200,31 @@ rollout:
       - sa-p8-integracion
       - sa-p8-carga
 
-  # ## Los pasos de la promoción
+  # ## Los escalones de la promoción
   #
-  # Cuatro `setWeight` y tres pausas. El enunciado pide al menos tres pasos
-  # condicionados a un análisis; aquí el análisis es de fondo y corre durante
-  # los cuatro, así que cada uno está condicionado a que las tres plantillas
-  # sigan pasando en ese momento.
+  # Cada peso de esta lista se convierte en dos pasos del Rollout: un
+  # `setWeight` y, detrás, una puerta `analysis:` con las tres plantillas. El
+  # 100 % final se añade solo. Con [10, 30, 60] el Rollout queda así:
   #
-  # ## Por qué estos porcentajes y estas duraciones
+  #   10 % → puerta → 30 % → puerta → 60 % → puerta → 100 %
   #
-  # 10 % es el escalón de entrada: con la prueba de carga generando tráfico
-  # sostenido, es suficiente para que el análisis obtenga muestras y lo
-  # bastante pequeño para que un fallo total afecte a uno de cada diez
-  # usuarios. Empezar en 25 % o 50 % —lo que suele venir en los ejemplos—
-  # significa que el peor caso ya es un cuarto o la mitad de los usuarios antes
-  # de la primera medición.
+  # Tres pasos de promoción condicionados, que es el mínimo del enunciado.
   #
-  # Las pausas son de 2 minutos en los dos primeros escalones y de 3 en el
-  # tercero. La duración no es arbitraria: la plantilla de carga corre 90
-  # segundos, así que una pausa de 2 minutos garantiza al menos una medición
-  # completa por escalón con margen para que el análisis la publique. Una
-  # pausa más corta que la prueba dejaría avanzar el canary con el análisis a
-  # medias, que es como se consigue un canary que parece funcionar y no valida
-  # nada.
+  # ## Por qué estos porcentajes
   #
-  # El último escalón espera más porque es el que precede al 100 %: es la
-  # última oportunidad de abortar antes de que la versión nueva atienda a todos.
-  steps:
-    - setWeight: 10
-    - pause: { duration: 2m }
-    - setWeight: 30
-    - pause: { duration: 2m }
-    - setWeight: 60
-    - pause: { duration: 3m }
-    - setWeight: 100
+  # 10 % es el escalón de entrada: suficiente para que la versión candidata
+  # reciba tráfico real mientras se la prueba, y lo bastante pequeño para que
+  # un fallo total afecte a uno de cada diez usuarios. Empezar en 25 % o 50 %
+  # —lo que suele venir en los ejemplos— significa que el peor caso ya es un
+  # cuarto o la mitad de los usuarios antes de la primera medición.
+  #
+  # 30 % y 60 % comprueban que la versión sigue sana con más carga encima. El
+  # último escalón es el que precede al 100 %: es la última oportunidad de
+  # abortar antes de que la versión nueva atienda a todos.
+  #
+  # ## Cuánto tarda
+  #
+  # Cada puerta dura lo que la más lenta de las tres, la de carga: unos dos
+  # minutos (espera inicial, 15 s de calentamiento y 90 s de medición). Tres
+  # puertas son unos seis minutos y medio de promoción para una versión sana.
+  pesos: [10, 30, 60]
