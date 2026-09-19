@@ -1,0 +1,100 @@
+# ===========================================================================
+# 04-verificar-firma.yaml — Ninguna imagen propia entra sin firma verificada
+#
+# El enunciado (§3.2) pide «firma de imágenes con Cosign y verificación de la
+# firma antes del despliegue», y el §3.1 lo dice más fuerte: «ninguna imagen
+# podrá llegar al clúster sin haber sido analizada, firmada y verificada».
+#
+# El pipeline ya verifica la firma justo después de ponerla (`p8-release.yml`).
+# Eso demuestra que la firma es válida, pero no protege el clúster: quien
+# tenga acceso al repositorio GitOps podría declarar cualquier imagen, y el
+# clúster la ejecutaría. La verificación que cuenta es la que hace el propio
+# clúster en el momento de admitir el pod, y es esta.
+#
+# ---------------------------------------------------------------------------
+# QUÉ EXIGE
+# ---------------------------------------------------------------------------
+#
+# Para toda imagen de `ghcr.io/marcosbondel/*` en los dos ambientes:
+#
+#   · una firma de Cosign «keyless», registrada en el log público Rekor,
+#   · cuyo certificado lo emitió GitHub Actions (`issuer`),
+#   · para el workflow `p8-release.yml` de ESTE repositorio (`subjectRegExp`).
+#
+# Lo tercero es lo que la hace útil. Sin ello, cualquier imagen firmada por
+# cualquiera —incluida la de un atacante que la firma con su propia cuenta de
+# GitHub— pasaría. Con ello, la única forma de producir una imagen admisible
+# es que la construya y la firme el pipeline de la P8, después de Trivy.
+#
+# Las imágenes de terceros (PostgreSQL, RabbitMQ, curl, k6) no se tocan: no
+# las firma este pipeline y exigirlo solo impediría desplegar.
+#
+# ---------------------------------------------------------------------------
+# `mutateDigest`: SE EJECUTA LO QUE SE VERIFICÓ
+# ---------------------------------------------------------------------------
+#
+# Kyverno resuelve la etiqueta a un digest, verifica la firma de ESE digest y
+# reescribe la imagen del pod como `imagen:1.1.0@sha256:…`. Sin esto quedaría
+# una ventana entre verificar y descargar en la que alguien podría mover la
+# etiqueta a otro contenido. Es exactamente lo que le pasó a `1.0.0` en este
+# registro, al publicar la Práctica 7 con el mismo nombre de imagen: la
+# etiqueta pasó a apuntar a otra imagen, sin firma.
+#
+# ---------------------------------------------------------------------------
+# SOLO PODS, SIN REGLAS AUTOGENERADAS
+# ---------------------------------------------------------------------------
+#
+# Kyverno genera por defecto una copia de cada regla para Deployments,
+# StatefulSets y demás controladores. Aquí se desactiva: con `mutateDigest`,
+# esa copia reescribiría la imagen DENTRO del Deployment que gestiona ArgoCD,
+# y ArgoCD vería una diferencia con el repositorio en cada sincronización. Con
+# la regla solo sobre Pods, el Deployment conserva la etiqueta que declara el
+# repositorio y es cada pod el que se verifica y se fija a su digest.
+# ===========================================================================
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sa-p8-verificar-firma
+  labels:
+    app.kubernetes.io/part-of: sa-platform
+    sa.usac.edu.gt/practica: p8
+  annotations:
+    policies.kyverno.io/title: Verificar la firma de Cosign
+    policies.kyverno.io/category: Cadena de suministro
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Rechaza cualquier pod con una imagen de ghcr.io/marcosbondel que no esté
+      firmada con Cosign por el workflow p8-release.yml de este repositorio.
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  # La verificación consulta el registro y Rekor; los 10 s por defecto se
+  # quedan cortos la primera vez que se ve una imagen.
+  webhookTimeoutSeconds: 30
+  # Es una comprobación de admisión: no tiene sentido re-evaluar en segundo
+  # plano pods que ya están corriendo con un digest fijo.
+  background: false
+  rules:
+    - name: firma-del-pipeline-p8
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - sa-p8-stage
+                - sa-p8-prod
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/marcosbondel/*"
+          failureAction: Enforce
+          required: true
+          mutateDigest: true
+          verifyDigest: true
+          attestors:
+            - entries:
+                - keyless:
+                    issuer: "https://token.actions.githubusercontent.com"
+                    subjectRegExp: "^https://github\\.com/marcosbondel/Practicas-SA-B-202202410/\\.github/workflows/p8-release\\.yml@refs/.+$"
+                    rekor:
+                      url: https://rekor.sigstore.dev
