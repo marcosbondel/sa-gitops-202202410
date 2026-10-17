@@ -1,15 +1,13 @@
 # ===========================================================================
-# envs/stage/analisis.yaml — Umbrales de las puertas de calidad en stage.
+# envs/stage/analisis.yaml — Umbrales del análisis por métricas en stage
+# (Práctica 10, chart `charts/sa-p10-analisis`).
 #
-# Vacío de sobrescrituras a propósito: stage usa los valores por defecto de
-# `charts/sa-p8-analisis/values.yaml`, que son los que se calibraron midiendo
-# la versión estable EN ESTE ambiente (ver `P8/docs/03-pruebas-y-umbrales.md`).
+# Vacío a propósito: stage usa los valores por defecto del chart, que están
+# pensados para este ambiente —canary al 10 % sobre ~4 peticiones por
+# segundo del simulador, sin HPA—. Producción los endurece en
+# `envs/prod/analisis.yaml`.
 #
-# Este archivo existe aunque no cambie nada porque su ausencia haría fallar la
-# Application: `valueFiles` referencia una ruta que tiene que existir. Y tenerlo
-# vacío dice algo que un archivo ausente no diría —que los valores por defecto
-# son una decisión y no un olvido—.
+# Hasta la P9 este archivo alimentaba a `charts/sa-p8-analisis` (Jobs de humo,
+# integración y carga). Ese chart sigue en el repositorio como historia.
 # ===========================================================================
-
-# Un mapa vacío. Helm lo fusiona sin efecto.
 {}
