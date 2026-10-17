@@ -1,0 +1,41 @@
+# ===========================================================================
+# Argo Rollouts — la entrega progresiva de la P8 (canary con análisis).
+#
+# §3.2: «Conservación del flujo de la Práctica 8: GitOps, entrega progresiva
+# y políticas de admisión deben seguir operando tras la reconstrucción».
+# Misma versión que la P8. Antes la instalaba Terraform.
+# ===========================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sa-p9-argo-rollouts
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-40"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sa-p9-base
+  source:
+    repoURL: https://argoproj.github.io/argo-helm
+    chart: argo-rollouts
+    targetRevision: 2.43.1
+    helm:
+      releaseName: argo-rollouts
+      valuesObject:
+        installCRDs: true
+        dashboard:
+          enabled: true
+        # Dos réplicas con elección de líder: drenar el nodo del
+        # controlador en mitad de un canary no lo deja huérfano.
+        controller:
+          replicas: 2
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argo-rollouts
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,197 @@
+# RBAC de la P8: lectura por ambiente, operador de canary solo en stage,
+# auditor de clúster. Mismos permisos que `P8/terraform/rbac.tf`.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sa-p8-lectura
+  namespace: sa-p8-stage
+  labels:
+    app.kubernetes.io/part-of: sa-platform
+    app.kubernetes.io/managed-by: argocd
+    sa.usac.edu.gt/practica: p9
+    sa.usac.edu.gt/carne: "202202410"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sa-p8-lectura
+  namespace: sa-p8-stage
+  labels:
+    app.kubernetes.io/part-of: sa-platform
+    app.kubernetes.io/managed-by: argocd
+    sa.usac.edu.gt/practica: p9
+    sa.usac.edu.gt/carne: "202202410"
+rules:
+  - apiGroups: [""]
+    resources: [pods, pods/log, services, events, configmaps, persistentvolumeclaims]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [deployments, replicasets, statefulsets]
+    verbs: [get, list, watch]
+  - apiGroups: [argoproj.io]
+    resources: [rollouts, analysisruns, experiments]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sa-p8-lectura
+  namespace: sa-p8-stage
+  labels:
+    app.kubernetes.io/part-of: sa-platform
+    app.kubernetes.io/managed-by: argocd
+    sa.usac.edu.gt/practica: p9
+    sa.usac.edu.gt/carne: "202202410"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: sa-p8-lectura
+subjects:
+  - kind: ServiceAccount
+    name: sa-p8-lectura
+    namespace: sa-p8-stage
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sa-p8-lectura
+  namespace: sa-p8-prod
+  labels:
+    app.kubernetes.io/part-of: sa-platform
+    app.kubernetes.io/managed-by: argocd
+    sa.usac.edu.gt/practica: p9
+    sa.usac.edu.gt/carne: "202202410"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sa-p8-lectura
+  namespace: sa-p8-prod
+  labels:
+    app.kubernetes.io/part-of: sa-platform
+    app.kubernetes.io/managed-by: argocd
+    sa.usac.edu.gt/practica: p9
+    sa.usac.edu.gt/carne: "202202410"
+rules:
+  - apiGroups: [""]
+    resources: [pods, pods/log, services, events, configmaps, persistentvolumeclaims]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [deployments, replicasets, statefulsets]
+    verbs: [get, list, watch]
+  - apiGroups: [argoproj.io]
+    resources: [rollouts, analysisruns, experiments]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sa-p8-lectura
+  namespace: sa-p8-prod
+  labels:
+    app.kubernetes.io/part-of: sa-platform
+    app.kubernetes.io/managed-by: argocd
+    sa.usac.edu.gt/practica: p9
+    sa.usac.edu.gt/carne: "202202410"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: sa-p8-lectura
+subjects:
+  - kind: ServiceAccount
+    name: sa-p8-lectura
+    namespace: sa-p8-prod
+---
+# Promover o abortar un canary a mano. No existe en producción.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sa-p8-operador-rollouts
+  namespace: sa-p8-stage
+  labels:
+    app.kubernetes.io/part-of: sa-platform
+    app.kubernetes.io/managed-by: argocd
+    sa.usac.edu.gt/practica: p9
+    sa.usac.edu.gt/carne: "202202410"
+rules:
+  - apiGroups: [argoproj.io]
+    resources: [rollouts]
+    verbs: [get, list, watch, patch, update]
+  - apiGroups: [argoproj.io]
+    resources: [analysisruns]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [pods, pods/log, events]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sa-p8-operador-rollouts
+  namespace: sa-p8-stage
+  labels:
+    app.kubernetes.io/part-of: sa-platform
+    app.kubernetes.io/managed-by: argocd
+    sa.usac.edu.gt/practica: p9
+    sa.usac.edu.gt/carne: "202202410"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: sa-p8-operador-rollouts
+subjects:
+  - kind: Group
+    name: sa-p8-operadores
+    apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sa-p8-auditor
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/part-of: sa-platform
+    app.kubernetes.io/managed-by: argocd
+    sa.usac.edu.gt/practica: p9
+    sa.usac.edu.gt/carne: "202202410"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sa-p8-auditor
+  labels:
+    app.kubernetes.io/part-of: sa-platform
+    app.kubernetes.io/managed-by: argocd
+    sa.usac.edu.gt/practica: p9
+    sa.usac.edu.gt/carne: "202202410"
+rules:
+  - apiGroups: [""]
+    resources: [namespaces, resourcequotas, limitranges, nodes]
+    verbs: [get, list, watch]
+  - apiGroups: [kyverno.io, wgpolicyk8s.io]
+    resources: [clusterpolicies, policies, policyreports, clusterpolicyreports]
+    verbs: [get, list, watch]
+  - apiGroups: [rbac.authorization.k8s.io]
+    resources: [roles, rolebindings, clusterroles, clusterrolebindings]
+    verbs: [get, list, watch]
+  - apiGroups: [apiextensions.k8s.io]
+    resources: [customresourcedefinitions]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sa-p8-auditor
+  labels:
+    app.kubernetes.io/part-of: sa-platform
+    app.kubernetes.io/managed-by: argocd
+    sa.usac.edu.gt/practica: p9
+    sa.usac.edu.gt/carne: "202202410"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sa-p8-auditor
+subjects:
+  - kind: ServiceAccount
+    name: sa-p8-auditor
+    namespace: kube-system

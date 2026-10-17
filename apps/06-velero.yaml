@@ -1,0 +1,113 @@
+# ===========================================================================
+# Velero — respaldo y restauración (criterio 2.3).
+#
+# ## Dónde quedan los respaldos (tabla del §4.1)
+#
+#   manifiestos de cada respaldo  →  gs://sociedadanonima-507519-sa-p9-respaldos
+#   datos de los volúmenes        →  snapshots de disco de Compute Engine,
+#                                    almacenados en la multi-región `us`
+#
+# Los dos fuera del clúster que se respalda: sobreviven a su destrucción.
+#
+# ## Snapshots de disco y no respaldo por sistema de archivos (Kopia)
+#
+# Kopia copiaría los archivos de `/bitnami/postgresql/data` con la base EN
+# MARCHA, archivo por archivo, en instantes distintos: el resultado puede ser
+# un directorio de datos que PostgreSQL no acepta al arrancar. Un snapshot de
+# disco es consistente ante caídas —el disco entero en un mismo instante—,
+# que es exactamente el estado del que PostgreSQL sabe recuperarse con su
+# WAL, igual que tras un corte de luz. El hook del Schedule fuerza además un
+# CHECKPOINT justo antes, para que la recuperación tenga poco que rehacer.
+#
+# Y restaurar un snapshot no necesita que exista un pod: Velero crea el disco
+# desde el snapshot y el PVC apuntando a él, ANTES de que la plataforma se
+# despliegue. Con Kopia habría que restaurar también el pod de PostgreSQL
+# para que el agente copiara los archivos dentro, y ese pod competiría con el
+# que crea ArgoCD.
+#
+# ## Sin credenciales
+#
+# `credentials.useSecret: false`: Velero se autentica con Workload Identity
+# (ServiceAccount `velero/velero` → `sa-p9-velero@...`). No hay una llave
+# JSON en un Secret del clúster que, si el clúster se pierde, se pierda con
+# él y deje los respaldos inaccesibles.
+# ===========================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sa-p9-velero
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-40"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sa-p9-base
+  source:
+    repoURL: https://vmware-tanzu.github.io/helm-charts
+    chart: velero
+    targetRevision: 12.2.1
+    helm:
+      releaseName: velero
+      valuesObject:
+        initContainers:
+          - name: velero-plugin-for-gcp
+            image: velero/velero-plugin-for-gcp:v1.14.4
+            imagePullPolicy: IfNotPresent
+            volumeMounts:
+              - mountPath: /target
+                name: plugins
+
+        # Los CRD los aplica ArgoCD desde `crds/` del chart. El Job de
+        # actualización de CRD es un hook de Helm que ArgoCD no ejecuta igual.
+        upgradeCRDs: false
+
+        credentials:
+          useSecret: false
+
+        serviceAccount:
+          server:
+            name: velero
+            annotations:
+              iam.gke.io/gcp-service-account: sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com
+
+        configuration:
+          backupStorageLocation:
+            - name: default
+              provider: gcp
+              bucket: sociedadanonima-507519-sa-p9-respaldos
+              default: true
+              config:
+                # Necesario con Workload Identity para firmar las URL de
+                # `velero backup logs` / `describe --details`.
+                serviceAccount: sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com
+          volumeSnapshotLocation:
+            - name: default
+              provider: gcp
+              config:
+                project: sociedadanonima-507519
+                # Multi-regional: el snapshot sobrevive a la pérdida de la
+                # región del clúster, igual que el bucket.
+                snapshotLocation: us
+          # Cada cuánto el servidor mira el bucket en busca de respaldos que
+          # no conoce. En un clúster recién reconstruido es lo que hace
+          # aparecer los respaldos del anterior; con el valor por defecto
+          # (1 min) el Job de restauración esperaría más.
+          backupSyncPeriod: 30s
+          defaultVolumesToFsBackup: false
+
+        snapshotsEnabled: true
+        deployNodeAgent: false
+
+        resources:
+          requests: { cpu: 100m, memory: 128Mi }
+          limits: { cpu: "1", memory: 512Mi }
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: velero
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

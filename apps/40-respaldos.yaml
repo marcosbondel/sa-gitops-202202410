@@ -1,0 +1,36 @@
+# ===========================================================================
+# El Schedule de Velero — ola 10, la ÚLTIMA.
+#
+# Al final a propósito. Velero toma un respaldo en cuanto se crea un Schedule
+# que nunca ha corrido. Si el Schedule llegara con los complementos (-40), en
+# un clúster recién reconstruido ese primer respaldo capturaría los
+# namespaces VACÍOS, antes de la restauración, y pasaría a ser el «respaldo
+# más reciente»: la siguiente recuperación restauraría la nada.
+#
+# En la ola 10 la plataforma ya está sana y con sus datos restaurados, así que
+# ese respaldo inmediato es útil: es un punto de recuperación fresco justo
+# después del incidente, y es el «respaldo existente, verificable en el
+# momento» que el §8.1 pide al iniciar la calificación.
+# ===========================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sa-p9-respaldos
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sa-p9-base
+  source:
+    repoURL: https://github.com/marcosbondel/sa-gitops-202202410.git
+    targetRevision: main
+    path: respaldos/programacion
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: velero
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

@@ -1,0 +1,36 @@
+# ===========================================================================
+# Namespaces, cuotas, límites y RBAC de los dos ambientes.
+#
+# En la P8 los creaba Terraform (`P8/terraform/namespaces.tf`, `cuotas.tf`,
+# `rbac.tf`). En la P9 pasan a Git con los mismos valores: el §3.2 pide que
+# Terraform instale ArgoCD y que el app-of-apps levante el resto.
+#
+# Van en el proyecto `sa-p9-base` y no en `sa-p8` a propósito: `sa-p8` tiene
+# prohibido tocar ResourceQuota, LimitRange y RBAC de clúster, para que un
+# Pull Request de la plataforma no pueda subirse su propia cuota.
+#
+# Ola -30: después de los complementos y ANTES de la restauración (-15), que
+# devuelve los PVC a estos namespaces.
+# ===========================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sa-p9-namespaces
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-30"
+spec:
+  project: sa-p9-base
+  source:
+    repoURL: https://github.com/marcosbondel/sa-gitops-202202410.git
+    targetRevision: main
+    path: base/namespaces
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      # `prune: false`: borrar un namespace desde Git se llevaría sus PVC y
+      # sus discos. Es la única Application del repositorio que no poda.
+      prune: false
+      selfHeal: true

@@ -30,7 +30,7 @@ platformIngress:
   # clúster, así que necesitan hosts distintos o se pisarían: el primero en
   # sincronizar se quedaría con la regla y el segundo quedaría inalcanzable
   # sin ningún error visible.
-  host: sa-p8-stage.local
+  host: sa-p9-stage.35.253.196.204.nip.io
 
 # ---------------------------------------------------------------------------
 # api-gateway — el componente con entrega progresiva
@@ -65,7 +65,7 @@ api-gateway:
     limits: { cpu: 500m, memory: 384Mi }
 
   config:
-    CORS_ORIGINS: "http://sa-p8-stage.local:8080"
+    CORS_ORIGINS: "http://sa-p9-stage.35.253.196.204.nip.io"
 
     # ## El limitador de peticiones, durante el análisis del canary
     #

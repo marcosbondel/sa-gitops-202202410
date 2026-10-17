@@ -1,0 +1,169 @@
+# ===========================================================================
+# El script del Job de restauración.
+#
+# Decide SOLO entre tres casos, sin que nadie le diga cuál es:
+#
+#   1. Ya hay PVC en los ambientes  → no toca nada. El Job puede volver a
+#      correr (ArgoCD lo recrea si cambia) sin pisar datos vivos.
+#   2. El bucket no tiene respaldos → primer arranque: la plataforma nace
+#      vacía y `initdb` la inicializa. Es correcto y queda anotado.
+#   3. Hay respaldos                → restaura los volúmenes del más reciente
+#      que terminó `Completed`.
+#
+# Y falla RUIDOSAMENTE en el caso que más daño haría en silencio: hay
+# respaldos en el bucket pero ninguno `Completed`. Seguir adelante dejaría
+# que la plataforma arrancara vacía encima de un desastre, y el sistema
+# parecería sano. Al fallar, la Application queda `Degraded`, la raíz no
+# pasa a la ola de la plataforma, y el runbook dice qué hacer.
+#
+# Lo que restaura: SOLO PersistentVolumeClaim y PersistentVolume. El resto
+# —Deployments, Services, Rollouts, ConfigMaps— lo recrea ArgoCD desde Git,
+# que es la fuente de verdad. Velero se ocupa únicamente de lo que Git NO
+# puede reconstruir: los datos.
+#
+# El resultado queda en el ConfigMap `velero/sa-p9-restauracion-resultado`,
+# con las marcas de tiempo que usa el cálculo del RPO.
+# ===========================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sa-p9-restauracion-script
+  namespace: velero
+data:
+  restaurar.sh: |
+    #!/bin/sh
+    set -eu
+
+    NS=velero
+    BSL=default
+    SCHEDULE=sa-p9-cada-15m
+    AMBIENTES="sa-p8-stage sa-p8-prod"
+    RESULTADO=sa-p9-restauracion-resultado
+
+    ahora() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+    log()   { echo "$(ahora)  $*"; }
+    T0=$(ahora)
+
+    # estado detalle [respaldo] [restore] [inicio_respaldo] [fin_respaldo]
+    anotar() {
+      kubectl -n "$NS" create configmap "$RESULTADO" \
+        --from-literal=estado="$1" \
+        --from-literal=detalle="$2" \
+        --from-literal=respaldo="${3:-}" \
+        --from-literal=restore="${4:-}" \
+        --from-literal=respaldo_inicio="${5:-}" \
+        --from-literal=respaldo_fin="${6:-}" \
+        --from-literal=job_inicio="$T0" \
+        --from-literal=job_fin="$(ahora)" \
+        --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+      log "resultado: $1 — $2"
+    }
+
+    # --- 1. El bucket, accesible -------------------------------------------
+    log "esperando a que el BackupStorageLocation '$BSL' esté Available"
+    i=0
+    until [ "$(kubectl -n "$NS" get backupstoragelocations.velero.io "$BSL" -o jsonpath='{.status.phase}' 2>/dev/null)" = "Available" ]; do
+      i=$((i + 1))
+      [ "$i" -le 180 ] || { anotar Fallido "el bucket no estuvo accesible en 15 min"; exit 1; }
+      sleep 5
+    done
+    log "bucket accesible"
+
+    # --- 2. Al menos una sincronización completa con el bucket --------------
+    # En un clúster recién nacido, Velero no conoce los respaldos del
+    # anterior hasta que sincroniza. Decidir antes sería concluir «no hay
+    # respaldos» solo porque todavía no se han leído.
+    log "esperando la primera sincronización de respaldos"
+    i=0
+    until [ -n "$(kubectl -n "$NS" get backupstoragelocations.velero.io "$BSL" -o jsonpath='{.status.lastSyncedTime}' 2>/dev/null)" ]; do
+      i=$((i + 1))
+      [ "$i" -le 60 ] || { anotar Fallido "Velero no sincronizó con el bucket en 5 min"; exit 1; }
+      sleep 5
+    done
+    # Una vuelta más del sincronizador (30 s) por si la primera coincidió
+    # con la validación y aún no había listado todo.
+    sleep 35
+    log "sincronizado: $(kubectl -n "$NS" get backupstoragelocations.velero.io "$BSL" -o jsonpath='{.status.lastSyncedTime}')"
+
+    # --- 3. ¿Hay ya datos vivos? --------------------------------------------
+    for ns in $AMBIENTES; do
+      n=$(kubectl -n "$ns" get pvc -o name 2>/dev/null | wc -l | tr -d ' ')
+      if [ "$n" -gt 0 ]; then
+        anotar Omitido "ya hay $n PVC en $ns; no se restaura encima de datos vivos"
+        exit 0
+      fi
+    done
+
+    # --- 4. El respaldo a usar ----------------------------------------------
+    # Formato: <inicio> <nombre> <fase> <fin>. El inicio es ISO-8601 y se
+    # ordena bien como texto; así no hace falta jq ni `--sort-by`, que falla
+    # si algún respaldo en curso no tiene todavía fecha de fin.
+    LISTA=$(kubectl -n "$NS" get backups.velero.io -l "velero.io/schedule-name=$SCHEDULE" \
+      -o jsonpath='{range .items[*]}{.status.startTimestamp}{" "}{.metadata.name}{" "}{.status.phase}{" "}{.status.completionTimestamp}{"\n"}{end}' \
+      | sort)
+    TOTAL=$(printf '%s\n' "$LISTA" | grep -c . || true)
+    log "respaldos de $SCHEDULE en el bucket: $TOTAL"
+    printf '%s\n' "$LISTA" | sed 's/^/    /'
+
+    if [ -n "${RESPALDO:-}" ]; then
+      ELEGIDO=$(printf '%s\n' "$LISTA" | awk -v r="$RESPALDO" '$2 == r')
+      [ -n "$ELEGIDO" ] || { anotar Fallido "el respaldo forzado '$RESPALDO' no existe"; exit 1; }
+    else
+      ELEGIDO=$(printf '%s\n' "$LISTA" | awk '$3 == "Completed"' | tail -n 1)
+    fi
+
+    if [ -z "$ELEGIDO" ]; then
+      if [ "$TOTAL" -eq 0 ]; then
+        anotar PrimerArranque "el bucket no tiene respaldos: la plataforma nace vacía"
+        exit 0
+      fi
+      anotar Fallido "hay $TOTAL respaldos pero ninguno Completed; no se arranca vacío encima de un desastre"
+      exit 1
+    fi
+
+    # Partir la línea en campos es justo lo que se quiere aquí.
+    # shellcheck disable=SC2086
+    set -- $ELEGIDO
+    R_INICIO=$1; R_NOMBRE=$2; R_FIN=${4:-}
+    log "respaldo elegido: $R_NOMBRE (inicio $R_INICIO, fin $R_FIN)"
+
+    # --- 5. La restauración -------------------------------------------------
+    RESTORE="sa-p9-dr-$(date -u +%Y%m%d-%H%M%S)"
+    kubectl apply -f - <<YAML
+    apiVersion: velero.io/v1
+    kind: Restore
+    metadata:
+      name: $RESTORE
+      namespace: $NS
+      labels:
+        sa.usac.edu.gt/practica: p9
+        sa.usac.edu.gt/origen: job-restauracion
+    spec:
+      backupName: $R_NOMBRE
+      includedNamespaces: [sa-p8-stage, sa-p8-prod]
+      includedResources: [persistentvolumeclaims, persistentvolumes]
+      restorePVs: true
+      existingResourcePolicy: none
+    YAML
+
+    i=0
+    while :; do
+      FASE=$(kubectl -n "$NS" get restores.velero.io "$RESTORE" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+      case "$FASE" in
+        Completed) break ;;
+        PartiallyFailed|Failed|FailedValidation)
+          anotar Fallido "Restore $RESTORE terminó en $FASE" "$R_NOMBRE" "$RESTORE" "$R_INICIO" "$R_FIN"
+          kubectl -n "$NS" get restores.velero.io "$RESTORE" -o jsonpath='{.status}' ; echo
+          exit 1 ;;
+      esac
+      i=$((i + 1))
+      [ "$i" -le 240 ] || { anotar Fallido "Restore $RESTORE no terminó en 20 min" "$R_NOMBRE" "$RESTORE"; exit 1; }
+      sleep 5
+    done
+
+    for ns in $AMBIENTES; do
+      log "PVC en $ns:"
+      kubectl -n "$ns" get pvc 2>/dev/null | sed 's/^/    /' || true
+    done
+
+    anotar Restaurado "volúmenes restaurados desde $R_NOMBRE" "$R_NOMBRE" "$RESTORE" "$R_INICIO" "$R_FIN"

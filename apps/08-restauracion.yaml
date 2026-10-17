@@ -1,0 +1,40 @@
+# ===========================================================================
+# Restauración automática de los datos — ola -15.
+#
+# Corre DESPUÉS de Velero (-40, que solo está Healthy cuando el bucket es
+# accesible) y de los namespaces (-30), y ANTES de los secretos (-10) y de la
+# plataforma (0). Ese orden es el criterio entero:
+#
+#   · si la plataforma llegara primero, el StatefulSet de PostgreSQL crearía
+#     un PVC VACÍO, `initdb` lo inicializaría, y Velero ya no podría
+#     restaurar encima (no sobrescribe un PVC que existe);
+#   · llegando antes, el PVC restaurado —con el disco creado desde el
+#     snapshot— ya está ahí cuando el StatefulSet lo reclama por nombre
+#     (`data-sa-platform-postgresql-0`), e `initdb` no corre porque el
+#     directorio de datos no está vacío.
+#
+# El Job decide solo, sin que nadie le diga si esto es un desastre o un
+# primer arranque. Ver `respaldos/restauracion/script.yaml`.
+# ===========================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sa-p9-restauracion
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-15"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sa-p9-base
+  source:
+    repoURL: https://github.com/marcosbondel/sa-gitops-202202410.git
+    targetRevision: main
+    path: respaldos/restauracion
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: velero
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

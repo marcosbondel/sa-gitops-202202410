@@ -1,0 +1,59 @@
+# Lo mínimo que el Job necesita: leer respaldos y el destino, crear un
+# Restore y anotar el resultado en `velero`; listar PVC en los ambientes.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sa-p9-restauracion
+  namespace: velero
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sa-p9-restauracion
+  namespace: velero
+rules:
+  - apiGroups: [velero.io]
+    resources: [backups, backupstoragelocations]
+    verbs: [get, list, watch]
+  - apiGroups: [velero.io]
+    resources: [restores]
+    verbs: [get, list, watch, create]
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get, create, patch, update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sa-p9-restauracion
+  namespace: velero
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: sa-p9-restauracion
+subjects:
+  - kind: ServiceAccount
+    name: sa-p9-restauracion
+    namespace: velero
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sa-p9-restauracion
+rules:
+  - apiGroups: [""]
+    resources: [persistentvolumeclaims]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sa-p9-restauracion
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sa-p9-restauracion
+subjects:
+  - kind: ServiceAccount
+    name: sa-p9-restauracion
+    namespace: velero

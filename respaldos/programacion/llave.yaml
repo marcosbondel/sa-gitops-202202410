@@ -1,0 +1,40 @@
+# ===========================================================================
+# sa-p9-llave-diaria — segunda copia de la llave de Sealed Secrets.
+#
+# La copia principal está en Secret Manager (`00-fundacion/secretos.tf`), y
+# es la que usa el arranque. Esta es la de respaldo, por un camino
+# independiente: Velero copia el Secret de la llave desde `kube-system` al
+# bucket de respaldos, una vez al día y en cuanto se crea el Schedule.
+#
+# Dos copias por dos caminos, porque cada una cubre la pérdida de la otra:
+#
+#   · si se borra el secreto de Secret Manager (un error de IAM, un
+#     `terraform destroy` forzado de la fundación), la llave sigue en el
+#     bucket y el runbook (§8) explica cómo devolverla;
+#   · si se pierde el bucket, la llave sigue en Secret Manager.
+#
+# Solo el Secret con la etiqueta de llave activa: no se respalda el resto de
+# `kube-system`, que es de GKE y se recrea solo con el clúster.
+# ===========================================================================
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: sa-p9-llave-diaria
+  namespace: velero
+  labels:
+    sa.usac.edu.gt/practica: p9
+spec:
+  schedule: "30 4 * * *"
+  skipImmediately: false
+  useOwnerReferencesInBackup: false
+  template:
+    includedNamespaces:
+      - kube-system
+    includedResources:
+      - secrets
+    labelSelector:
+      matchLabels:
+        sealedsecrets.bitnami.com/sealed-secrets-key: active
+    snapshotVolumes: false
+    storageLocation: default
+    ttl: 720h0m0s

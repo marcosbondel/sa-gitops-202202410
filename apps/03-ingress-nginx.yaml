@@ -1,0 +1,73 @@
+# ===========================================================================
+# ingress-nginx — la única puerta de entrada, ahora detrás de un balanceador.
+#
+# En kind (P8) escuchaba en los hostPort 80/443 de un nodo con la etiqueta
+# `ingress-ready`. En GKE va detrás de un balanceador L4 de Google con la IP
+# reservada en `P9/terraform/00-fundacion/red.tf`, que sobrevive al desastre:
+# las URL `*.nip.io` son las mismas antes y después de reconstruir.
+#
+# ## Lo que la prueba de pérdida de nodo exige de aquí
+#
+# Con UNA réplica del controlador, drenar el nodo donde vive corta el acceso
+# entero, por muchas réplicas que tenga el gateway detrás. Por eso:
+#
+#   · 2 réplicas, en nodos distintos (anti-afinidad OBLIGATORIA: con 3 nodos
+#     y 2 réplicas siempre hay sitio, incluso con uno drenado);
+#   · PodDisruptionBudget `minAvailable: 1`: el drenaje no puede desalojar
+#     las dos a la vez;
+#   · `externalTrafficPolicy: Cluster`: el balanceador puede entregar a
+#     cualquier nodo y kube-proxy reenvía al controlador vivo. Con `Local`,
+#     el balanceador seguiría mandando tráfico al nodo drenado hasta que su
+#     chequeo de salud lo marcara caído —unos segundos de errores durante
+#     cada drenaje—.
+# ===========================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sa-p9-ingress-nginx
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-40"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sa-p9-base
+  source:
+    repoURL: https://kubernetes.github.io/ingress-nginx
+    chart: ingress-nginx
+    targetRevision: 4.11.3
+    helm:
+      releaseName: ingress-nginx
+      valuesObject:
+        controller:
+          replicaCount: 2
+          minAvailable: 1
+          service:
+            type: LoadBalancer
+            # La IP reservada de la fundación. La escribe una sola vez
+            # `P9/scripts/configurar-gitops.sh`; no cambia al reconstruir.
+            loadBalancerIP: "35.253.196.204"
+            externalTrafficPolicy: Cluster
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - topologyKey: kubernetes.io/hostname
+                  labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: ingress-nginx
+                      app.kubernetes.io/component: controller
+          ingressClassResource:
+            name: nginx
+            default: true
+          watchIngressWithoutClass: true
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ingress-nginx
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

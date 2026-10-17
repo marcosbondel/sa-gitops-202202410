@@ -1,0 +1,56 @@
+# ===========================================================================
+# Kyverno — las políticas de admisión de la P8.
+#
+# Misma versión que la P8, con una diferencia que pide la prueba de pérdida
+# de nodo: TRES réplicas del controlador de admisión en lugar de una.
+#
+# Las ClusterPolicy de la P8 están en `Enforce` y el webhook de Kyverno es
+# `failurePolicy: Fail` para los namespaces de la plataforma: si el único pod
+# de admisión vive en el nodo drenado, durante unos segundos NINGÚN pod nuevo
+# de la plataforma puede crearse —tampoco los reemplazos de los que el
+# drenaje acaba de desalojar—. Con tres réplicas (una por nodo) siempre
+# quedan dos.
+#
+# `ServerSideApply=true`: los CRD de Kyverno superan el límite de 256 KB de
+# la anotación `last-applied-configuration` que usa el apply del lado del
+# cliente, y la sincronización falla con «metadata.annotations: Too long».
+# ===========================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sa-p9-kyverno
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-40"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sa-p9-base
+  source:
+    repoURL: https://kyverno.github.io/kyverno/
+    chart: kyverno
+    targetRevision: 3.9.1
+    helm:
+      releaseName: kyverno
+      valuesObject:
+        admissionController:
+          replicas: 3
+          podDisruptionBudget:
+            enabled: true
+            minAvailable: 1
+        backgroundController:
+          replicas: 1
+        cleanupController:
+          replicas: 1
+        reportsController:
+          replicas: 1
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kyverno
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

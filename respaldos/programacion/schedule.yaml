@@ -1,0 +1,84 @@
+# ===========================================================================
+# sa-p9-cada-15m — el respaldo programado (criterio 2.3, tabla del §4.1).
+#
+#   calendario   cada 15 minutos                 → RPO declarado: 15 min
+#   retención    720 h (30 días) en Velero; GCS borra a los 45 días
+#   alcance      sa-p8-stage y sa-p8-prod, manifiestos + volúmenes
+#   volúmenes    snapshot de disco de cada PVC (PostgreSQL y RabbitMQ)
+#   destino      gs://sociedadanonima-507519-sa-p9-respaldos  +  snapshots `us`
+#
+# ## Por qué 15 minutos
+#
+# Es el RPO que se declara en `P9/docs/01-objetivos-rto-rpo.md`, y sale de
+# dos límites reales:
+#
+#   · por debajo, GCP: un disco admite como mucho UN snapshot cada 10
+#     minutos. Un calendario de 5 o 10 minutos fallaría de forma
+#     intermitente con «rate limit exceeded», y un respaldo que falla a
+#     veces es peor que uno más espaciado que no falla nunca;
+#   · por encima, el dato que la plataforma produce sola: el CronJob
+#     `heartbeat-writer` escribe cada 2 minutos. Con 15, una pérdida cuesta
+#     como mucho ~7 latidos, y se puede contar exactamente cuáles.
+#
+# ## Por qué 30 días de TTL, y no 72 h
+#
+# Por una trampa que esta práctica revela y que conviene escribir: Velero
+# borra un respaldo vencido EN CUANTO lo descubre. En un clúster
+# reconstruido después de un apagón más largo que el TTL, la sincronización
+# con el bucket encuentra respaldos «nuevos» que ya vencieron, y el
+# recolector los borra —con sus snapshots— casi a la vez que el Job de
+# restauración intenta usarlos. Un TTL corto convierte un apagón largo en
+# pérdida total. 30 días cubre de sobra la vida de la práctica; GCS tiene una
+# regla más larga (45 días) para que Velero borre primero, sabiendo lo que
+# borra, y GCS después, como red de seguridad.
+# ===========================================================================
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: sa-p9-cada-15m
+  namespace: velero
+  labels:
+    sa.usac.edu.gt/practica: p9
+spec:
+  schedule: "*/15 * * * *"
+  # Ver `apps/40-respaldos.yaml`: el respaldo inmediato es deseado AQUÍ,
+  # porque este Schedule llega cuando los datos ya están restaurados.
+  skipImmediately: false
+  useOwnerReferencesInBackup: false
+  template:
+    includedNamespaces:
+      - sa-p8-stage
+      - sa-p8-prod
+    snapshotVolumes: true
+    defaultVolumesToFsBackup: false
+    storageLocation: default
+    volumeSnapshotLocations:
+      - default
+    ttl: 720h0m0s
+
+    # ## CHECKPOINT antes del snapshot
+    #
+    # El snapshot es consistente ante caídas sin esto; con esto, PostgreSQL
+    # vuelca a disco todo lo que tenía en memoria justo antes, y al
+    # restaurar tiene muy poco WAL que rehacer. `onError: Continue` porque
+    # un CHECKPOINT fallido no invalida el snapshot; el fallo queda en los
+    # registros del respaldo y lo cuenta `scripts/verificar.sh`.
+    hooks:
+      resources:
+        - name: postgresql-checkpoint
+          includedNamespaces:
+            - sa-p8-stage
+            - sa-p8-prod
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+              app.kubernetes.io/instance: sa-platform
+          pre:
+            - exec:
+                container: postgresql
+                command:
+                  - /bin/bash
+                  - -c
+                  - PGPASSWORD="$(cat "$POSTGRES_PASSWORD_FILE")" psql -h 127.0.0.1 -U postgres -d postgres -c CHECKPOINT
+                onError: Continue
+                timeout: 30s

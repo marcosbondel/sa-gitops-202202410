@@ -1,0 +1,60 @@
+# El Job que ejecuta `restaurar.sh`. ArgoCD lo da por `Healthy` solo cuando
+# termina con éxito; mientras corre, la raíz no pasa a la ola siguiente.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sa-p9-restauracion
+  namespace: velero
+  annotations:
+    # Un Job es inmutable: si su definición cambia en Git, ArgoCD tiene que
+    # borrarlo y crearlo de nuevo. El script es idempotente (caso 1), así que
+    # volver a correrlo en un clúster vivo no toca nada.
+    argocd.argoproj.io/sync-options: Replace=true
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 2700
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sa-p9-restauracion
+    spec:
+      serviceAccountName: sa-p9-restauracion
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: restaurar
+          # kubectl + sh, sin más. Versión ±1 de la del clúster.
+          image: alpine/k8s:1.35.9
+          command: ["/bin/sh", "/script/restaurar.sh"]
+          env:
+            - name: HOME
+              value: /tmp
+            # Para forzar un respaldo concreto (runbook, §«Restaurar un punto
+            # anterior»). Vacío: el más reciente `Completed`.
+            - name: RESPALDO
+              value: ""
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: script
+              mountPath: /script
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: script
+          configMap:
+            name: sa-p9-restauracion-script
+            defaultMode: 0555
+        - name: tmp
+          emptyDir: {}
