@@ -49,17 +49,18 @@ spec:
           replicas: 1
         reportsController:
           replicas: 1
+        # Los CRD de `policies.kyverno.io` salen del subchart kyverno-api con
+        # `labels: {}` y `annotations: {}`. Kubernetes no guarda un mapa
+        # vacío, así que ArgoCD veía una diferencia permanente y la raíz
+        # quedaba OutOfSync. Con contenido real, no hay diferencia.
+        kyverno-api:
+          labels:
+            app.kubernetes.io/part-of: kyverno
+          annotations:
+            sa.usac.edu.gt/origen: kyverno-api
   destination:
     server: https://kubernetes.default.svc
     namespace: kyverno
-  # Los CRD de Kyverno declaran `labels: {}` vacío y Kubernetes no guarda un
-  # mapa vacío: diferencia cosmética, permanente, que dejaría la Application
-  # `OutOfSync`.
-  ignoreDifferences:
-    - group: apiextensions.k8s.io
-      kind: CustomResourceDefinition
-      jsonPointers:
-        - /metadata/labels
   syncPolicy:
     automated:
       prune: true
@@ -67,4 +68,3 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
-      - RespectIgnoreDifferences=true
