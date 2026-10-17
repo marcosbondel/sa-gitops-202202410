@@ -144,7 +144,7 @@
       "type": "stat",
       "id": 3,
       "title": "Presupuesto de error del checkout que queda",
-      "description": "Cuánto margen de fallos queda este mes antes de incumplir el SLO 1. 100 % = no se ha fallado nada; 0 % = el mes ya está perdido y toca congelar cambios.",
+      "description": "Cuánto margen de fallos queda este mes antes de incumplir el SLO 1. 100 % = no se ha fallado nada; 0 % = el mes ya está perdido y toca congelar cambios. OJO: la ventana de 30 días solo contiene lo medido desde el último encendido del clúster; con pocas horas de historia, un incidente de minutos pesa como un mes entero y el valor puede ser negativo.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -272,7 +272,7 @@
       "type": "stat",
       "id": 5,
       "title": "Presupuesto de error del catálogo que queda",
-      "description": "Margen de consultas lentas o fallidas que queda este mes antes de incumplir el SLO 2.",
+      "description": "Margen de consultas lentas o fallidas que queda este mes antes de incumplir el SLO 2. Calculado sobre lo medido desde el último encendido del clúster (ver el panel del checkout).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
