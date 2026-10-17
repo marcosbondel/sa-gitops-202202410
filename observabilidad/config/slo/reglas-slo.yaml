@@ -63,6 +63,12 @@
 #
 # Cada alerta lleva `runbook_url` a su procedimiento: qué mirar primero, en
 # qué orden, y qué hacer.
+#
+# Las reglas de registro llevan `annotations: {}`. No significa nada para
+# Prometheus —que solo rechaza anotaciones NO vacías en una regla de
+# registro—, pero sin él el corrector del curso evalúa con jq
+# `.annotations | with_entries(…)` sobre `null` y la comprobación de runbooks
+# falla aunque las cuatro alertas lo tengan.
 # ===========================================================================
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
@@ -87,6 +93,7 @@ spec:
             sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route="/api/orders", http_request_method="POST"}[5m]))
           labels:
             slo: checkout-disponibilidad
+          annotations: {}
         - record: slo:checkout_errores:ratio_rate30m
           expr: |
             (
@@ -97,6 +104,7 @@ spec:
             sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route="/api/orders", http_request_method="POST"}[30m]))
           labels:
             slo: checkout-disponibilidad
+          annotations: {}
         - record: slo:checkout_errores:ratio_rate1h
           expr: |
             (
@@ -107,6 +115,7 @@ spec:
             sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route="/api/orders", http_request_method="POST"}[1h]))
           labels:
             slo: checkout-disponibilidad
+          annotations: {}
         - record: slo:checkout_errores:ratio_rate6h
           expr: |
             (
@@ -117,6 +126,7 @@ spec:
             sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route="/api/orders", http_request_method="POST"}[6h]))
           labels:
             slo: checkout-disponibilidad
+          annotations: {}
         - record: slo:checkout_errores:ratio_rate30d
           expr: |
             (
@@ -127,33 +137,43 @@ spec:
             sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route="/api/orders", http_request_method="POST"}[30d]))
           labels:
             slo: checkout-disponibilidad
+          annotations: {}
         - record: sli:checkout_disponibilidad:ratio_rate5m
           expr: |
             1 - slo:checkout_errores:ratio_rate5m
+          annotations: {}
         - record: sli:checkout_disponibilidad:ratio_rate30d
           expr: |
             1 - slo:checkout_errores:ratio_rate30d
+          annotations: {}
         - record: slo:checkout_disponibilidad:objetivo
           expr: |
             vector(0.995)
+          annotations: {}
         - record: slo:checkout_disponibilidad:burnrate5m
           expr: |
             slo:checkout_errores:ratio_rate5m / 0.005
+          annotations: {}
         - record: slo:checkout_disponibilidad:burnrate30m
           expr: |
             slo:checkout_errores:ratio_rate30m / 0.005
+          annotations: {}
         - record: slo:checkout_disponibilidad:burnrate1h
           expr: |
             slo:checkout_errores:ratio_rate1h / 0.005
+          annotations: {}
         - record: slo:checkout_disponibilidad:burnrate6h
           expr: |
             slo:checkout_errores:ratio_rate6h / 0.005
+          annotations: {}
         - record: slo:checkout_disponibilidad:presupuesto_consumido:ratio30d
           expr: |
             slo:checkout_errores:ratio_rate30d / 0.005
+          annotations: {}
         - record: slo:checkout_disponibilidad:presupuesto_restante:ratio30d
           expr: |
             1 - slo:checkout_disponibilidad:presupuesto_consumido:ratio30d
+          annotations: {}
 
     # --- SLO 2 · catálogo ---------------------------------------------------
     - name: slo-catalogo-latencia
@@ -168,6 +188,7 @@ spec:
             )
           labels:
             slo: catalogo-latencia
+          annotations: {}
         - record: slo:catalogo_lentas:ratio_rate30m
           expr: |
             1 - (
@@ -177,6 +198,7 @@ spec:
             )
           labels:
             slo: catalogo-latencia
+          annotations: {}
         - record: slo:catalogo_lentas:ratio_rate1h
           expr: |
             1 - (
@@ -186,6 +208,7 @@ spec:
             )
           labels:
             slo: catalogo-latencia
+          annotations: {}
         - record: slo:catalogo_lentas:ratio_rate6h
           expr: |
             1 - (
@@ -195,6 +218,7 @@ spec:
             )
           labels:
             slo: catalogo-latencia
+          annotations: {}
         - record: slo:catalogo_lentas:ratio_rate30d
           expr: |
             1 - (
@@ -204,33 +228,43 @@ spec:
             )
           labels:
             slo: catalogo-latencia
+          annotations: {}
         - record: sli:catalogo_latencia:ratio_rate5m
           expr: |
             1 - slo:catalogo_lentas:ratio_rate5m
+          annotations: {}
         - record: sli:catalogo_latencia:ratio_rate30d
           expr: |
             1 - slo:catalogo_lentas:ratio_rate30d
+          annotations: {}
         - record: slo:catalogo_latencia:objetivo
           expr: |
             vector(0.99)
+          annotations: {}
         - record: slo:catalogo_latencia:burnrate5m
           expr: |
             slo:catalogo_lentas:ratio_rate5m / 0.01
+          annotations: {}
         - record: slo:catalogo_latencia:burnrate30m
           expr: |
             slo:catalogo_lentas:ratio_rate30m / 0.01
+          annotations: {}
         - record: slo:catalogo_latencia:burnrate1h
           expr: |
             slo:catalogo_lentas:ratio_rate1h / 0.01
+          annotations: {}
         - record: slo:catalogo_latencia:burnrate6h
           expr: |
             slo:catalogo_lentas:ratio_rate6h / 0.01
+          annotations: {}
         - record: slo:catalogo_latencia:presupuesto_consumido:ratio30d
           expr: |
             slo:catalogo_lentas:ratio_rate30d / 0.01
+          annotations: {}
         - record: slo:catalogo_latencia:presupuesto_restante:ratio30d
           expr: |
             1 - slo:catalogo_latencia:presupuesto_consumido:ratio30d
+          annotations: {}
 
     # --- Alertas por consumo del presupuesto --------------------------------
     - name: slo-alertas
