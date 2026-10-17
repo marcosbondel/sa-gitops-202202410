@@ -86,6 +86,16 @@ api-gateway:
 
   rollout:
     enabled: true
+    # Práctica 10: cada escalón del canary consulta Prometheus sobre el
+    # tráfico real de la versión candidata. Ver `charts/sa-p10-analisis/`.
+    analysis:
+      modo: metricas
+      templates:
+        - sa-p10-metricas
+
+  # Práctica 10: trazas por OTLP al Collector y métricas en :9464.
+  telemetria:
+    enabled: true
 
   # En producción sí. Con el HPA moviendo entre 3 y 6 réplicas, `minAvailable: 1`
   # impide que un drenaje de nodo se lleve por delante al gateway entero.
@@ -132,6 +142,10 @@ catalog-service:
   resources:
     requests: { cpu: 50m, memory: 160Mi }
     limits: { cpu: 500m, memory: 384Mi }
+  # Práctica 10: trazas por OTLP al Collector y métricas en :9464.
+  telemetria:
+    enabled: true
+
   podDisruptionBudget:
     enabled: true
     minAvailable: 1
@@ -150,6 +164,10 @@ order-service:
   resources:
     requests: { cpu: 50m, memory: 192Mi }
     limits: { cpu: 500m, memory: 448Mi }
+  # Práctica 10: trazas por OTLP al Collector y métricas en :9464.
+  telemetria:
+    enabled: true
+
   podDisruptionBudget:
     enabled: true
     minAvailable: 1
