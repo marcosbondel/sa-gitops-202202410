@@ -24,7 +24,9 @@
 # ===========================================================================
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=config.sh
 source "$DIR/config.sh"
+# shellcheck source=lib.sh
 source "$DIR/lib.sh"
 
 NODO=""; MODO="tipico"

@@ -26,7 +26,9 @@
 # exactamente lo que hace falta para salir de él.
 # ===========================================================================
 set -euo pipefail
+# shellcheck source=config.sh
 source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
+# shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 [[ "${1:-}" == "--confirmar" && "${2:-}" == "$CLUSTER" ]] || {

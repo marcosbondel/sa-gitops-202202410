@@ -28,7 +28,9 @@
 # última línea.
 # ===========================================================================
 set -euo pipefail
+# shellcheck source=config.sh
 source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
+# shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 TIMEOUT_APPS_MIN="${TIMEOUT_APPS_MIN:-45}"

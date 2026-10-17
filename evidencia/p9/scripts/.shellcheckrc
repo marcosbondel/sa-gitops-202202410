@@ -1,0 +1,2 @@
+# Las directivas `# shellcheck source=<archivo>` son relativas a este directorio.
+source-path=SCRIPTDIR

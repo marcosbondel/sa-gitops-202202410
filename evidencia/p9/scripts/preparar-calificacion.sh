@@ -22,7 +22,9 @@
 # ===========================================================================
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=config.sh
 source "$DIR/config.sh"
+# shellcheck source=lib.sh
 source "$DIR/lib.sh"
 
 ANTERIOR="$(gcloud config configurations list --filter='is_active=true' --format='value(name)' 2>/dev/null)"

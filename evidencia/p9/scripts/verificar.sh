@@ -14,7 +14,9 @@
 # ===========================================================================
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=config.sh
 source "$DIR/config.sh" >/dev/null
+# shellcheck source=lib.sh
 source "$DIR/lib.sh"
 
 credenciales_cluster || { echo "✗ no hay clúster ${CLUSTER}"; exit 1; }
