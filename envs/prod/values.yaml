@@ -151,9 +151,6 @@ catalog-service:
     minAvailable: 1
 
 order-service:
-  # Nuevo puerto del catálogo.
-  serviceRefs:
-    CATALOG_SERVICE_URL: { name: catalog-service, port: 4001 }
   image:
     registry: ghcr.io/marcosbondel
     repository: order-service
