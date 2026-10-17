@@ -41,9 +41,10 @@ metadata:
     sa.usac.edu.gt/practica: p9
 spec:
   schedule: "*/15 * * * *"
-  # Velero 1.18 NO respalda al crear el Schedule: espera al primer tic del
-  # cron. Se deja explícito para que no dependa del valor por defecto.
-  skipImmediately: true
+  # Sin `skipImmediately`: Velero lo reescribe a `false` tras evaluar el
+  # primer disparo, así que declararlo dejaría el Schedule OutOfSync para
+  # siempre. Y en la 1.18 un Schedule nuevo no respalda al crearse: espera al
+  # primer tic del cron (observado).
   useOwnerReferencesInBackup: false
   template:
     includedNamespaces:
