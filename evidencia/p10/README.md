@@ -27,6 +27,8 @@ GitOps de la P8, en GKE.
 |---|---|
 | **Repositorio de código** | https://github.com/marcosbondel/sa-gitops-202202410/tree/main/evidencia/p10 (copia pública de `P10/`; original privado: `git@github.com:marcosbondel/Practicas-SA-B-202202410.git`, carpeta `P10/`) |
 | **Repositorio GitOps** | https://github.com/marcosbondel/sa-gitops-202202410 |
+| **Sistema desplegado (GKE, GCP)** | Producción: http://sa-p9.35.253.196.204.nip.io · Stage: http://sa-p9-stage.35.253.196.204.nip.io · p. ej. [`/health`](http://sa-p9.35.253.196.204.nip.io/health) · clúster `sa-p9`, `us-central1-a`, proyecto `sociedadanonima-507519` |
+| **Grafana (tablero, Explore con Tempo y Loki)** | http://grafana.35.253.196.204.nip.io · [tablero de operación](http://grafana.35.253.196.204.nip.io/d/sa-p10-operacion) · lectura sin cuenta; guardar cambios exige el administrador |
 | **Servicios instrumentados** | **`api-gateway`** (Node), **`order-service`** (Python), **`catalog-service`** (Node) · namespace **`sa-p8-prod`** (y `sa-p8-stage`) · código: [`servicios/`](https://github.com/marcosbondel/sa-gitops-202202410/tree/main/evidencia/p10/servicios) |
 | **AnalysisTemplate por métricas** | **`sa-p10-metricas`** · [`charts/sa-p10-analisis/templates/analisis-metricas.yaml`](https://github.com/marcosbondel/sa-gitops-202202410/blob/main/charts/sa-p10-analisis/templates/analisis-metricas.yaml) · umbrales: [stage](https://github.com/marcosbondel/sa-gitops-202202410/blob/main/charts/sa-p10-analisis/values.yaml), [prod](https://github.com/marcosbondel/sa-gitops-202202410/blob/main/envs/prod/analisis.yaml) |
 | **Consultas del análisis** | `S = namespace="{{args.namespace}}", service="{{args.servicio}}", rollouts_pod_template_hash="{{args.hash-canary}}"` (hash del ReplicaSet nuevo, `podTemplateHashValue: Latest`)<br>**tráfico** `sum(increase(http_server_request_duration_seconds_count{S}[2m])) or on() vector(0)` ≥ 10 (prod 20)<br>**errores** `((sum(rate(http_server_request_duration_seconds_count{S, http_response_status_code=~"5.."}[2m])) or on() vector(0)) / sum(rate(http_server_request_duration_seconds_count{S}[2m]))) or on() vector(0)` ≤ 0,05 (prod 0,02)<br>**latencia** `histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{S}[2m]))) or on() vector(0)` ≤ 0,5 s (prod 0,4 s) |
@@ -36,6 +38,10 @@ GitOps de la P8, en GKE.
 | **Reversión por métricas** | AnalysisRun **`sa-platform-api-gateway-7d7ffb5988-3-1`** (`Failed`: `tasa-errores` 15,3 % y 30,7 %) · Rollout **`sa-platform-api-gateway`** · ns `sa-p8-stage` · [registro](https://github.com/marcosbondel/sa-gitops-202202410/blob/main/evidencia/p10/docs/evidencias/canary-fallo-20261017T125912Z.log) · [AnalysisRun](https://github.com/marcosbondel/sa-gitops-202202410/blob/main/evidencia/p10/docs/evidencias/canary-fallo-20261017T125912Z/analysisrun-sa-platform-api-gateway-7d7ffb5988-3-1.yaml) · detección 3 min 07 s, recuperación 3 min 09 s, sin intervención |
 | **Recorrido síntoma a causa** | [`incidente-checkout-20261017T130858Z.log`](https://github.com/marcosbondel/sa-gitops-202202410/blob/main/evidencia/p10/docs/evidencias/incidente-checkout-20261017T130858Z.log) · **alerta → registro del error: 4 s** (13:12:27 → 13:12:31 UTC, alerta → métricas → traza → registro) · detección 2 min 49 s · recuperación 3 min 57 s |
 | **Video demostrativo** | ⏳ URL · minutaje por punto en [`docs/05-guion-video.md`](docs/05-guion-video.md) |
+
+Las URL del sistema y de Grafana responden mientras el clúster está
+encendido; entre sesiones se apaga para no pagarlo (`P9/scripts/apagar.sh`) y
+`P9/scripts/encender.sh` lo levanta con la misma IP pública.
 
 ---
 
@@ -119,7 +125,7 @@ simulador/                 clientes simulados (k6), el tráfico que miden SLO y 
 
 ```bash
 P9/scripts/encender.sh                    # clúster + plataforma + observabilidad (~35 min)
-kubectl -n observabilidad port-forward svc/kube-prometheus-stack-grafana 3000:80   # http://localhost:3000
+open http://grafana.35.253.196.204.nip.io/d/sa-p10-operacion   # Grafana, público y de solo lectura
 P10/scripts/demo-canary.sh                # tras: git tag p8-vX.Y.Z-fallo && git push origin p8-vX.Y.Z-fallo
 P10/scripts/incidente.sh                  # incidente de producción + recorrido + recuperación
 P10/scripts/preparar-calificacion.sh      # corrector del curso

@@ -4,10 +4,10 @@ Preparación, antes de grabar:
 
 ```bash
 P9/scripts/encender.sh                      # si el clúster está apagado (~35 min)
-kubectl -n observabilidad port-forward svc/kube-prometheus-stack-grafana 3000:80 &
 kubectl -n observabilidad port-forward svc/alertmanager-operated 9093:9093 &
-# Grafana: http://localhost:3000 (lectura sin contraseña; para editar:
-#   kubectl -n observabilidad get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d)
+# Grafana es público y de solo lectura: http://grafana.35.253.196.204.nip.io
+# Tienda: http://sa-p9.35.253.196.204.nip.io · para editar en Grafana:
+#   kubectl -n observabilidad get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d
 ```
 
 Para el bloque 4 hace falta una versión defectuosa lista para fusionar
