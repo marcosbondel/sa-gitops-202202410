@@ -192,6 +192,12 @@ spec:
               org_role: Viewer
             server:
               root_url: http://grafana.35.253.196.204.nip.io
+            # Que el lector anónimo pueda usar Explore —donde se consultan
+            # Tempo y Loki y adonde llevan los enlaces traza ↔ registro—: el
+            # recorrido de la alerta a la causa pasa por ahí. Puede modificar
+            # paneles en su navegador, pero NO guardar nada.
+            users:
+              viewers_can_edit: true
           # La misma IP pública reservada y el mismo ingress-nginx que la
           # tienda (P9): `nip.io` resuelve el nombre a la IP sin DNS propio.
           ingress:
