@@ -1,0 +1,18 @@
+--- a/src/index.ts	2026-10-17 06:18:03
++++ b/src/index.ts	2026-10-17 06:18:03
+@@ -169,6 +169,15 @@
+ for (const route of routes) {
+   const middlewares: express.RequestHandler[] = [authenticate(route.auth)];
+ 
++  // 1.3.1 — Idioma preferido del cliente, para que los servicios respondan los
++  // mensajes de error en su idioma. Se toma la primera entrada de la cabecera
++  // `Accept-Language` («es-GT,es;q=0.9,en;q=0.8» → «es-GT»).
++  middlewares.unshift((request, _response, next) => {
++    const idioma = request.headers['accept-language']!.split(',')[0]!.trim();
++    request.headers['x-user-locale'] = idioma;
++    next();
++  });
++
+   if (route.isAllowed) {
+     middlewares.push((request, response, next) => {
+       // `request.url` ya viene sin el prefijo público porque Express lo quitó

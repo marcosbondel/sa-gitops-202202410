@@ -1,0 +1,25 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+pydantic[email]==2.9.2
+pydantic-settings==2.5.2
+python-dotenv==1.0.1
+httpx==0.27.2
+# Cliente AMQP asíncrono. Se elige sobre `pika` porque este servicio corre
+# sobre asyncio: `pika` es bloqueante y publicar con él congelaría el event
+# loop de FastAPI en cada checkout.
+aio-pika==9.5.4
+
+# --- Práctica 10: OpenTelemetry --------------------------------------------
+# OTLP por HTTP y no por gRPC: el exportador gRPC arrastra `grpcio`, una
+# extensión en C que en Alpine (musl) y en arm64 puede no tener rueda
+# precompilada y obligar a compilar dentro de la imagen.
+opentelemetry-api==1.45.1
+opentelemetry-sdk==1.45.1
+opentelemetry-exporter-otlp-proto-http==1.45.1
+opentelemetry-exporter-prometheus==0.66b1
+opentelemetry-instrumentation-fastapi==0.66b1
+opentelemetry-instrumentation-httpx==0.66b1
+opentelemetry-instrumentation-asyncpg==0.66b1
+opentelemetry-instrumentation-aio-pika==0.66b1

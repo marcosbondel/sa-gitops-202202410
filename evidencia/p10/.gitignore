@@ -1,0 +1,16 @@
+# ===========================================================================
+# Práctica 10.
+#
+# Los registros de las demostraciones SON la evidencia del informe (tiempos
+# medidos con marcas UTC): el `*.log` del .gitignore raíz no aplica aquí.
+# ===========================================================================
+!docs/evidencias/*.log
+
+# Lo que deja el corrector (`scripts/verificar_p10.sh`) donde se ejecuta. El
+# reporte que valga como evidencia se copia a docs/evidencias/.
+scripts/reporte_p10_*.txt
+scripts/resultados_p10.csv
+
+node_modules/
+dist/
+__pycache__/

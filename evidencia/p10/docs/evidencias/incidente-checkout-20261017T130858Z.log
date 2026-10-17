@@ -1,0 +1,79 @@
+# incidente-checkout — Práctica 10 (202202410)
+# inicio:   2026-10-17T13:08:58Z
+# máquina:  Darwin arm64
+# proyecto: sociedadanonima-507519 · clúster sa-p9
+# comando:  P10/scripts/incidente.sh incidente-checkout
+#
+# Formato:  <UTC>  +<min:seg desde el inicio>  [etapa]  mensaje
+
+2026-10-17T13:08:59Z  +00:01  [inicio]  estado antes: 3/3 réplicas listas de order-service · presupuesto del checkout restante 100.0 %
+2026-10-17T13:09:03Z  +00:05  [git]  commit 24b97ae en GitOps (main): «prod: order-service apunta al nuevo puerto del catálogo» — FALLO INDUCIDO
+         envs/prod/values.yaml | 3 +++
+         1 file changed, 3 insertions(+)
+2026-10-17T13:09:58Z  +01:00  [fallo]  el checkout de producción empieza a responder 5xx (Prometheus)
+2026-10-17T13:09:59Z  +01:01  [fallo]  Kubernetes mientras tanto: order-service 3/3 Ready · ArgoCD Synced/Healthy
+2026-10-17T13:10:00Z  +01:02  [espera]  sin alerta todavía · tasa de quema 5 min 0.0 · 1 h 0.0 (umbral 14,4)
+2026-10-17T13:10:21Z  +01:23  [espera]  sin alerta todavía · tasa de quema 5 min 22.3 · 1 h 17.5 (umbral 14,4)
+2026-10-17T13:10:42Z  +01:44  [espera]  sin alerta todavía · tasa de quema 5 min 48.6 · 1 h 38.3 (umbral 14,4)
+2026-10-17T13:11:02Z  +02:04  [espera]  sin alerta todavía · tasa de quema 5 min 48.6 · 1 h 38.3 (umbral 14,4)
+2026-10-17T13:11:23Z  +02:25  [espera]  sin alerta todavía · tasa de quema 5 min 71.3 · 1 h 53.6 (umbral 14,4)
+2026-10-17T13:11:44Z  +02:46  [espera]  sin alerta todavía · tasa de quema 5 min 92.6 · 1 h 65.3 (umbral 14,4)
+2026-10-17T13:12:05Z  +03:07  [espera]  sin alerta todavía · tasa de quema 5 min 92.6 · 1 h 65.3 (umbral 14,4)
+2026-10-17T13:12:25Z  +03:27  [deteccion]  ALERTA recibida en Alertmanager: CheckoutPresupuestoQuemaRapida
+2026-10-17T13:12:27Z  +03:29  [recorrido]  ▶ inicio del recorrido desde la alerta CheckoutPresupuestoQuemaRapida
+2026-10-17T13:12:28Z  +03:30  [0·alerta]  CheckoutPresupuestoQuemaRapida · severidad pagina · SLO checkout-disponibilidad · sonando desde 2026-10-17T13:12:23.972Z
+2026-10-17T13:12:28Z  +03:30  [0·alerta]  resumen: Las compras están fallando. A este ritmo, el presupuesto de error del mes se agota en menos de 2 días.
+2026-10-17T13:12:28Z  +03:30  [0·alerta]  runbook: https://github.com/marcosbondel/sa-gitops-202202410/blob/main/evidencia/p10/docs/runbooks/checkout-quema-rapida.md
+2026-10-17T13:12:28Z  +03:30  [1·metricas]  5xx por servicio (últimos 5 min, sa-p8-prod):
+        service=api-gateway = 0.27031733468013464
+        service=order-service = 0.2593806913580247
+2026-10-17T13:12:28Z  +03:30  [1·metricas]  compras perdidas por motivo (por minuto):
+        motivo=producto_no_disponible = 1.3225439153439154
+        motivo=catalog_no_disponible = 15.590992888888888
+2026-10-17T13:12:29Z  +03:31  [1·metricas]  ✓ el error nace en order-service (el gateway solo lo reenvía) · +2 s
+2026-10-17T13:12:30Z  +03:32  [2·trazas]  traza con error: 8d0b6e9f5eec8cda5b137d11fb6505fd — cascada:
+        ✗ api-gateway · POST /api/orders · 5043 ms 
+        ✗ api-gateway · POST · 5041 ms http://sa-platform-order-service:8000/api/orders
+        ✗ order-service · POST /api/orders · 5034 ms http://sa-platform-order-service:8000/api/orders
+          order-service · POST /api/orders http receive · 0 ms 
+        ✗ order-service · POST · 5004 ms http://sa-platform-catalog-service:4001/graphql
+        ✗ order-service · POST /api/orders http send · 0 ms 
+          order-service · POST /api/orders http send · 0 ms 
+          order-service · POST /api/orders http send · 0 ms 
+2026-10-17T13:12:30Z  +03:32  [2·trazas]  ✓ el primer span que falla: order-service · POST /api/orders http send · 0 ms ·  · +3 s
+2026-10-17T13:12:30Z  +03:33  [3·registros]  registro del error con el mismo trace_id:
+        {
+          "timestamp": "2026-10-17T13:10:26.665Z",
+          "level": "error",
+          "service": "order-service",
+          "logger": "app.clients.graphql_client",
+          "message": "llamada a catalog-service fallida: no respondió",
+          "trace_id": "8d0b6e9f5eec8cda5b137d11fb6505fd",
+          "span_id": "36103ca21ba74b5b",
+          "upstream.service": "catalog-service",
+          "url.full": "http://sa-platform-catalog-service:4001/graphql",
+          "timeout_s": 5.0,
+          "error.type": "ConnectTimeout",
+          "error.message": "ConnectTimeout('')"
+        }
+2026-10-17T13:12:31Z  +03:33  [3·registros]  ✓ causa: llamada a catalog-service fallida: no respondió — catalog-service http://sa-platform-catalog-service:4001/graphql · ConnectTimeout ConnectTimeout('') · timeout 5.0 s · +3 s
+2026-10-17T13:12:31Z  +03:33  [recorrido]  ■ alerta → registro del error en 3 s (objetivo del criterio 2.4: < 180 s) · alerta sonando desde 2026-10-17T13:12:23.972Z
+2026-10-17T13:13:13Z  +--:--  [remedio]  el script se interrumpió tras el recorrido; reversión manual de 24b97ae en GitOps (git revert + push a main)
+2026-10-17T13:19:36Z  +10:38  [tiempos]  primer registro de error de order-service tras el cambio: 2026-10-17T13:09:34.683Z
+2026-10-17T13:19:36Z  +10:38  [tiempos]  último registro de error de order-service: 2026-10-17T13:13:52.679Z
+2026-10-17T13:19:36Z  +10:38  [recuperacion]  primera compra exitosa tras revertir (gateway, 201): 2026-10-17T13:13:31.782Z
+2026-10-17T13:19:36Z  +10:38  [recuperacion]  la alerta CheckoutPresupuestoQuemaRapida se resolvió sola: la quema de 5 min volvió por debajo de 14,4
+
+RESUMEN (calculado al cerrar; ver la nota de [remedio])
+  cambio en Git                 2026-10-17T13:09:03Z   commit 24b97ae
+  inicio del fallo              2026-10-17T13:09:34.683Z   (primer registro de error de order-service)
+  alerta                        2026-10-17T13:12:23Z   (startsAt; recibida en Alertmanager 13:12:25Z)
+  tiempo de detección           2 min 49 s   (inicio del fallo → alerta)
+  recorrido alerta → causa      4 s   (13:12:27Z → 13:12:31Z, recorrido.sh)
+  reversión en Git              2026-10-17T13:13:11Z   commit 4e8a432 (operador)
+  recuperado                    2026-10-17T13:13:31.782Z   (primera compra con 201 tras revertir)
+  último error registrado       2026-10-17T13:13:52.679Z
+  tiempo de recuperación        3 min 57 s   (inicio del fallo → compras sin error)
+  de la reversión a recuperado  0 min 20 s
+  alerta resuelta               2026-10-17T13:19:36Z
+  presupuesto del checkout que queda: -5865.0 %

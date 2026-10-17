@@ -1,0 +1,54 @@
+# canary-fallo — Práctica 10 (202202410)
+# inicio:   2026-10-17T12:59:12Z
+# máquina:  Darwin arm64
+# proyecto: sociedadanonima-507519 · clúster sa-p9
+# comando:  P10/scripts/demo-canary.sh canary-fallo
+#
+# Formato:  <UTC>  +<min:seg desde el inicio>  [etapa]  mensaje
+
+2026-10-17T12:59:15Z  +00:03  [inicio]  Pull Request #12: release(stage): api-gateway 1.3.2-fallo — FALLO INDUCIDO, el canary debe revertirlo
+2026-10-17T12:59:16Z  +00:04  [inicio]  rollout antes: Healthy · paso 7/7 · peso canary 0 % · estable 5499d6b5c8 · nuevo 5499d6b5c8
+2026-10-17T12:59:19Z  +00:07  [git]  Pull Request #12 fusionado en main: la versión defectuosa queda declarada en Git
+2026-10-17T12:59:31Z  +00:19  [rollout]  ReplicaSet candidato 7d7ffb5988 creado (estable: 5499d6b5c8)
+2026-10-17T12:59:39Z  +00:27  [fallo]  INICIO DEL FALLO: la versión candidata recibe tráfico real — Progressing · paso 1/7 · peso canary 10 % · estable 5499d6b5c8 · nuevo 7d7ffb5988
+2026-10-17T12:59:41Z  +00:29  [metricas]  5xx candidata 0.0 % · estable 0.0 % · Progressing · paso 1/7 · peso canary 10 % · estable 5499d6b5c8 · nuevo 7d7ffb5988
+2026-10-17T12:59:54Z  +00:42  [metricas]  5xx candidata 0.0 % · estable 0.0 % · Progressing · paso 1/7 · peso canary 10 % · estable 5499d6b5c8 · nuevo 7d7ffb5988
+2026-10-17T13:00:06Z  +00:54  [metricas]  5xx candidata 0.0 % · estable 0.0 % · Progressing · paso 1/7 · peso canary 10 % · estable 5499d6b5c8 · nuevo 7d7ffb5988
+2026-10-17T13:00:18Z  +01:06  [metricas]  5xx candidata 0.0 % · estable 0.0 % · Progressing · paso 1/7 · peso canary 10 % · estable 5499d6b5c8 · nuevo 7d7ffb5988
+2026-10-17T13:00:30Z  +01:18  [metricas]  5xx candidata 0.0 % · estable 0.0 % · Progressing · paso 1/7 · peso canary 10 % · estable 5499d6b5c8 · nuevo 7d7ffb5988
+2026-10-17T13:00:41Z  +01:29  [analisis]  sa-platform-api-gateway-7d7ffb5988-3-1 · tasa-errores: Successful valor=[0] (2026-10-17T13:00:39Z)
+2026-10-17T13:00:41Z  +01:29  [analisis]  sa-platform-api-gateway-7d7ffb5988-3-1 · trafico: Failed valor=[8.658333333333333] (2026-10-17T13:00:39Z)
+2026-10-17T13:00:41Z  +01:29  [analisis]  sa-platform-api-gateway-7d7ffb5988-3-1 · latencia-p95: Failed valor=[0.5335416666666666] (2026-10-17T13:00:39Z)
+2026-10-17T13:00:42Z  +01:30  [metricas]  5xx candidata 0.0 % · estable 0.0 % · Progressing · paso 1/7 · peso canary 10 % · estable 5499d6b5c8 · nuevo 7d7ffb5988
+2026-10-17T13:00:55Z  +01:43  [metricas]  5xx candidata 0.0 % · estable 0.0 % · Progressing · paso 1/7 · peso canary 10 % · estable 5499d6b5c8 · nuevo 7d7ffb5988
+2026-10-17T13:01:07Z  +01:55  [metricas]  5xx candidata 11.1 % · estable 0.0 % · Progressing · paso 1/7 · peso canary 10 % · estable 5499d6b5c8 · nuevo 7d7ffb5988
+2026-10-17T13:01:19Z  +02:07  [metricas]  5xx candidata 7.1 % · estable 0.0 % · Progressing · paso 1/7 · peso canary 10 % · estable 5499d6b5c8 · nuevo 7d7ffb5988
+2026-10-17T13:01:32Z  +02:20  [metricas]  5xx candidata 23.5 % · estable 0.0 % · Progressing · paso 1/7 · peso canary 10 % · estable 5499d6b5c8 · nuevo 7d7ffb5988
+2026-10-17T13:01:43Z  +02:31  [analisis]  sa-platform-api-gateway-7d7ffb5988-3-1 · tasa-errores: Failed valor=[0.1530212655806326] (2026-10-17T13:01:39Z)
+2026-10-17T13:01:43Z  +02:31  [analisis]  sa-platform-api-gateway-7d7ffb5988-3-1 · trafico: Successful valor=[33.789813333333335] (2026-10-17T13:01:39Z)
+2026-10-17T13:01:43Z  +02:31  [analisis]  sa-platform-api-gateway-7d7ffb5988-3-1 · latencia-p95: Successful valor=[0.3279600183823523] (2026-10-17T13:01:39Z)
+2026-10-17T13:01:44Z  +02:32  [metricas]  5xx candidata 26.3 % · estable 0.0 % · Progressing · paso 1/7 · peso canary 10 % · estable 5499d6b5c8 · nuevo 7d7ffb5988
+2026-10-17T13:01:57Z  +02:45  [metricas]  5xx candidata 40.0 % · estable 0.0 % · Progressing · paso 1/7 · peso canary 10 % · estable 5499d6b5c8 · nuevo 7d7ffb5988
+2026-10-17T13:02:09Z  +02:57  [metricas]  5xx candidata 40.0 % · estable 0.0 % · Progressing · paso 1/7 · peso canary 10 % · estable 5499d6b5c8 · nuevo 7d7ffb5988
+2026-10-17T13:02:22Z  +03:10  [metricas]  5xx candidata 40.0 % · estable 0.0 % · Progressing · paso 1/7 · peso canary 10 % · estable 5499d6b5c8 · nuevo 7d7ffb5988
+2026-10-17T13:02:34Z  +03:22  [metricas]  5xx candidata 36.4 % · estable 0.0 % · Progressing · paso 1/7 · peso canary 10 % · estable 5499d6b5c8 · nuevo 7d7ffb5988
+2026-10-17T13:02:46Z  +03:34  [analisis]  sa-platform-api-gateway-7d7ffb5988-3-1 · tasa-errores: Failed valor=[0.30653266331658297] (2026-10-17T13:02:39Z)
+2026-10-17T13:02:46Z  +03:34  [analisis]  sa-platform-api-gateway-7d7ffb5988-3-1 · trafico: Successful valor=[37.9047619047619] (2026-10-17T13:02:39Z)
+2026-10-17T13:02:46Z  +03:34  [analisis]  sa-platform-api-gateway-7d7ffb5988-3-1 · latencia-p95: Successful valor=[0.18354166666666658] (2026-10-17T13:02:39Z)
+2026-10-17T13:02:46Z  +03:34  [deteccion]  DETECCIÓN: AnalysisRun sa-platform-api-gateway-7d7ffb5988-3-1 en Failed — Metric "tasa-errores" assessed Failed due to failed (2) > failureLimit (1)
+2026-10-17T13:02:47Z  +03:35  [metricas]  5xx candidata 33.3 % · estable 0.0 % · Degraded · paso 0/7 · peso canary 0 % · estable 5499d6b5c8 · nuevo 7d7ffb5988 · ABORTADO
+2026-10-17T13:02:48Z  +03:36  [recuperacion]  RECUPERACIÓN: Argo Rollouts abortó; 100 % del tráfico en la versión estable 5499d6b5c8, sin intervención
+2026-10-17T13:02:49Z  +03:37  [evidencia]  AnalysisRun guardado: canary-fallo-20261017T125912Z/analysisrun-sa-platform-api-gateway-7d7ffb5988-3-1.yaml
+2026-10-17T13:02:50Z  +03:38  [causa]  registro del error (Loki) — {"timestamp":"2026-10-17T13:02:32.548Z","service":"api-gateway","message":"error no controlado","trace_id":"e9dfde50cd6521ebf935e7bbdfb84bd7","error.type":"TypeError","error.message":"Cannot read properties of undefined (reading 'split')"}
+2026-10-17T13:02:55Z  +03:43  [causa]  span en error (Tempo): api-gateway · middleware - <anonymous> · Cannot read properties of undefined (reading 'split')
+2026-10-17T13:02:55Z  +03:43  [causa]  span en error (Tempo): api-gateway · POST /api/catalog · Cannot read properties of undefined (reading 'split')
+2026-10-17T13:02:58Z  +03:46  [git]  revertido 41fadda en GitOps: stage vuelve a declarar la versión estable
+2026-10-17T13:03:11Z  +03:59  [fin]  rollout después: Healthy · paso 7/7 · peso canary 0 % · estable 5499d6b5c8 · nuevo 5499d6b5c8
+
+RESUMEN
+  versión defectuosa      7d7ffb5988 (estable 5499d6b5c8)
+  AnalysisRun fallido     sa-platform-api-gateway-7d7ffb5988-3-1
+  fusión → tráfico        0 min 20 s
+  tiempo de detección     3 min 07 s   (primer cliente expuesto → AnalysisRun Failed)
+  tiempo de recuperación  3 min 09 s   (primer cliente expuesto → 100 % en la estable)
+  intervención humana     ninguna hasta la recuperación

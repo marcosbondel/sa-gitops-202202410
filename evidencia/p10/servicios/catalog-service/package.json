@@ -1,0 +1,41 @@
+{
+  "name": "catalog-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Microservicio de catálogo de productos (GraphQL) — Práctica 4",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsc -p tsconfig.json --watch"
+  },
+  "dependencies": {
+    "@apollo/server": "4.11.2",
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/core": "2.12.0",
+    "@opentelemetry/exporter-prometheus": "0.223.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.223.0",
+    "@opentelemetry/instrumentation": "0.223.0",
+    "@opentelemetry/instrumentation-express": "0.71.1",
+    "@opentelemetry/instrumentation-graphql": "0.71.0",
+    "@opentelemetry/instrumentation-http": "0.223.0",
+    "@opentelemetry/instrumentation-pg": "0.76.0",
+    "@opentelemetry/resources": "2.12.0",
+    "@opentelemetry/sdk-metrics": "2.12.0",
+    "@opentelemetry/sdk-trace-base": "2.12.0",
+    "@opentelemetry/sdk-trace-node": "2.12.0",
+    "@opentelemetry/semantic-conventions": "1.43.0",
+    "body-parser": "1.20.3",
+    "cors": "2.8.5",
+    "express": "4.21.1",
+    "graphql": "16.9.0",
+    "pg": "8.13.1"
+  },
+  "devDependencies": {
+    "@types/cors": "2.8.17",
+    "@types/express": "4.17.21",
+    "@types/node": "22.9.0",
+    "@types/pg": "8.11.10",
+    "typescript": "5.6.3"
+  }
+}

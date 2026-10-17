@@ -1,0 +1,4 @@
+NAME                                     STATUS       AGE
+sa-platform-api-gateway-5499d6b5c8-2-1   Successful   9m31s
+sa-platform-api-gateway-5499d6b5c8-2-3   Successful   6m31s
+sa-platform-api-gateway-5499d6b5c8-2-5   Successful   3m21s

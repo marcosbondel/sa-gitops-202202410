@@ -1,0 +1,234 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  annotations:
+    argocd.argoproj.io/tracking-id: sa-p8-plataforma-stage:argoproj.io/Rollout:sa-p8-stage/sa-platform-api-gateway
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"argoproj.io/v1alpha1","kind":"Rollout","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"sa-p8-plataforma-stage:argoproj.io/Rollout:sa-p8-stage/sa-platform-api-gateway"},"labels":{"app.kubernetes.io/component":"gateway","app.kubernetes.io/instance":"sa-platform","app.kubernetes.io/managed-by":"Helm","app.kubernetes.io/name":"api-gateway","app.kubernetes.io/part-of":"sa-platform","app.kubernetes.io/version":"2.0.0","helm.sh/chart":"api-gateway-2.0.0"},"name":"sa-platform-api-gateway","namespace":"sa-p8-stage"},"spec":{"replicas":2,"revisionHistoryLimit":3,"selector":{"matchLabels":{"app.kubernetes.io/instance":"sa-platform","app.kubernetes.io/name":"api-gateway"}},"strategy":{"canary":{"canaryService":"sa-platform-api-gateway-canary","stableService":"sa-platform-api-gateway","steps":[{"setWeight":10},{"analysis":{"args":[{"name":"namespace","value":"sa-p8-stage"},{"name":"servicio","value":"api-gateway"},{"name":"hash-canary","valueFrom":{"podTemplateHashValue":"Latest"}}],"templates":[{"templateName":"sa-p10-metricas"}]}},{"setWeight":30},{"analysis":{"args":[{"name":"namespace","value":"sa-p8-stage"},{"name":"servicio","value":"api-gateway"},{"name":"hash-canary","valueFrom":{"podTemplateHashValue":"Latest"}}],"templates":[{"templateName":"sa-p10-metricas"}]}},{"setWeight":60},{"analysis":{"args":[{"name":"namespace","value":"sa-p8-stage"},{"name":"servicio","value":"api-gateway"},{"name":"hash-canary","valueFrom":{"podTemplateHashValue":"Latest"}}],"templates":[{"templateName":"sa-p10-metricas"}]}},{"setWeight":100}],"trafficRouting":{"nginx":{"stableIngress":"sa-platform"}}}},"template":{"metadata":{"annotations":{"checksum/config":"ae3e0f3839b67d9a07af16c4010498ff525a37c3938c2e18aa27a24e63edc9e2"},"labels":{"app.kubernetes.io/component":"gateway","app.kubernetes.io/instance":"sa-platform","app.kubernetes.io/managed-by":"Helm","app.kubernetes.io/name":"api-gateway","app.kubernetes.io/part-of":"sa-platform","app.kubernetes.io/version":"2.0.0","helm.sh/chart":"api-gateway-2.0.0"}},"spec":{"affinity":{"podAntiAffinity":{"preferredDuringSchedulingIgnoredDuringExecution":[{"podAffinityTerm":{"labelSelector":{"matchLabels":{"app.kubernetes.io/instance":"sa-platform","app.kubernetes.io/name":"api-gateway"}},"topologyKey":"kubernetes.io/hostname"},"weight":100}]}},"automountServiceAccountToken":false,"containers":[{"env":[{"name":"POD_NAME","valueFrom":{"fieldRef":{"fieldPath":"metadata.name"}}},{"name":"OTEL_SERVICE_NAME","value":"api-gateway"},{"name":"OTEL_EXPORTER_OTLP_ENDPOINT","value":"http://otel-collector.observabilidad.svc.cluster.local:4318"},{"name":"OTEL_EXPORTER_OTLP_PROTOCOL","value":"http/protobuf"},{"name":"METRICS_PORT","value":"9464"}],"envFrom":[{"configMapRef":{"name":"sa-platform-api-gateway"}}],"image":"ghcr.io/marcosbondel/api-gateway:1.3.1","imagePullPolicy":"IfNotPresent","lifecycle":{"preStop":{"exec":{"command":["/bin/sh","-c","sleep 5"]}}},"livenessProbe":{"failureThreshold":3,"httpGet":{"path":"/health/self","port":"http"},"periodSeconds":15,"timeoutSeconds":3},"name":"api-gateway","ports":[{"containerPort":8080,"name":"http","protocol":"TCP"},{"containerPort":9464,"name":"metrics","protocol":"TCP"}],"readinessProbe":{"failureThreshold":3,"httpGet":{"path":"/health/ready","port":"http"},"periodSeconds":10,"successThreshold":1,"timeoutSeconds":3},"resources":{"limits":{"cpu":"500m","memory":"384Mi"},"requests":{"cpu":"50m","memory":"128Mi"}},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true,"runAsNonRoot":true,"runAsUser":10001},"startupProbe":{"failureThreshold":20,"httpGet":{"path":"/health/startup","port":"http"},"periodSeconds":3,"timeoutSeconds":3},"volumeMounts":[{"mountPath":"/tmp","name":"tmp"}]}],"securityContext":{"fsGroup":10001,"runAsGroup":10001,"runAsNonRoot":true,"runAsUser":10001,"seccompProfile":{"type":"RuntimeDefault"}},"serviceAccountName":"sa-platform-api-gateway","terminationGracePeriodSeconds":30,"volumes":[{"emptyDir":{"sizeLimit":"32Mi"},"name":"tmp"}]}}}}
+    rollout.argoproj.io/revision: "2"
+  creationTimestamp: "2026-10-17T12:06:31Z"
+  generation: 2
+  labels:
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/instance: sa-platform
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/part-of: sa-platform
+    app.kubernetes.io/version: 2.0.0
+    helm.sh/chart: api-gateway-2.0.0
+  name: sa-platform-api-gateway
+  namespace: sa-p8-stage
+  resourceVersion: "1792241912352383012"
+  uid: e4e3b3b4-b00e-4763-a3d0-8ac982fca0d2
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: sa-platform
+      app.kubernetes.io/name: api-gateway
+  strategy:
+    canary:
+      canaryService: sa-platform-api-gateway-canary
+      stableService: sa-platform-api-gateway
+      steps:
+      - setWeight: 10
+      - analysis:
+          args:
+          - name: namespace
+            value: sa-p8-stage
+          - name: servicio
+            value: api-gateway
+          - name: hash-canary
+            valueFrom:
+              podTemplateHashValue: Latest
+          templates:
+          - templateName: sa-p10-metricas
+      - setWeight: 30
+      - analysis:
+          args:
+          - name: namespace
+            value: sa-p8-stage
+          - name: servicio
+            value: api-gateway
+          - name: hash-canary
+            valueFrom:
+              podTemplateHashValue: Latest
+          templates:
+          - templateName: sa-p10-metricas
+      - setWeight: 60
+      - analysis:
+          args:
+          - name: namespace
+            value: sa-p8-stage
+          - name: servicio
+            value: api-gateway
+          - name: hash-canary
+            valueFrom:
+              podTemplateHashValue: Latest
+          templates:
+          - templateName: sa-p10-metricas
+      - setWeight: 100
+      trafficRouting:
+        nginx:
+          stableIngress: sa-platform
+  template:
+    metadata:
+      annotations:
+        checksum/config: ae3e0f3839b67d9a07af16c4010498ff525a37c3938c2e18aa27a24e63edc9e2
+      labels:
+        app.kubernetes.io/component: gateway
+        app.kubernetes.io/instance: sa-platform
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: api-gateway
+        app.kubernetes.io/part-of: sa-platform
+        app.kubernetes.io/version: 2.0.0
+        helm.sh/chart: api-gateway-2.0.0
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/instance: sa-platform
+                  app.kubernetes.io/name: api-gateway
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: OTEL_SERVICE_NAME
+          value: api-gateway
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://otel-collector.observabilidad.svc.cluster.local:4318
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: http/protobuf
+        - name: METRICS_PORT
+          value: "9464"
+        envFrom:
+        - configMapRef:
+            name: sa-platform-api-gateway
+        image: ghcr.io/marcosbondel/api-gateway:1.3.1
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - sleep 5
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health/self
+            port: http
+          periodSeconds: 15
+          timeoutSeconds: 3
+        name: api-gateway
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        - containerPort: 9464
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health/ready
+            port: http
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 3
+        resources:
+          limits:
+            cpu: 500m
+            memory: 384Mi
+          requests:
+            cpu: 50m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 10001
+        startupProbe:
+          failureThreshold: 20
+          httpGet:
+            path: /health/startup
+            port: http
+          periodSeconds: 3
+          timeoutSeconds: 3
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: sa-platform-api-gateway
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - emptyDir:
+          sizeLimit: 32Mi
+        name: tmp
+status:
+  HPAReplicas: 4
+  availableReplicas: 4
+  blueGreen: {}
+  canary:
+    weights:
+      canary:
+        podTemplateHash: 5499d6b5c8
+        serviceName: sa-platform-api-gateway-canary
+        weight: 0
+      stable:
+        podTemplateHash: 5499d6b5c8
+        serviceName: sa-platform-api-gateway
+        weight: 100
+  conditions:
+  - lastTransitionTime: "2026-10-17T12:06:56Z"
+    lastUpdateTime: "2026-10-17T12:06:56Z"
+    message: Rollout has minimum availability
+    reason: AvailableReason
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2026-10-17T12:49:09Z"
+    lastUpdateTime: "2026-10-17T12:49:09Z"
+    message: Rollout is not healthy
+    reason: RolloutHealthy
+    status: "False"
+    type: Healthy
+  - lastTransitionTime: "2026-10-17T12:06:32Z"
+    lastUpdateTime: "2026-10-17T12:58:32Z"
+    message: ReplicaSet "sa-platform-api-gateway-5499d6b5c8" is progressing.
+    reason: ReplicaSetUpdated
+    status: "True"
+    type: Progressing
+  - lastTransitionTime: "2026-10-17T12:58:32Z"
+    lastUpdateTime: "2026-10-17T12:58:32Z"
+    message: RolloutCompleted
+    reason: RolloutCompleted
+    status: "True"
+    type: Completed
+  currentPodHash: 5499d6b5c8
+  currentStepHash: 6495bb4b76
+  currentStepIndex: 7
+  observedGeneration: "2"
+  phase: Healthy
+  readyReplicas: 4
+  replicas: 4
+  selector: app.kubernetes.io/instance=sa-platform,app.kubernetes.io/name=api-gateway
+  stableRS: 5499d6b5c8
+  updatedReplicas: 2

@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-10-17T13:02:32.548Z",
+  "level": "error",
+  "service": "api-gateway",
+  "message": "error no controlado",
+  "trace_id": "e9dfde50cd6521ebf935e7bbdfb84bd7",
+  "span_id": "10ac4660d1599374",
+  "error.type": "TypeError",
+  "error.message": "Cannot read properties of undefined (reading 'split')",
+  "error.stack": "TypeError: Cannot read properties of undefined (reading 'split')\n    at /app/dist/index.js:160:59\n    at /app/node_modules/@opentelemetry/context-async-hooks/build/src/AbstractAsyncHooksContextManager.js:35:55\n    at AsyncLocalStorage.run (node:async_hooks:346:14)\n    at AsyncLocalStorageContextManager.with (/app/node_modules/@opentelemetry/context-async-hooks/build/src/AsyncLocalStorageContextManager.js:45:40)\n    at contextWrapper (/app/node_modules/@opentelemetry/context-async-hooks/build/src/AbstractAsyncHooksContextManager.js:35:32)\n    at patched (/app/node_modules/@opentelemetry/instrumentation-express/build/src/instrumentation.js:224:73)\n    at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)\n    at trim_prefix (/app/node_modules/express/lib/router/index.js:328:13)\n    at /app/node_modules/express/lib/router/index.js:286:9\n    at Function.process_params (/app/node_modules/express/lib/router/index.js:346:12)"
+}

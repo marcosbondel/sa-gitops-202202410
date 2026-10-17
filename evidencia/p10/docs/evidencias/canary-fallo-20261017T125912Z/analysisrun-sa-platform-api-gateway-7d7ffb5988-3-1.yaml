@@ -1,0 +1,164 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisRun
+metadata:
+  annotations:
+    rollout.argoproj.io/revision: "3"
+  creationTimestamp: "2026-10-17T12:59:39Z"
+  generation: 5
+  labels:
+    app.kubernetes.io/instance: sa-platform
+    app.kubernetes.io/name: api-gateway
+    rollout-type: Step
+    rollouts-pod-template-hash: 7d7ffb5988
+    step-index: "1"
+  name: sa-platform-api-gateway-7d7ffb5988-3-1
+  namespace: sa-p8-stage
+  ownerReferences:
+  - apiVersion: argoproj.io/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Rollout
+    name: sa-platform-api-gateway
+    uid: e4e3b3b4-b00e-4763-a3d0-8ac982fca0d2
+  resourceVersion: "1792242159054767002"
+  uid: 4da6a240-0b7a-4242-b7b8-65d40ecf6ffa
+spec:
+  args:
+  - name: namespace
+    value: sa-p8-stage
+  - name: servicio
+    value: api-gateway
+  - name: hash-canary
+    value: 7d7ffb5988
+  metrics:
+  - count: 3
+    failureLimit: 1
+    initialDelay: 1m
+    interval: 1m
+    name: trafico
+    provider:
+      prometheus:
+        address: http://prometheus-operated.observabilidad.svc.cluster.local:9090
+        authentication:
+          oauth2: {}
+          sigv4: {}
+        query: |
+          sum(increase(http_server_request_duration_seconds_count{namespace="{{args.namespace}}", service="{{args.servicio}}", rollouts_pod_template_hash="{{args.hash-canary}}"}[2m])) or on() vector(0)
+    successCondition: result[0] >= 10
+  - count: 3
+    failureLimit: 1
+    initialDelay: 1m
+    interval: 1m
+    name: tasa-errores
+    provider:
+      prometheus:
+        address: http://prometheus-operated.observabilidad.svc.cluster.local:9090
+        authentication:
+          oauth2: {}
+          sigv4: {}
+        query: |
+          (
+            (sum(rate(http_server_request_duration_seconds_count{namespace="{{args.namespace}}", service="{{args.servicio}}", rollouts_pod_template_hash="{{args.hash-canary}}", http_response_status_code=~"5.."}[2m])) or on() vector(0))
+            /
+            sum(rate(http_server_request_duration_seconds_count{namespace="{{args.namespace}}", service="{{args.servicio}}", rollouts_pod_template_hash="{{args.hash-canary}}"}[2m]))
+          ) or on() vector(0)
+    successCondition: result[0] <= 0.05
+  - count: 3
+    failureLimit: 1
+    initialDelay: 1m
+    interval: 1m
+    name: latencia-p95
+    provider:
+      prometheus:
+        address: http://prometheus-operated.observabilidad.svc.cluster.local:9090
+        authentication:
+          oauth2: {}
+          sigv4: {}
+        query: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_server_request_duration_seconds_bucket{namespace="{{args.namespace}}", service="{{args.servicio}}", rollouts_pod_template_hash="{{args.hash-canary}}"}[2m]))
+          ) or on() vector(0)
+    successCondition: result[0] <= 0.5
+status:
+  completedAt: "2026-10-17T13:02:39Z"
+  dryRunSummary: {}
+  message: Metric "tasa-errores" assessed Failed due to failed (2) > failureLimit
+    (1)
+  metricResults:
+  - count: 3
+    failed: 2
+    measurements:
+    - finishedAt: "2026-10-17T13:00:39Z"
+      phase: Successful
+      startedAt: "2026-10-17T13:00:39Z"
+      value: '[0]'
+    - finishedAt: "2026-10-17T13:01:39Z"
+      phase: Failed
+      startedAt: "2026-10-17T13:01:39Z"
+      value: '[0.1530212655806326]'
+    - finishedAt: "2026-10-17T13:02:39Z"
+      phase: Failed
+      startedAt: "2026-10-17T13:02:39Z"
+      value: '[0.30653266331658297]'
+    metadata:
+      ResolvedPrometheusQuery: |
+        (
+          (sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-stage", service="api-gateway", rollouts_pod_template_hash="7d7ffb5988", http_response_status_code=~"5.."}[2m])) or on() vector(0))
+          /
+          sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-stage", service="api-gateway", rollouts_pod_template_hash="7d7ffb5988"}[2m]))
+        ) or on() vector(0)
+    name: tasa-errores
+    phase: Failed
+    successful: 1
+  - consecutiveSuccess: 2
+    count: 3
+    failed: 1
+    measurements:
+    - finishedAt: "2026-10-17T13:00:39Z"
+      phase: Failed
+      startedAt: "2026-10-17T13:00:39Z"
+      value: '[8.658333333333333]'
+    - finishedAt: "2026-10-17T13:01:39Z"
+      phase: Successful
+      startedAt: "2026-10-17T13:01:39Z"
+      value: '[33.789813333333335]'
+    - finishedAt: "2026-10-17T13:02:39Z"
+      phase: Successful
+      startedAt: "2026-10-17T13:02:39Z"
+      value: '[37.9047619047619]'
+    metadata:
+      ResolvedPrometheusQuery: |
+        sum(increase(http_server_request_duration_seconds_count{namespace="sa-p8-stage", service="api-gateway", rollouts_pod_template_hash="7d7ffb5988"}[2m])) or on() vector(0)
+    name: trafico
+    phase: Successful
+    successful: 2
+  - consecutiveSuccess: 2
+    count: 3
+    failed: 1
+    measurements:
+    - finishedAt: "2026-10-17T13:00:39Z"
+      phase: Failed
+      startedAt: "2026-10-17T13:00:39Z"
+      value: '[0.5335416666666666]'
+    - finishedAt: "2026-10-17T13:01:39Z"
+      phase: Successful
+      startedAt: "2026-10-17T13:01:39Z"
+      value: '[0.3279600183823523]'
+    - finishedAt: "2026-10-17T13:02:39Z"
+      phase: Successful
+      startedAt: "2026-10-17T13:02:39Z"
+      value: '[0.18354166666666658]'
+    metadata:
+      ResolvedPrometheusQuery: |
+        histogram_quantile(0.95,
+          sum by (le) (rate(http_server_request_duration_seconds_bucket{namespace="sa-p8-stage", service="api-gateway", rollouts_pod_template_hash="7d7ffb5988"}[2m]))
+        ) or on() vector(0)
+    name: latencia-p95
+    phase: Successful
+    successful: 2
+  phase: Failed
+  runSummary:
+    count: 3
+    failed: 1
+    successful: 2
+  startedAt: "2026-10-17T12:59:39Z"
