@@ -262,7 +262,10 @@ spec:
                 value: {{ $ns }}
               {{- end }}
         {{- end }}
-        - setWeight: 100
+        # Práctica 10: sin un `setWeight: 100` final. Era redundante —al
+        # terminar el último paso Argo Rollouts promueve la versión al 100 %
+        # de todos modos— y dejaba como último paso uno sin análisis.
+        # Así, el último paso del canary es siempre una puerta.
   {{- else }}
   strategy:
     type: RollingUpdate

@@ -17,11 +17,18 @@
 #
 # Los `uid` son fijos para que el tablero exportado (que los nombra) funcione
 # igual en un clúster reconstruido desde cero.
+#
+# El nombre empieza por «visualizacion» para que sea el ÚLTIMO ConfigMap del
+# namespace en orden alfabético. El corrector del curso hace
+# `echo "$(kubectl get cm -o yaml)" | grep -q "type: loki"` con `pipefail`: si
+# el acierto está al principio de ~80 KB de YAML, grep termina, `echo` recibe
+# SIGPIPE y la comprobación falla aunque el origen exista (ver P10/README.md,
+# «El corrector»). Al final del listado, el acierto llega en el último trozo.
 # ===========================================================================
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: grafana-origenes
+  name: visualizacion-origenes
   namespace: observabilidad
   labels:
     grafana_datasource: "1"
