@@ -37,9 +37,12 @@ spec:
 
     - repoURL: https://github.com/marcosbondel/sa-gitops-202202410.git
       targetRevision: main
-      path: charts/sa-p8-analisis
+      # Práctica 10: el análisis consulta Prometheus en lugar de lanzar
+      # Jobs de pruebas. ArgoCD poda las tres plantillas de la P8 (humo,
+      # integración, carga) y crea `sa-p10-metricas`.
+      path: charts/sa-p10-analisis
       helm:
-        releaseName: sa-p8-analisis
+        releaseName: sa-p10-analisis
         valueFiles:
           - $valores/envs/prod/analisis.yaml
 
