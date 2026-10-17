@@ -41,9 +41,15 @@ spec:
         tempo:
           reportingEnabled: false
           retention: 72h
+          # Bloques de 5 min en lugar de 30. Con el 100 % de las trazas
+          # (~10 peticiones/s × ~40 spans), cerrar un bloque de media hora
+          # exigía más de 1 GiB y el pod moría por OOM al completarlo: así
+          # pasó el 2026-10-17 hacia las 13:20 UTC.
+          ingester:
+            max_block_duration: 5m
           resources:
-            requests: { cpu: 50m, memory: 256Mi }
-            limits: { cpu: "1", memory: 1Gi }
+            requests: { cpu: 50m, memory: 512Mi }
+            limits: { cpu: "1", memory: 2Gi }
         persistence:
           enabled: true
           size: 10Gi
