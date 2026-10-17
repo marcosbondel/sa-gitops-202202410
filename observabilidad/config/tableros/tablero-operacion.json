@@ -910,7 +910,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
+          "unit": "short",
           "decimals": 2,
           "noValue": "sin datos",
           "thresholds": {
