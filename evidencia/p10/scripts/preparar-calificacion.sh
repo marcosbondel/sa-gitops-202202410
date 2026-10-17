@@ -43,12 +43,21 @@ echo
 echo "════ Corrector oficial (sin modificar) ════"
 env -u CLOUDSDK_CORE_ACCOUNT -u CLOUDSDK_CORE_PROJECT -u GOOGLE_OAUTH_ACCESS_TOKEN bash ./verificar_p10.sh || true
 
-# La copia corregida: `"${X:-{}}"` deja una `}` pegada al JSON cuando X no
-# está vacía, jq falla y todas las comprobaciones de las secciones 2.2 y 2.3
-# que pasan por esas variables salen en cero. Se reemplaza solo eso.
+# La copia corregida, con DOS arreglos y nada más:
+#
+#   1. `"${X:-{}}"` deja una `}` pegada al JSON cuando X no está vacía; jq
+#      falla y todas las comprobaciones de 2.2 y 2.3 que pasan por esas
+#      variables salen en cero.
+#   2. `… | grep -qi …` con `set -o pipefail` en dos comprobaciones (Collector
+#      y orígenes de Grafana): grep termina en el primer acierto, el comando
+#      que escribe en la tubería recibe SIGPIPE y `pipefail` convierte el
+#      acierto en fallo. Se cambia `-q` por `>/dev/null`: grep lee todo.
 TMP="$(mktemp -d)"
 # shellcheck disable=SC2016  # las comillas simples son a propósito: es texto de bash, no se expande aquí
-sed 's/"\${ATJSON:-{}}"/"${ATJSON:-"{}"}"/g; s/"\${PRJSON:-{}}"/"${PRJSON:-"{}"}"/g' verificar_p10.sh >"$TMP/verificar_p10.sh"
+sed -e 's/"\${ATJSON:-{}}"/"${ATJSON:-"{}"}"/g; s/"\${PRJSON:-{}}"/"${PRJSON:-"{}"}"/g' \
+    -e 's/| grep -qi "otel/| grep -i >\/dev\/null "otel/' \
+    -e 's/echo "\${DS:-}" | grep -qi /echo "${DS:-}" | grep -i >\/dev\/null /' \
+    verificar_p10.sh >"$TMP/verificar_p10.sh"
 cp p10.conf "$TMP/"
 echo
 echo "════ Copia con la línea de \${X:-{}} corregida (referencia) ════"

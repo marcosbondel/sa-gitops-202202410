@@ -126,10 +126,38 @@ P9/scripts/apagar.sh                      # al terminar
 
 ## El corrector
 
-`scripts/verificar_p10.sh` es el del curso, **sin modificar**. Tiene el mismo
-defecto que el de la P9: `"${ATJSON:-{}}"` y `"${PRJSON:-{}}"` añaden una `}`
-al JSON cuando la variable no está vacía; `jq` falla y todas las
-comprobaciones de 2.2 y 2.3 que pasan por esas variables salen en cero, con un
-eliminatorio falso («análisis sin Prometheus»). `preparar-calificacion.sh`
-ejecuta el original y, como referencia, una copia en `/tmp` con solo esas
-expresiones corregidas. Reportes en [`docs/evidencias/`](docs/evidencias/).
+`scripts/verificar_p10.sh` es el del curso, **sin modificar** (sha256
+`0f423f0112af7767…`). Ejecutado contra el clúster vivo el 2026-10-17 a las
+14:09 UTC:
+
+| | 2.1 | 2.2 | 2.3 | 2.4 | 2.5 | Total | Eliminatorios |
+|---|---|---|---|---|---|---|---|
+| [Original](docs/evidencias/corrector-original-20261017T140934Z.txt) | 14 | 11 | 2 | 10 | 8 | **45 / 60** | «análisis sin Prometheus» (falso) |
+| [Copia con dos expresiones corregidas](docs/evidencias/corrector-corregido-20261017T140934Z.txt) | 14 | 16 | 12 | 10 | 8 | **60 / 60** | ninguno |
+
+Los 15 puntos de diferencia son dos defectos del corrector, no de la entrega:
+
+1. **`"${ATJSON:-{}}"` y `"${PRJSON:-{}}"`** —el mismo defecto que tenía el de
+   la P9— dejan una `}` pegada al JSON cuando la variable no está vacía; `jq`
+   falla y todas las comprobaciones de 2.2 y 2.3 que pasan por esas variables
+   salen en cero, con un eliminatorio falso. Las consultas, los
+   AnalysisTemplate y las 28 reglas de registro y 4 alertas existen: el propio
+   corrector las lista («Consultas declaradas: 12», «Reglas de registro: 28»).
+2. **`… | grep -qi …` con `set -o pipefail`**: `grep` termina en el primer
+   acierto, el comando que escribe recibe SIGPIPE y `pipefail` convierte el
+   acierto en fallo. Afecta a la comprobación del Collector (una carrera: pasa
+   o no según cuándo escriba `kubectl`; GKE trae además su propio DaemonSet
+   `gmp-system/collector`) y a la de los orígenes de Grafana. Esta última se
+   evitó del lado de la entrega: el ConfigMap de orígenes se llama
+   `visualizacion-origenes` para ser el último del listado (ver su
+   encabezado).
+
+Del lado de la entrega se ajustaron dos cosas legítimas que el corrector
+interpretaba mal: el canary ya no termina en un `setWeight: 100` redundante
+(`jq -e` miraba solo el último paso) y las reglas de registro declaran
+`annotations: {}` (la comprobación de runbooks hacía `with_entries` sobre
+`null`).
+
+`preparar-calificacion.sh` deja gcloud y kubectl listos en esta máquina,
+ejecuta el original y, como referencia, la copia en `/tmp` con solo esas dos
+expresiones corregidas.
