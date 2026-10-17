@@ -41,9 +41,9 @@ metadata:
     sa.usac.edu.gt/practica: p9
 spec:
   schedule: "*/15 * * * *"
-  # Ver `apps/40-respaldos.yaml`: el respaldo inmediato es deseado AQUÍ,
-  # porque este Schedule llega cuando los datos ya están restaurados.
-  skipImmediately: false
+  # Velero 1.18 NO respalda al crear el Schedule: espera al primer tic del
+  # cron. Se deja explícito para que no dependa del valor por defecto.
+  skipImmediately: true
   useOwnerReferencesInBackup: false
   template:
     includedNamespaces:

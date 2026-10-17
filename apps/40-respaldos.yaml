@@ -1,16 +1,15 @@
 # ===========================================================================
 # El Schedule de Velero — ola 10, la ÚLTIMA.
 #
-# Al final a propósito. Velero toma un respaldo en cuanto se crea un Schedule
-# que nunca ha corrido. Si el Schedule llegara con los complementos (-40), en
-# un clúster recién reconstruido ese primer respaldo capturaría los
-# namespaces VACÍOS, antes de la restauración, y pasaría a ser el «respaldo
-# más reciente»: la siguiente recuperación restauraría la nada.
+# Al final a propósito. Si el Schedule llegara con los complementos (-40), un
+# tic del cron que cayera durante la reconstrucción —antes de la ola -15—
+# respaldaría los namespaces VACÍOS, y ese respaldo pasaría a ser «el más
+# reciente»: la siguiente recuperación restauraría la nada. En la ola 10 la
+# plataforma ya está sana y con sus datos restaurados.
 #
-# En la ola 10 la plataforma ya está sana y con sus datos restaurados, así que
-# ese respaldo inmediato es útil: es un punto de recuperación fresco justo
-# después del incidente, y es el «respaldo existente, verificable en el
-# momento» que el §8.1 pide al iniciar la calificación.
+# Velero 1.18 no respalda en el instante de crear el Schedule (observado en
+# la primera reconstrucción real): el primer respaldo llega con el siguiente
+# tic del cron, ≤ 15 min.
 # ===========================================================================
 apiVersion: argoproj.io/v1alpha1
 kind: Application
