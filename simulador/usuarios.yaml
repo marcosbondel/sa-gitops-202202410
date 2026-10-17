@@ -1,0 +1,122 @@
+# Los dos Deployment del simulador. Fuera de `sa-p8-*`: no son la
+# plataforma, y las políticas de Kyverno de la P8 (imágenes firmadas por el
+# pipeline) no aplican a la imagen pública de k6.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: usuarios-prod
+  labels:
+    app.kubernetes.io/name: simulador-usuarios
+    app.kubernetes.io/instance: prod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: simulador-usuarios
+      app.kubernetes.io/instance: prod
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: simulador-usuarios
+        app.kubernetes.io/instance: prod
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 12345
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: k6
+          image: grafana/k6:0.55.0
+          command:
+            - /bin/sh
+            - -c
+            - while true; do k6 run --quiet --no-summary --no-usage-report /guion/usuarios.js; sleep 2; done
+          env:
+            - name: HOST
+              value: sa-p9.35.253.196.204.nip.io
+            - name: NAVEGAR_POR_SEGUNDO
+              value: "4"
+            - name: COMPRAS_POR_MINUTO
+              value: "30"
+          workingDir: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 384Mi }
+          volumeMounts:
+            - name: guion
+              mountPath: /guion
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: guion
+          configMap:
+            name: guion-usuarios
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: usuarios-stage
+  labels:
+    app.kubernetes.io/name: simulador-usuarios
+    app.kubernetes.io/instance: stage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: simulador-usuarios
+      app.kubernetes.io/instance: stage
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: simulador-usuarios
+        app.kubernetes.io/instance: stage
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 12345
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: k6
+          image: grafana/k6:0.55.0
+          command:
+            - /bin/sh
+            - -c
+            - while true; do k6 run --quiet --no-summary --no-usage-report /guion/usuarios.js; sleep 2; done
+          env:
+            - name: HOST
+              value: sa-p9-stage.35.253.196.204.nip.io
+            - name: NAVEGAR_POR_SEGUNDO
+              value: "3"
+            - name: COMPRAS_POR_MINUTO
+              value: "30"
+          workingDir: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 384Mi }
+          volumeMounts:
+            - name: guion
+              mountPath: /guion
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: guion
+          configMap:
+            name: guion-usuarios
+        - name: tmp
+          emptyDir: {}

@@ -1,0 +1,37 @@
+# ===========================================================================
+# SLO, alertas, PodMonitor, orígenes de datos y tablero (Práctica 10).
+#
+# Todo lo que dice QUÉ se mide y CUÁNDO se avisa vive aquí, en Git, y llega
+# al clúster por el mismo camino que la aplicación: un commit, una
+# sincronización de ArgoCD. Cambiar el objetivo de un SLO o el umbral de una
+# alerta es un Pull Request revisable, no un clic en una interfaz que nadie
+# recuerda haber dado.
+#
+# Ola 4: necesita las CRD de PodMonitor y PrometheusRule (ola 2) y que
+# Grafana exista para cargar los orígenes y el tablero.
+# ===========================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sa-p10-observabilidad-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sa-p10-observabilidad
+  source:
+    repoURL: https://github.com/marcosbondel/sa-gitops-202202410.git
+    targetRevision: main
+    path: observabilidad/config
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observabilidad
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

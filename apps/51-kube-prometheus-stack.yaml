@@ -1,0 +1,203 @@
+# ===========================================================================
+# Métricas, alertas y tableros: Prometheus, Alertmanager y Grafana (P10).
+#
+# kube-prometheus-stack trae el operador de Prometheus —que convierte los
+# PodMonitor y PrometheusRule de `observabilidad/` en configuración viva—,
+# Alertmanager, Grafana, kube-state-metrics (réplicas, HPA, límites) y
+# node-exporter. El kubelet ya expone cAdvisor: de ahí sale la saturación
+# (CPU y memoria de cada contenedor contra su límite).
+#
+# ## Lo que se APAGA, que es casi tan importante como lo que se enciende
+#
+#   defaultRules.create: false
+#       El chart trae ~150 reglas de alerta genéricas (KubePodCrashLooping,
+#       NodeFilesystemAlmostOutOfSpace, Watchdog…). El §3.2 pide que cada
+#       alerta justifique por qué amerita intervención y que las demás se
+#       eliminen. Ninguna de esas tiene un runbook de este sistema ni dice
+#       si un usuario lo está pasando mal; en la primera semana serían ruido
+#       y el ruido enseña a ignorar la alarma. Las únicas alertas de este
+#       clúster son las cuatro de `observabilidad/slo/`.
+#
+#   grafana.defaultDashboardsEnabled: false
+#       Treinta tableros con todas las métricas disponibles son lo contrario
+#       de lo que pide el criterio 1.2. Hay UNO, organizado por las cuatro
+#       señales de oro: `observabilidad/tableros/`.
+#
+#   kubeControllerManager, kubeScheduler, kubeEtcd, kubeProxy, coreDns
+#       En GKE el plano de control lo opera Google y no expone esas métricas;
+#       los objetivos quedarían permanentemente caídos.
+#
+#   admisión y TLS del operador
+#       El webhook valida las PrometheusRule al aplicarlas, a cambio de un
+#       Job de certificados que ArgoCD tendría que sincronizar como hook en
+#       cada arranque. La validación ya la hace `promtool` en local antes de
+#       cada commit (ver `P10/scripts/validar.sh`).
+#
+# ## Por qué Prometheus con disco y no efímero
+#
+# Los SLO se declaran sobre 30 días. Un Prometheus sin volumen olvida todo en
+# cada reinicio del pod, y el presupuesto de error volvería a 100 % cada vez:
+# justo la mentira que un SLO tiene que impedir. El disco NO se respalda con
+# Velero (el Schedule solo cubre `sa-p8-*`): perder el historial de métricas
+# en un desastre total es aceptable y está declarado en el informe.
+#
+# Ola 2: después de la plataforma (ola 0). El usuario recupera el servicio
+# antes de que vuelva la observabilidad; el RTO medido en la P9 no cambia.
+# ===========================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sa-p10-kube-prometheus-stack
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sa-p10-observabilidad
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 92.10.1
+    helm:
+      releaseName: kube-prometheus-stack
+      valuesObject:
+        fullnameOverride: kps
+        defaultRules:
+          create: false
+        windowsMonitoring:
+          enabled: false
+        kubeApiServer:
+          enabled: false
+        kubeControllerManager:
+          enabled: false
+        kubeScheduler:
+          enabled: false
+        kubeEtcd:
+          enabled: false
+        kubeProxy:
+          enabled: false
+        coreDns:
+          enabled: false
+        kubeDns:
+          enabled: false
+
+        prometheusOperator:
+          admissionWebhooks:
+            enabled: false
+          tls:
+            enabled: false
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { cpu: 300m, memory: 256Mi }
+
+        prometheus:
+          prometheusSpec:
+            # Sin filtrar por etiqueta de release: el operador recoge TODOS
+            # los PodMonitor y PrometheusRule del clúster, incluidos los que
+            # ArgoCD despliega desde `observabilidad/` con otra Application.
+            podMonitorSelectorNilUsesHelmValues: false
+            serviceMonitorSelectorNilUsesHelmValues: false
+            ruleSelectorNilUsesHelmValues: false
+            probeSelectorNilUsesHelmValues: false
+            scrapeInterval: 15s
+            evaluationInterval: 15s
+            retention: 30d
+            retentionSize: 8GB
+            storageSpec:
+              volumeClaimTemplate:
+                spec:
+                  accessModes: [ReadWriteOnce]
+                  resources:
+                    requests:
+                      storage: 10Gi
+            resources:
+              requests: { cpu: 200m, memory: 768Mi }
+              limits: { cpu: "1", memory: 2Gi }
+
+        alertmanager:
+          alertmanagerSpec:
+            resources:
+              requests: { cpu: 10m, memory: 48Mi }
+              limits: { cpu: 100m, memory: 128Mi }
+          # -------------------------------------------------------------------
+          # El enrutamiento.
+          #
+          # Un único receptor, `guardia`, sin integración externa: las alertas
+          # se ven en la interfaz de Alertmanager y en Grafana. Es una
+          # limitación declarada en el informe (campo 6): en producción real
+          # `guardia` tendría un `pagerduty_configs` para las de severidad
+          # `pagina` y un canal de chat para las de `ticket`.
+          #
+          # La regla de inhibición evita la doble notificación: si un SLO ya
+          # está quemando presupuesto RÁPIDO, la alerta de quema lenta del
+          # mismo SLO no agrega información, solo ruido.
+          # -------------------------------------------------------------------
+          config:
+            global:
+              resolve_timeout: 5m
+            route:
+              receiver: guardia
+              group_by: [alertname, slo]
+              group_wait: 30s
+              group_interval: 5m
+              repeat_interval: 4h
+            receivers:
+              - name: guardia
+            inhibit_rules:
+              - source_matchers: [velocidad="rapida"]
+                target_matchers: [velocidad="lenta"]
+                equal: [slo]
+            templates: []
+
+        grafana:
+          defaultDashboardsEnabled: false
+          admin:
+            # SealedSecret de `observabilidad/secretos/` (ola 1): la contraseña
+            # no está en este repositorio público.
+            existingSecret: grafana-admin
+            userKey: admin-user
+            passwordKey: admin-password
+          sidecar:
+            dashboards:
+              enabled: true
+              label: grafana_dashboard
+              labelValue: "1"
+              searchNamespace: observabilidad
+            datasources:
+              enabled: true
+              # Los orígenes de datos (Prometheus, Loki, Tempo y Alertmanager,
+              # con los enlaces entre ellos) se declaran juntos en
+              # `observabilidad/grafana/origenes.yaml`. El que trae el chart
+              # quedaría duplicado y sin los enlaces.
+              defaultDatasourceEnabled: false
+          grafana.ini:
+            analytics:
+              check_for_updates: false
+              reporting_enabled: false
+          resources:
+            requests: { cpu: 50m, memory: 192Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+
+        kube-state-metrics:
+          resources:
+            requests: { cpu: 10m, memory: 48Mi }
+            limits: { cpu: 200m, memory: 192Mi }
+
+        prometheus-node-exporter:
+          resources:
+            requests: { cpu: 10m, memory: 24Mi }
+            limits: { cpu: 200m, memory: 64Mi }
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observabilidad
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # Las CRD del operador superan el límite de 256 KB de la anotación
+      # `last-applied-configuration` que deja un `kubectl apply` clásico.
+      - ServerSideApply=true

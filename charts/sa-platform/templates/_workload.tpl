@@ -236,6 +236,22 @@ spec:
               - templateName: {{ . }}
               {{- end }}
             args:
+              {{- if eq ($.Values.rollout.analysis.modo | default "pruebas") "metricas" }}
+              # Práctica 10 — análisis por MÉTRICAS. La plantilla no prueba
+              # nada: pregunta a Prometheus cómo le está yendo al tráfico real
+              # que el Ingress ya manda a la versión candidata. Para eso
+              # necesita saber cuál es: `podTemplateHashValue: Latest` es el
+              # hash del ReplicaSet NUEVO, el mismo valor que Argo Rollouts
+              # pone en la etiqueta `rollouts-pod-template-hash` de sus pods
+              # y que el PodMonitor copia a cada serie de métricas.
+              - name: namespace
+                value: {{ $ns }}
+              - name: servicio
+                value: {{ include "sa-platform.name" $ }}
+              - name: hash-canary
+                valueFrom:
+                  podTemplateHashValue: Latest
+              {{- else }}
               # El nombre del Service canary, para que la plantilla de análisis
               # sepa contra QUIÉN probar. Sin esto, las pruebas golpearían al
               # Service estable y medirían la versión vieja: el análisis
@@ -244,6 +260,7 @@ spec:
                 value: {{ $fullname }}-canary
               - name: namespace
                 value: {{ $ns }}
+              {{- end }}
         {{- end }}
         - setWeight: 100
   {{- else }}
@@ -333,6 +350,13 @@ spec:
             - name: http
               containerPort: {{ .Values.containerPort }}
               protocol: TCP
+            {{- if (.Values.telemetria | default dict).enabled }}
+            # Práctica 10: donde el SDK de OpenTelemetry expone las métricas
+            # para que Prometheus las raspe. El PodMonitor lo busca por nombre.
+            - name: metrics
+              containerPort: {{ .Values.telemetria.puertoMetricas | default 9464 }}
+              protocol: TCP
+            {{- end }}
           {{- end }}
 
           securityContext:
@@ -354,6 +378,21 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            {{- if (.Values.telemetria | default dict).enabled }}
+            # Práctica 10: a dónde manda las trazas el SDK y con qué nombre se
+            # presenta. El nombre es el del componente (`api-gateway`,
+            # `order-service`…), el mismo de la etiqueta `app.kubernetes.io/name`
+            # con la que el Collector etiqueta los registros: así Tempo y Loki
+            # hablan del mismo servicio con la misma palabra.
+            - name: OTEL_SERVICE_NAME
+              value: {{ include "sa-platform.name" . }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ required "Falta global.telemetria.endpoint" .Values.global.telemetria.endpoint | quote }}
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: http/protobuf
+            - name: METRICS_PORT
+              value: {{ .Values.telemetria.puertoMetricas | default 9464 | quote }}
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

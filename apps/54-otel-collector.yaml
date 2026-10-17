@@ -1,0 +1,161 @@
+# ===========================================================================
+# OpenTelemetry Collector — por donde pasan las trazas y los registros (P10).
+#
+# Un DaemonSet: un Collector por nodo. Dos trabajos en el mismo proceso:
+#
+#   trazas     las aplicaciones mandan OTLP/HTTP a `otel-collector:4318`. El
+#              Service tiene `internalTrafficPolicy: Local` (el defecto del
+#              chart en modo DaemonSet), así que cada pod habla con el
+#              Collector de SU nodo y una traza no cruza la red dos veces.
+#              El Collector las etiqueta con el pod, el nodo y el namespace
+#              (k8sattributes) y las reenvía a Tempo.
+#
+#   registros  lee los archivos de `/var/log/pods/` del nodo —la salida
+#              estándar de cada contenedor— de los dos ambientes de la
+#              plataforma. Cada línea que empieza con `{` se interpreta como
+#              JSON: el nivel pasa a ser la severidad del registro, y
+#              `trace_id`/`span_id` pasan a ser los identificadores de traza
+#              del registro OTLP. Loki los guarda como metadatos
+#              estructurados y Grafana enlaza registro ↔ traza por ellos.
+#
+# Las aplicaciones NO mandan sus registros por OTLP: escriben JSON en la
+# salida estándar. Así `kubectl logs` sigue sirviendo cuando todo lo demás
+# está caído, y la aplicación no depende del Collector para dejar rastro de
+# su propio fallo.
+#
+# Las MÉTRICAS no pasan por aquí: Prometheus las raspa de cada pod (ver
+# `api-gateway/src/telemetria/iniciar.ts` en el repositorio de código). Por
+# eso el pipeline `metrics` del chart se elimina.
+#
+# Ola 3: después de Tempo y Loki, que son sus destinos.
+# ===========================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sa-p10-otel-collector
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sa-p10-observabilidad
+  source:
+    repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+    chart: opentelemetry-collector
+    targetRevision: 0.176.0
+    helm:
+      releaseName: otel-collector
+      valuesObject:
+        fullnameOverride: otel-collector
+        mode: daemonset
+        image:
+          repository: otel/opentelemetry-collector-contrib
+        presets:
+          # Monta /var/log/pods del nodo (solo lectura) y declara el receptor
+          # `filelog`; su configuración se reemplaza abajo.
+          logsCollection:
+            enabled: true
+          # ClusterRole para leer pods y el procesador k8sattributes.
+          kubernetesAttributes:
+            enabled: true
+        service:
+          enabled: true
+        ports:
+          jaeger-compact: { enabled: false }
+          jaeger-thrift: { enabled: false }
+          jaeger-grpc: { enabled: false }
+          zipkin: { enabled: false }
+        resources:
+          requests: { cpu: 50m, memory: 128Mi }
+          limits: { cpu: 500m, memory: 512Mi }
+        config:
+          receivers:
+            jaeger: null
+            zipkin: null
+            prometheus: null
+            filelog:
+              # Solo la plataforma. Los registros del propio stack, de ArgoCD
+              # o de kube-system no responden a ninguna pregunta de este
+              # tablero y multiplicarían el volumen.
+              include:
+                - /var/log/pods/sa-p8-prod_*/*/*.log
+                - /var/log/pods/sa-p8-stage_*/*/*.log
+              exclude: []
+              start_at: end
+              include_file_path: true
+              include_file_name: false
+              operators:
+                - type: container
+                  id: contenedor
+                - type: json_parser
+                  id: json
+                  if: 'body matches "^\\{"'
+                  parse_from: body
+                  parse_to: attributes
+                  on_error: send_quiet
+                  severity:
+                    parse_from: attributes.level
+                    on_error: send_quiet
+                - type: trace_parser
+                  id: traza
+                  if: 'attributes.trace_id != nil and attributes.trace_id != ""'
+                  trace_id:
+                    parse_from: attributes.trace_id
+                  span_id:
+                    parse_from: attributes.span_id
+                  on_error: send_quiet
+          processors:
+            k8sattributes:
+              extract:
+                metadata:
+                  - k8s.namespace.name
+                  - k8s.pod.name
+                  - k8s.pod.uid
+                  - k8s.node.name
+                  - k8s.deployment.name
+                  - k8s.replicaset.name
+                labels:
+                  # El nombre del servicio sale de la etiqueta estándar del pod
+                  # y pasa a ser `service_name` en Loki: la misma clave con la
+                  # que Tempo busca los registros de un span.
+                  - tag_name: app.kubernetes.io/name
+                    key: app.kubernetes.io/name
+                    from: pod
+                  # La versión (estable o candidata) de un pod del canary.
+                  - tag_name: rollouts-pod-template-hash
+                    key: rollouts-pod-template-hash
+                    from: pod
+            resource/servicio:
+              attributes:
+                - key: service.name
+                  from_attribute: app.kubernetes.io/name
+                  action: insert
+          exporters:
+            debug: null
+            otlp/tempo:
+              endpoint: tempo.observabilidad.svc.cluster.local:4317
+              tls:
+                insecure: true
+            otlphttp/loki:
+              endpoint: http://loki.observabilidad.svc.cluster.local:3100/otlp
+          service:
+            pipelines:
+              traces:
+                receivers: [otlp]
+                processors: [memory_limiter, k8sattributes, resource/servicio, batch]
+                exporters: [otlp/tempo]
+              logs:
+                receivers: [filelog]
+                processors: [memory_limiter, k8sattributes, resource/servicio, batch]
+                exporters: [otlphttp/loki]
+              metrics: null
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observabilidad
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

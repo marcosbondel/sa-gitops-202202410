@@ -1,0 +1,311 @@
+# ===========================================================================
+# Los dos SLO, su presupuesto de error y las alertas por consumo (P10).
+#
+# Justificación completa de cada número: `P10/docs/01-slo.md` (espejo público
+# en `evidencia/p10/docs/01-slo.md`). Aquí, lo necesario para leer las reglas.
+#
+#   SLO 1 · checkout-disponibilidad
+#     «El 99,5 % de los intentos de compra se registran sin error del lado
+#      del sistema», ventana móvil de 30 días.
+#     Bueno: POST /api/orders respondido con estado < 500, medido en el
+#     gateway de producción. Un 4xx (producto agotado, carrito vacío) es una
+#     respuesta correcta a una petición incorrecta, no un fallo del sistema.
+#     Presupuesto: 0,5 % → ~3 h 36 min de compras imposibles al mes.
+#
+#   SLO 2 · catalogo-latencia
+#     «El 99 % de las consultas al catálogo se responden bien y en menos de
+#      300 ms», ventana móvil de 30 días.
+#     Bueno: petición a /api/catalog/* con estado < 500 que cayó en el cubo
+#     `le="0.3"` del histograma. Una respuesta lenta O fallida consume
+#     presupuesto. Presupuesto: 1 %.
+#
+# ## Cómo se lee cada familia de reglas
+#
+#   slo:<slo>_<malos>:ratio_rate<ventana>   fracción de eventos MALOS
+#   sli:<slo>:ratio_rate<ventana>           fracción de eventos BUENOS (el SLI)
+#   slo:<slo>:burnrate<ventana>             a qué velocidad se gasta el
+#                                           presupuesto: 1 = justo a tiempo
+#                                           para agotarse en 30 días; 14,4 =
+#                                           en 2 días
+#   slo:<slo>:presupuesto_consumido:ratio30d   fracción del presupuesto del
+#                                              mes ya gastada (1 = agotado)
+#
+# ## Por qué `or on() vector(0)` en el numerador del checkout
+#
+# Si en la ventana no hubo NINGÚN 5xx, la serie de errores no existe, y una
+# división con un lado vacío da un resultado vacío: el SLI desaparecería
+# justo cuando todo va bien. El `vector(0)` dice «cero errores». En el
+# denominador NO se pone: sin compras en la ventana no hay nada que medir, y
+# un SLI vacío es más honesto que un 100 % inventado.
+#
+# ## Las alertas: tasa de quema en dos ventanas, no umbral instantáneo
+#
+# Del capítulo «Alerting on SLOs» del SRE Workbook de Google. Cada alerta
+# exige que la quema supere el umbral en una ventana LARGA (que confirma que
+# el problema es real y no un pico) y en una CORTA (que confirma que sigue
+# ocurriendo ahora, y hace que la alerta se apague pronto cuando se arregla).
+#
+#   QuemaRapida  1 h y 5 min  > 14,4×   2 % del presupuesto del mes en 1 h.
+#                                       Si sigue así, el mes se acaba en
+#                                       2 días. → `pagina`: despertar a
+#                                       alguien.
+#   QuemaLenta   6 h y 30 min > 6×      5 % del presupuesto en 6 h; el mes
+#                                       se acaba en 5 días. → `ticket`: se
+#                                       atiende en horario laboral, pero se
+#                                       atiende.
+#
+# Lo que NO hay, y por qué: ninguna alerta por «CPU > 80 %», «pod
+# reiniciado» o «latencia > X ms en este instante». Un pico de CPU que
+# nadie nota no amerita despertar a nadie, y un umbral instantáneo dispara
+# con cualquier ráfaga; los dos enseñan a ignorar la alarma. Si esas causas
+# llegan a afectar a los usuarios, lo hacen consumiendo presupuesto, y
+# entonces sí suenan estas.
+#
+# Cada alerta lleva `runbook_url` a su procedimiento: qué mirar primero, en
+# qué orden, y qué hacer.
+# ===========================================================================
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: slo-plataforma
+  namespace: observabilidad
+  labels:
+    sa.usac.edu.gt/practica: p10
+spec:
+  groups:
+    # --- SLO 1 · checkout ---------------------------------------------------
+    - name: slo-checkout-disponibilidad
+      interval: 30s
+      rules:
+        - record: slo:checkout_errores:ratio_rate5m
+          expr: |
+            (
+              sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route="/api/orders", http_request_method="POST", http_response_status_code=~"5.."}[5m]))
+              or on() vector(0)
+            )
+            /
+            sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route="/api/orders", http_request_method="POST"}[5m]))
+          labels:
+            slo: checkout-disponibilidad
+        - record: slo:checkout_errores:ratio_rate30m
+          expr: |
+            (
+              sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route="/api/orders", http_request_method="POST", http_response_status_code=~"5.."}[30m]))
+              or on() vector(0)
+            )
+            /
+            sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route="/api/orders", http_request_method="POST"}[30m]))
+          labels:
+            slo: checkout-disponibilidad
+        - record: slo:checkout_errores:ratio_rate1h
+          expr: |
+            (
+              sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route="/api/orders", http_request_method="POST", http_response_status_code=~"5.."}[1h]))
+              or on() vector(0)
+            )
+            /
+            sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route="/api/orders", http_request_method="POST"}[1h]))
+          labels:
+            slo: checkout-disponibilidad
+        - record: slo:checkout_errores:ratio_rate6h
+          expr: |
+            (
+              sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route="/api/orders", http_request_method="POST", http_response_status_code=~"5.."}[6h]))
+              or on() vector(0)
+            )
+            /
+            sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route="/api/orders", http_request_method="POST"}[6h]))
+          labels:
+            slo: checkout-disponibilidad
+        - record: slo:checkout_errores:ratio_rate30d
+          expr: |
+            (
+              sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route="/api/orders", http_request_method="POST", http_response_status_code=~"5.."}[30d]))
+              or on() vector(0)
+            )
+            /
+            sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route="/api/orders", http_request_method="POST"}[30d]))
+          labels:
+            slo: checkout-disponibilidad
+        - record: sli:checkout_disponibilidad:ratio_rate5m
+          expr: |
+            1 - slo:checkout_errores:ratio_rate5m
+        - record: sli:checkout_disponibilidad:ratio_rate30d
+          expr: |
+            1 - slo:checkout_errores:ratio_rate30d
+        - record: slo:checkout_disponibilidad:objetivo
+          expr: |
+            vector(0.995)
+        - record: slo:checkout_disponibilidad:burnrate5m
+          expr: |
+            slo:checkout_errores:ratio_rate5m / 0.005
+        - record: slo:checkout_disponibilidad:burnrate30m
+          expr: |
+            slo:checkout_errores:ratio_rate30m / 0.005
+        - record: slo:checkout_disponibilidad:burnrate1h
+          expr: |
+            slo:checkout_errores:ratio_rate1h / 0.005
+        - record: slo:checkout_disponibilidad:burnrate6h
+          expr: |
+            slo:checkout_errores:ratio_rate6h / 0.005
+        - record: slo:checkout_disponibilidad:presupuesto_consumido:ratio30d
+          expr: |
+            slo:checkout_errores:ratio_rate30d / 0.005
+        - record: slo:checkout_disponibilidad:presupuesto_restante:ratio30d
+          expr: |
+            1 - slo:checkout_disponibilidad:presupuesto_consumido:ratio30d
+
+    # --- SLO 2 · catálogo ---------------------------------------------------
+    - name: slo-catalogo-latencia
+      interval: 30s
+      rules:
+        - record: slo:catalogo_lentas:ratio_rate5m
+          expr: |
+            1 - (
+              sum(rate(http_server_request_duration_seconds_bucket{namespace="sa-p8-prod", service="api-gateway", http_route=~"/api/catalog(/.*)?", le="0.3", http_response_status_code!~"5.."}[5m]))
+              /
+              sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route=~"/api/catalog(/.*)?"}[5m]))
+            )
+          labels:
+            slo: catalogo-latencia
+        - record: slo:catalogo_lentas:ratio_rate30m
+          expr: |
+            1 - (
+              sum(rate(http_server_request_duration_seconds_bucket{namespace="sa-p8-prod", service="api-gateway", http_route=~"/api/catalog(/.*)?", le="0.3", http_response_status_code!~"5.."}[30m]))
+              /
+              sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route=~"/api/catalog(/.*)?"}[30m]))
+            )
+          labels:
+            slo: catalogo-latencia
+        - record: slo:catalogo_lentas:ratio_rate1h
+          expr: |
+            1 - (
+              sum(rate(http_server_request_duration_seconds_bucket{namespace="sa-p8-prod", service="api-gateway", http_route=~"/api/catalog(/.*)?", le="0.3", http_response_status_code!~"5.."}[1h]))
+              /
+              sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route=~"/api/catalog(/.*)?"}[1h]))
+            )
+          labels:
+            slo: catalogo-latencia
+        - record: slo:catalogo_lentas:ratio_rate6h
+          expr: |
+            1 - (
+              sum(rate(http_server_request_duration_seconds_bucket{namespace="sa-p8-prod", service="api-gateway", http_route=~"/api/catalog(/.*)?", le="0.3", http_response_status_code!~"5.."}[6h]))
+              /
+              sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route=~"/api/catalog(/.*)?"}[6h]))
+            )
+          labels:
+            slo: catalogo-latencia
+        - record: slo:catalogo_lentas:ratio_rate30d
+          expr: |
+            1 - (
+              sum(rate(http_server_request_duration_seconds_bucket{namespace="sa-p8-prod", service="api-gateway", http_route=~"/api/catalog(/.*)?", le="0.3", http_response_status_code!~"5.."}[30d]))
+              /
+              sum(rate(http_server_request_duration_seconds_count{namespace="sa-p8-prod", service="api-gateway", http_route=~"/api/catalog(/.*)?"}[30d]))
+            )
+          labels:
+            slo: catalogo-latencia
+        - record: sli:catalogo_latencia:ratio_rate5m
+          expr: |
+            1 - slo:catalogo_lentas:ratio_rate5m
+        - record: sli:catalogo_latencia:ratio_rate30d
+          expr: |
+            1 - slo:catalogo_lentas:ratio_rate30d
+        - record: slo:catalogo_latencia:objetivo
+          expr: |
+            vector(0.99)
+        - record: slo:catalogo_latencia:burnrate5m
+          expr: |
+            slo:catalogo_lentas:ratio_rate5m / 0.01
+        - record: slo:catalogo_latencia:burnrate30m
+          expr: |
+            slo:catalogo_lentas:ratio_rate30m / 0.01
+        - record: slo:catalogo_latencia:burnrate1h
+          expr: |
+            slo:catalogo_lentas:ratio_rate1h / 0.01
+        - record: slo:catalogo_latencia:burnrate6h
+          expr: |
+            slo:catalogo_lentas:ratio_rate6h / 0.01
+        - record: slo:catalogo_latencia:presupuesto_consumido:ratio30d
+          expr: |
+            slo:catalogo_lentas:ratio_rate30d / 0.01
+        - record: slo:catalogo_latencia:presupuesto_restante:ratio30d
+          expr: |
+            1 - slo:catalogo_latencia:presupuesto_consumido:ratio30d
+
+    # --- Alertas por consumo del presupuesto --------------------------------
+    - name: slo-alertas
+      rules:
+        - alert: CheckoutPresupuestoQuemaRapida
+          expr: |
+            slo:checkout_disponibilidad:burnrate1h > 14.4
+            and
+            slo:checkout_disponibilidad:burnrate5m > 14.4
+          for: 2m
+          labels:
+            severity: pagina
+            slo: checkout-disponibilidad
+            velocidad: rapida
+          annotations:
+            summary: >-
+              Las compras están fallando. A este ritmo, el presupuesto de
+              error del mes se agota en menos de 2 días.
+            description: >-
+              En la última hora el checkout gastó presupuesto {{ $value | printf "%.1f" }}
+              veces más rápido de lo sostenible (umbral 14,4×). Clientes que
+              intentan comprar reciben un error del sistema.
+            runbook_url: https://github.com/marcosbondel/sa-gitops-202202410/blob/main/evidencia/p10/docs/runbooks/checkout-quema-rapida.md
+        - alert: CheckoutPresupuestoQuemaLenta
+          expr: |
+            slo:checkout_disponibilidad:burnrate6h > 6
+            and
+            slo:checkout_disponibilidad:burnrate30m > 6
+          for: 5m
+          labels:
+            severity: ticket
+            slo: checkout-disponibilidad
+            velocidad: lenta
+          annotations:
+            summary: >-
+              Una parte de las compras falla de forma sostenida. A este ritmo,
+              el presupuesto de error del mes se agota en unos 5 días.
+            description: >-
+              En las últimas 6 horas el checkout gastó presupuesto {{ $value | printf "%.1f" }}
+              veces más rápido de lo sostenible (umbral 6×).
+            runbook_url: https://github.com/marcosbondel/sa-gitops-202202410/blob/main/evidencia/p10/docs/runbooks/checkout-quema-lenta.md
+        - alert: CatalogoPresupuestoQuemaRapida
+          expr: |
+            slo:catalogo_latencia:burnrate1h > 14.4
+            and
+            slo:catalogo_latencia:burnrate5m > 14.4
+          for: 2m
+          labels:
+            severity: pagina
+            slo: catalogo-latencia
+            velocidad: rapida
+          annotations:
+            summary: >-
+              El catálogo responde lento o con errores. A este ritmo, el
+              presupuesto de error del mes se agota en menos de 2 días.
+            description: >-
+              En la última hora el catálogo gastó presupuesto {{ $value | printf "%.1f" }}
+              veces más rápido de lo sostenible (umbral 14,4×): demasiadas
+              consultas tardan más de 300 ms o fallan.
+            runbook_url: https://github.com/marcosbondel/sa-gitops-202202410/blob/main/evidencia/p10/docs/runbooks/catalogo-quema-rapida.md
+        - alert: CatalogoPresupuestoQuemaLenta
+          expr: |
+            slo:catalogo_latencia:burnrate6h > 6
+            and
+            slo:catalogo_latencia:burnrate30m > 6
+          for: 5m
+          labels:
+            severity: ticket
+            slo: catalogo-latencia
+            velocidad: lenta
+          annotations:
+            summary: >-
+              El catálogo se degradó de forma sostenida. A este ritmo, el
+              presupuesto de error del mes se agota en unos 5 días.
+            description: >-
+              En las últimas 6 horas el catálogo gastó presupuesto {{ $value | printf "%.1f" }}
+              veces más rápido de lo sostenible (umbral 6×).
+            runbook_url: https://github.com/marcosbondel/sa-gitops-202202410/blob/main/evidencia/p10/docs/runbooks/catalogo-quema-lenta.md

@@ -1,0 +1,85 @@
+{{/*
+analisis-metricas.yaml — La puerta del canary, por métricas (Práctica 10).
+
+Tres preguntas a Prometheus, todas sobre la versión CANDIDATA y solo sobre
+ella: el selector `rollouts_pod_template_hash="{{args.hash-canary}}"` deja
+fuera las peticiones que atendió la versión estable. Sin él, con el canary
+al 10 %, nueve de cada diez peticiones medidas serían de la versión vieja y
+un 100 % de errores en la nueva se vería como un 10 %.
+
+  trafico        ¿le está llegando tráfico? Sin peticiones, ninguna de las
+                 otras dos significa nada.
+  tasa-errores   fracción de respuestas 5xx.
+  latencia-p95   el p95 de la duración, desde el histograma.
+
+Las tres corren en paralelo en cada escalón; si cualquiera supera su límite
+de fallos, el AnalysisRun termina en `Failed`, Argo Rollouts aborta, devuelve
+todo el tráfico a la versión estable y escala a cero la candidata. Sin
+intervención de nadie.
+
+## `or on() vector(0)`
+
+Si la versión candidata no tuvo NINGÚN 5xx, la serie de errores no existe y
+la división daría un resultado vacío; Argo Rollouts lo trataría como un
+error de la medición. El `vector(0)` dice «cero errores». No enmascara la
+falta de tráfico: de eso se encarga la métrica `trafico`, que falla con
+menos de `traficoMinimo` peticiones.
+*/}}
+{{- $sel := `namespace="{{args.namespace}}", service="{{args.servicio}}", rollouts_pod_template_hash="{{args.hash-canary}}"` -}}
+{{- $m := "http_server_request_duration_seconds" -}}
+{{- $v := .Values.ventana -}}
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: sa-p10-metricas
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: sa-p10-analisis
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    sa.usac.edu.gt/practica: p10
+spec:
+  args:
+    - name: namespace
+    - name: servicio
+    - name: hash-canary
+  metrics:
+    - name: trafico
+      initialDelay: {{ .Values.cadencia.retrasoInicial }}
+      interval: {{ .Values.cadencia.intervalo }}
+      count: {{ .Values.cadencia.mediciones }}
+      failureLimit: {{ .Values.limiteFallos }}
+      successCondition: result[0] >= {{ .Values.umbrales.traficoMinimo }}
+      provider:
+        prometheus:
+          address: {{ .Values.prometheus.direccion }}
+          query: |
+            sum(increase({{ $m }}_count{ {{- $sel -}} }[{{ $v }}])) or on() vector(0)
+    - name: tasa-errores
+      initialDelay: {{ .Values.cadencia.retrasoInicial }}
+      interval: {{ .Values.cadencia.intervalo }}
+      count: {{ .Values.cadencia.mediciones }}
+      failureLimit: {{ .Values.limiteFallos }}
+      successCondition: result[0] <= {{ .Values.umbrales.tasaErrores }}
+      provider:
+        prometheus:
+          address: {{ .Values.prometheus.direccion }}
+          query: |
+            (
+              (sum(rate({{ $m }}_count{ {{- $sel -}}, http_response_status_code=~"5.."}[{{ $v }}])) or on() vector(0))
+              /
+              sum(rate({{ $m }}_count{ {{- $sel -}} }[{{ $v }}]))
+            ) or on() vector(0)
+    - name: latencia-p95
+      initialDelay: {{ .Values.cadencia.retrasoInicial }}
+      interval: {{ .Values.cadencia.intervalo }}
+      count: {{ .Values.cadencia.mediciones }}
+      failureLimit: {{ .Values.limiteFallos }}
+      successCondition: result[0] <= {{ .Values.umbrales.latenciaP95 }}
+      provider:
+        prometheus:
+          address: {{ .Values.prometheus.direccion }}
+          query: |
+            histogram_quantile(0.95,
+              sum by (le) (rate({{ $m }}_bucket{ {{- $sel -}} }[{{ $v }}]))
+            ) or on() vector(0)

@@ -60,6 +60,12 @@ global:
   env: development
   logLevel: INFO
 
+  # Práctica 10 — a dónde mandan las trazas los servicios instrumentados.
+  # Es el Service del Collector (DaemonSet, `internalTrafficPolicy: Local`):
+  # cada pod le habla al Collector de su propio nodo.
+  telemetria:
+    endpoint: http://otel-collector.observabilidad.svc.cluster.local:4318
+
   postgresql:
     # Vacío: el chart lo calcula como `<release>-postgresql`, que es como
     # nombra su Service el subchart de Bitnami. Solo se rellena para apuntar a
@@ -320,6 +326,19 @@ networkPolicies:
     - from: order-service
       to: catalog-service
       port: 4000
+
+  # Práctica 10 — los dos caminos de la telemetría que la denegación por
+  # defecto cerraría:
+  #   · Prometheus (en `observabilidad`) raspa el puerto de métricas de cada
+  #     pod instrumentado;
+  #   · cada pod manda sus trazas por OTLP/HTTP al Collector.
+  # Los registros no necesitan regla: el Collector los lee del disco del
+  # nodo, no por la red.
+  telemetria:
+    enabled: false
+    namespace: observabilidad
+    puertoMetricas: 9464
+    puertoOtlp: 4318
 
 
 # ---------------------------------------------------------------------------

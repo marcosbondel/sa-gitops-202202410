@@ -1,0 +1,93 @@
+# ===========================================================================
+# Orígenes de datos de Grafana, y los enlaces que los convierten en UN
+# recorrido en lugar de cuatro pestañas (Práctica 10).
+#
+# El sidecar de Grafana carga todo ConfigMap con `grafana_datasource: "1"`.
+#
+# Los enlaces son el punto. Sin ellos, ir de una alerta a la causa es copiar
+# un identificador de una pantalla y pegarlo en otra:
+#
+#   Loki → Tempo   `derivedFields`: en cada línea de registro, el valor de
+#                  `"trace_id":"…"` se vuelve un botón que abre la traza.
+#   Tempo → Loki   `tracesToLogsV2`: en cada span, «Logs for this span» abre
+#                  Loki filtrado por el servicio del span y por ese
+#                  `trace_id`, cinco minutos alrededor.
+#   Tempo → Prometheus  `tracesToMetrics`: la latencia y los errores del
+#                  servicio del span, sin escribir PromQL.
+#
+# Los `uid` son fijos para que el tablero exportado (que los nombra) funcione
+# igual en un clúster reconstruido desde cero.
+# ===========================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-origenes
+  namespace: observabilidad
+  labels:
+    grafana_datasource: "1"
+    sa.usac.edu.gt/practica: p10
+data:
+  origenes.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-operated.observabilidad.svc.cluster.local:9090
+        isDefault: true
+        jsonData:
+          timeInterval: 15s
+      - name: Loki
+        uid: loki
+        type: loki
+        access: proxy
+        url: http://loki.observabilidad.svc.cluster.local:3100
+        jsonData:
+          maxLines: 1000
+          derivedFields:
+            - name: trace_id
+              matcherType: regex
+              matcherRegex: '"trace_id":"([0-9a-f]{32})"'
+              datasourceUid: tempo
+              url: "${__value.raw}"
+              urlDisplayLabel: Abrir la traza en Tempo
+      - name: Tempo
+        uid: tempo
+        type: tempo
+        access: proxy
+        url: http://tempo.observabilidad.svc.cluster.local:3200
+        jsonData:
+          nodeGraph:
+            enabled: true
+          lokiSearch:
+            datasourceUid: loki
+          tracesToLogsV2:
+            datasourceUid: loki
+            spanStartTimeShift: "-5m"
+            spanEndTimeShift: "5m"
+            filterByTraceID: true
+            filterBySpanID: false
+            tags:
+              - key: service.name
+                value: service_name
+          tracesToMetrics:
+            datasourceUid: prometheus
+            spanStartTimeShift: "-5m"
+            spanEndTimeShift: "5m"
+            tags:
+              - key: service.name
+                value: service
+            queries:
+              - name: Latencia p95 del servicio
+                query: 'histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{$__tags}[1m])))'
+              - name: Errores 5xx del servicio
+                query: 'sum(rate(http_server_request_duration_seconds_count{$__tags, http_response_status_code=~"5.."}[1m]))'
+      - name: Alertmanager
+        uid: alertmanager
+        type: alertmanager
+        access: proxy
+        url: http://alertmanager-operated.observabilidad.svc.cluster.local:9093
+        jsonData:
+          implementation: prometheus
+          handleGrafanaManagedAlerts: false

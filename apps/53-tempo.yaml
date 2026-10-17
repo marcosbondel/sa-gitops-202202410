@@ -1,0 +1,58 @@
+# ===========================================================================
+# Tempo — el backend de trazas (Práctica 10).
+#
+# Recibe del Collector por OTLP/gRPC y se consulta desde Grafana por TraceQL:
+#
+#   { resource.service.name = "order-service" && status = error }
+#
+# Se eligió Tempo y no Jaeger porque comparte con Loki el modelo de
+# almacenamiento (objetos en disco, sin una base de datos aparte que operar)
+# y porque Grafana enlaza los dos de forma nativa: desde un span se abren sus
+# registros en Loki filtrados por el mismo `trace_id`, y desde un registro se
+# abre la traza. Es el camino del criterio 2.4: alerta → traza → registro.
+#
+# Solo se usa el receptor OTLP. El chart abre además los de Jaeger y
+# OpenCensus, y no se pueden quitar: sus plantillas de Service los dan por
+# hechos y el render falla si se anulan. Quedan escuchando dentro del
+# clúster, sin que nadie les hable.
+#
+# Retención de 72 h. Las trazas son la señal más cara por petición y la que
+# menos valor tiene pasado el incidente; lo que hay que recordar de un mes
+# está en las métricas.
+# ===========================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sa-p10-tempo
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sa-p10-observabilidad
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: tempo
+    targetRevision: 1.24.4
+    helm:
+      releaseName: tempo
+      valuesObject:
+        tempo:
+          reportingEnabled: false
+          retention: 72h
+          resources:
+            requests: { cpu: 50m, memory: 256Mi }
+            limits: { cpu: "1", memory: 1Gi }
+        persistence:
+          enabled: true
+          size: 10Gi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observabilidad
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,111 @@
+# ===========================================================================
+# Loki — el almacén de registros consultable (Práctica 10).
+#
+# Recibe los registros por OTLP desde el Collector (`/otlp/v1/logs`), no por
+# el protocolo propio de Loki. La diferencia se nota al consultar:
+#
+#   · los atributos de recurso que el Collector añade (servicio, namespace,
+#     pod) llegan como ETIQUETAS indexadas: `{service_name="order-service",
+#     k8s_namespace_name="sa-p8-prod"}` es una selección barata;
+#   · el `trace_id` y el `span_id` de cada línea llegan como METADATOS
+#     ESTRUCTURADOS: se filtran por campo (`| trace_id="…"`) sin convertirse
+#     en etiquetas, que con un valor distinto por petición harían explotar el
+#     índice;
+#   · el cuerpo sigue siendo la línea JSON original: `| json | level="error"`
+#     consulta cualquier otro campo.
+#
+# ## Tamaño
+#
+# Modo `SingleBinary`, una réplica, disco local. El modo escalable del chart
+# separa lectura, escritura y backend en tres StatefulSet con caché de chunks
+# y de resultados —más de 2 GB de memoria solo en las cachés— para un volumen
+# de registros que aquí es de unos pocos MB por hora. Es un punto único de
+# fallo y está declarado: si Loki cae, los registros se acumulan en el disco
+# de cada nodo y el Collector los reenvía cuando vuelve (lee desde el último
+# desplazamiento), así que se pierde consulta, no datos, mientras el archivo
+# de log del contenedor no rote.
+#
+# Retención de 7 días: suficiente para investigar un incidente; los
+# registros no son el lugar donde se guardan tendencias de un mes —para eso
+# están las métricas—.
+# ===========================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sa-p10-loki
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sa-p10-observabilidad
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: loki
+    targetRevision: 7.3.0
+    helm:
+      releaseName: loki
+      valuesObject:
+        deploymentMode: SingleBinary
+        loki:
+          auth_enabled: false
+          commonConfig:
+            replication_factor: 1
+          storage:
+            type: filesystem
+          schemaConfig:
+            configs:
+              - from: "2026-01-01"
+                store: tsdb
+                object_store: filesystem
+                schema: v13
+                index:
+                  prefix: loki_index_
+                  period: 24h
+          limits_config:
+            allow_structured_metadata: true
+            volume_enabled: true
+            retention_period: 168h
+            reject_old_samples: true
+            reject_old_samples_max_age: 168h
+          compactor:
+            retention_enabled: true
+            delete_request_store: filesystem
+          pattern_ingester:
+            enabled: false
+        singleBinary:
+          replicas: 1
+          persistence:
+            enabled: true
+            size: 10Gi
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: "1", memory: 1Gi }
+        read:
+          replicas: 0
+        write:
+          replicas: 0
+        backend:
+          replicas: 0
+        chunksCache:
+          enabled: false
+        resultsCache:
+          enabled: false
+        gateway:
+          enabled: false
+        lokiCanary:
+          enabled: false
+        test:
+          enabled: false
+        minio:
+          enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observabilidad
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

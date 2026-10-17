@@ -466,4 +466,55 @@ spec:
           port: 5672
 {{- end }}
 {{- end }}
+{{- with .Values.networkPolicies.telemetria }}
+{{- if .enabled }}
+---
+# Práctica 10 — Prometheus raspa las métricas de los pods instrumentados.
+# Solo el puerto de métricas y solo desde `observabilidad`: el puerto de la
+# aplicación sigue cerrado para ese namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $release }}-telemetria-metricas
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .namespace }}
+      ports:
+        - protocol: TCP
+          port: {{ .puertoMetricas }}
+---
+# Práctica 10 — los pods mandan sus trazas al Collector por OTLP/HTTP.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $release }}-telemetria-otlp
+  namespace: {{ $ns }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .namespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: opentelemetry-collector
+      ports:
+        - protocol: TCP
+          port: {{ .puertoOtlp }}
+{{- end }}
+{{- end }}
 {{- end }}

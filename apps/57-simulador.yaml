@@ -1,0 +1,31 @@
+# ===========================================================================
+# Clientes simulados (Práctica 10): el tráfico que medirían los SLO y el
+# canary si la tienda tuviera clientes reales. Ver `simulador/usuarios.js`.
+#
+# Ola 5: después de la plataforma (0) y del stack (2–4). Antes no habría
+# nada que atender ni nadie midiendo.
+# ===========================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sa-p10-simulador
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sa-p10-observabilidad
+  source:
+    repoURL: https://github.com/marcosbondel/sa-gitops-202202410.git
+    targetRevision: main
+    path: simulador
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sa-p10-simulador
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

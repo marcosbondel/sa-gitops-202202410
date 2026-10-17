@@ -1,0 +1,30 @@
+# ===========================================================================
+# Credenciales del administrador de Grafana (Práctica 10).
+#
+# Sellada con la llave pública de `sealed-secrets/clave-publica.pem` —la misma
+# de la P9, que vive en Secret Manager y sobrevive al desastre—, en modo
+# `strict`: solo se puede abrir como `grafana-admin` en `observabilidad`.
+#
+# La contraseña no está escrita en ningún lado fuera del clúster. Para leerla:
+#
+#   kubectl -n observabilidad get secret grafana-admin \
+#     -o jsonpath='{.data.admin-password}' | base64 -d
+#
+# Va en una Application propia, en la ola 1, ANTES que kube-prometheus-stack
+# (ola 2): Grafana no arranca sin este Secret, y si estuviera en la misma ola
+# que los tableros (ola 4) la raíz esperaría para siempre a que el stack
+# estuviera sano.
+# ===========================================================================
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: grafana-admin
+  namespace: observabilidad
+spec:
+  encryptedData:
+    admin-password: AgAEpigv5snSvff7FGrpTFjvlAhLORKc31akyzA4C1Y8XashBVKoNT547yVHDIo5TMbT6pOUNQQAdMKUzLbTnwOv+pl+qZkoaHLF5KMSULwZEiLyzxQRvz7KkiObTkRKwE2ownVeTzEZZokukbwAs1uT3OzJ+5vDNtlwHlJosh3ENBcFQLgh3ZuUPdiQH3Vj8xn1VC6f20BlB6Z4YXlw33h75TFzcgd+VCaCxTbNbk9ZPAJvtvVvUPmGyeit3HSftmwCYZgRiny8ceIk+PtNLYGJxM58DygfPKQPSvt27SVyQmElzRr2LosP5hip2nKkb5ClYfjmrqEyEmAUgmQADBETSejDlZ7rutYWJmeqr477aCnHqe4/eXBly9RHEgY0Uf3iIevvg9y8/2mInWaUJGnTq1PGJpY/bVXhaqD/Weu2eTb8CRk76fVYamClxkqngdxdPpzN/8teijOYyxmgasSlorvEyStc/9L8p5MHYBTNFJqxqbAJ35V0bB+Bwz+jf1imKE8HPZHpvDjPOFcqSmfeB+XWZ76x3o1kes4B5XKPGHP92+8XBIyNrqsKCRNl9R/EALDBxBqurwPcevqQx1rjrFgPfo+UrTW4IAGfpQ7Vq1lfrLvlM0pIub2Yd9pVOcHPIaydcGIGkf4esdpEBKkNu/hlTpzwDF3fUsLWc6cvYUdadK0h50+IGcwsLUIYhPTZjeaTG9r4FRgjFB8XZYkfGyShzvCr/AI=
+    admin-user: AgC4opzXEhIYFi6UzgunmZnQVDKXWvfbddVNg+44kgBEuHo3oPkrxRIeIOeJKo62HH5lQr+Qh1KQWzBQgAYmnMOkVkQT33LFVqL+8ytB0k70nu6BunR4alAa5eoaHHatSeWBCckxdOWVkCr3hMiMf2cd/3t2ml+193dvPLQXm47P0CKB1OBL1RTzW2SmYG839HticPY9ju2PHMCNYYS4zp6PwSQnRORYGHYpPJJ3Px1Mu9FJG6X9kt85iVsLMPcDH4shO7kXjEHrra1BiYC5rvZYQ3nRHaD8PrkNOCftktxx3DIkhNQifJWsefZNuj4fiVX8k7OUPfE4VcJ5UI7C0ypIbxJ7XaUHENFx8OOpMaL8Uh00fJPNXyp4Q5sGXP2wERxoRqcc9TO3ABdU7XPvNnIxa25ZyH8+3WYO3yqD1FSkXjRwITp9ELUrHfhn5liCjcl/Z4zR4J+03ABbyShTBPh/NlKvQHRNYZP0oGQM5lwdLNwiB7YqMV90PuYTAZz96Rv7cwtlnrQeibQ51mLrolBzoRB7FLXg+gikYssUE8YkjK2QKWum3PGNWNGuE6hPVYY+QATRwG+XH5MYhyPyeZlpk+qd2karlhorbGsY90GpV/3v2lRZyh0IP0xIpmYabkq/fF2Nmbk6inYxPGMCUkh4aBFG7gVawyxXmn5kzxw5hA6Uk/SyNnm+81k/+j5XPSOHy8Sjug==
+  template:
+    metadata:
+      name: grafana-admin
+      namespace: observabilidad

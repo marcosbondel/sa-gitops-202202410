@@ -1,0 +1,48 @@
+# ===========================================================================
+# Proyecto de ArgoCD para el stack de observabilidad (Práctica 10).
+#
+# Las dos fronteras de la P9 (`sa-p9-base` y `sa-p8`) las crea Terraform en
+# `P9/terraform/20-gitops`. Esta tercera NO: es un objeto más del repositorio,
+# lo crea la Application raíz como a cualquier otra cosa de `apps/`. Así
+# añadir la P10 no exige un `terraform apply` sobre el clúster vivo, y el
+# bootstrap de la P9 la reconstruye sola después de un desastre.
+#
+# Qué permite, y por qué solo eso:
+#
+#   · leer de este repositorio y de los tres repositorios de charts del stack
+#     (prometheus-community, grafana, open-telemetry);
+#   · desplegar en `observabilidad` (el stack) y `sa-p10-simulador` (los
+#     usuarios simulados);
+#   · crear recursos de clúster: el operador de Prometheus instala CRD y
+#     ClusterRole, y el Collector necesita leer pods de todos los namespaces
+#     para etiquetar cada señal con el pod que la produjo.
+#
+# No puede tocar `sa-p8-stage` ni `sa-p8-prod`: las NetworkPolicy que dejan
+# pasar la telemetría las declara el chart de la plataforma, dentro del
+# proyecto `sa-p8`, y pasan por el mismo Pull Request que cualquier cambio
+# de la aplicación.
+#
+# Ola -45: tiene que existir antes que las Application que lo nombran.
+# ===========================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: sa-p10-observabilidad
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-45"
+spec:
+  description: Observabilidad — métricas, registros, trazas, SLO y alertas (Práctica 10, 202202410).
+  sourceRepos:
+    - https://github.com/marcosbondel/sa-gitops-202202410.git
+    - https://prometheus-community.github.io/helm-charts
+    - https://grafana.github.io/helm-charts
+    - https://open-telemetry.github.io/opentelemetry-helm-charts
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: observabilidad
+    - server: https://kubernetes.default.svc
+      namespace: sa-p10-simulador
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"

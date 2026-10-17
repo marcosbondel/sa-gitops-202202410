@@ -1,0 +1,28 @@
+# ===========================================================================
+# La configuración del stack de observabilidad (Práctica 10).
+#
+#   monitores/   qué raspa Prometheus (PodMonitor de la plataforma)
+#   slo/         los dos SLO, su presupuesto y las cuatro alertas
+#   grafana/     orígenes de datos y sus enlaces traza ↔ registro
+#   tableros/    el tablero de operación, como JSON de Grafana
+#
+# Kustomize solo para una cosa: convertir el JSON del tablero en un ConfigMap
+# sin copiarlo dentro de un YAML. Así el archivo que se edita es el mismo que
+# Grafana exporta, y un diff del tablero se lee como un diff de JSON.
+# ===========================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: observabilidad
+resources:
+  - monitores/plataforma.yaml
+  - slo/reglas-slo.yaml
+  - grafana/origenes.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    grafana_dashboard: "1"
+    sa.usac.edu.gt/practica: p10
+configMapGenerator:
+  - name: tablero-operacion
+    files:
+      - tablero-operacion.json=tableros/tablero-operacion.json

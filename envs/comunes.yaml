@@ -75,6 +75,10 @@ namespace:
 # controlador de Ingress y no desde fuera del clúster.
 networkPolicies:
   enabled: true
+  # Práctica 10: Prometheus raspa el puerto de métricas y los pods mandan sus
+  # trazas al Collector. Ver `charts/sa-platform/values.yaml`.
+  telemetria:
+    enabled: true
   gatewayExposure: ingress
 
   # ## DNS en GKE: NodeLocal DNSCache

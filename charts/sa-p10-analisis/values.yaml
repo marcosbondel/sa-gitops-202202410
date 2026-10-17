@@ -1,0 +1,52 @@
+# ===========================================================================
+# Umbrales del análisis por métricas del canary (Práctica 10).
+#
+# Reemplaza a `sa-p8-analisis`, que lanzaba tres Jobs (humo, integración y
+# carga con k6) contra el Service canary. Aquellas pruebas medían lo que el
+# estudiante había escrito; estas consultas miden lo que les pasa a los
+# clientes que el Ingress ya está mandando a la versión nueva.
+#
+# Los valores por defecto son los de STAGE; producción los endurece en
+# `envs/prod/analisis.yaml`.
+# ===========================================================================
+
+prometheus:
+  direccion: http://prometheus-operated.observabilidad.svc.cluster.local:9090
+
+# Cada cuánto se mide y cuántas veces, en CADA escalón del canary
+# (10 % → 30 % → 60 %). Con 3 mediciones cada minuto, un escalón dura unos
+# 4 minutos y el rollout completo, unos 12.
+cadencia:
+  retrasoInicial: 1m   # que la versión nueva reciba tráfico antes de juzgarla
+  intervalo: 1m
+  mediciones: 3
+
+# Ventana de cada consulta. Dos minutos con un raspado cada 15 s son 8
+# muestras por serie: suficiente para un `rate()` estable y lo bastante corta
+# para que un defecto se note en la primera o segunda medición.
+ventana: 2m
+
+umbrales:
+  # Fracción máxima de respuestas 5xx de la versión candidata.
+  #
+  # No es cero, y la razón es la misma que en la P8: durante el canary el
+  # controlador de Ingress recarga su configuración en cada cambio de peso y
+  # corta alguna conexión en vuelo. Con el canary al 10 % en stage, la
+  # versión nueva recibe ~50 peticiones en la ventana; un solo error
+  # aislado es un 2 %. Un 5 % exige al menos tres, y el defecto inducido
+  # produce un 30 %.
+  tasaErrores: "0.05"
+  # p95 máximo de la versión candidata, en segundos. La estable mide ~20 ms
+  # en el gateway (ver P10/docs/01-slo.md); medio segundo es un margen de
+  # sobra para un pod que está calentando sus conexiones, y aun así detiene
+  # una regresión que se notaría.
+  latenciaP95: "0.5"
+  # Peticiones mínimas de la versión candidata en la ventana para que el
+  # análisis valga algo. Sin tráfico, «cero errores» no prueba nada: si el
+  # Ingress no le está mandando peticiones a la versión nueva, algo está mal
+  # en el despliegue y el canary NO debe avanzar.
+  traficoMinimo: "10"
+
+# Cuántas mediciones fallidas se toleran antes de abortar. Una: un pico
+# aislado no revierte una entrega sana, dos seguidas sí.
+limiteFallos: 1

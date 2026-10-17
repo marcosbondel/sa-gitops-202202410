@@ -1,0 +1,20 @@
+# ===========================================================================
+# Clientes simulados (Práctica 10). Ver el encabezado de `usuarios.js`.
+#
+# Un Deployment por ambiente, con su propio ritmo. Stage recibe casi tanto
+# tráfico como producción a propósito: es donde corre el canary del fallo
+# inducido, y con el canary al 10 % la versión candidata necesita peticiones
+# suficientes en dos minutos para que el análisis tenga algo que medir.
+# ===========================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: sa-p10-simulador
+resources:
+  - usuarios.yaml
+configMapGenerator:
+  - name: guion-usuarios
+    files:
+      - usuarios.js
+generatorOptions:
+  labels:
+    sa.usac.edu.gt/practica: p10
