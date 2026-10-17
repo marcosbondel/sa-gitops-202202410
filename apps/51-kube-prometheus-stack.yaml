@@ -142,6 +142,10 @@ spec:
               group_wait: 30s
               group_interval: 5m
               repeat_interval: 4h
+              # Vacío a propósito: el chart trae una ruta para la alerta
+              # `Watchdog` hacia un receptor `null`, y la fusión de valores de
+              # Helm la conservaría aunque ese receptor ya no exista.
+              routes: []
             receivers:
               - name: guardia
             inhibit_rules:

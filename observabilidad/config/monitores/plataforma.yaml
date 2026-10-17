@@ -45,9 +45,14 @@ spec:
       path: /metrics
       interval: 15s
       relabelings:
-        - sourceLabels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+        # `action: replace` es el valor por defecto; se escribe porque la CRD
+        # lo rellena al guardar y, si no está aquí, ArgoCD ve una diferencia
+        # permanente.
+        - action: replace
+          sourceLabels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
           targetLabel: service
-        - sourceLabels: [__meta_kubernetes_pod_label_rollouts_pod_template_hash]
+        - action: replace
+          sourceLabels: [__meta_kubernetes_pod_label_rollouts_pod_template_hash]
           targetLabel: rollouts_pod_template_hash
       metricRelabelings:
         # El exportador de OpenTelemetry añade a cada serie el nombre y la
