@@ -179,6 +179,14 @@ spec:
             analytics:
               check_for_updates: false
               reporting_enabled: false
+            # Lectura sin contraseña. Grafana NO está expuesto fuera del
+            # clúster (Service ClusterIP, sin Ingress): solo se llega con
+            # `kubectl port-forward`, y quien puede hacer eso ya puede leer
+            # mucho más que un tablero. Editar sigue exigiendo el usuario
+            # administrador del SealedSecret.
+            auth.anonymous:
+              enabled: true
+              org_role: Viewer
           resources:
             requests: { cpu: 50m, memory: 192Mi }
             limits: { cpu: 500m, memory: 512Mi }
