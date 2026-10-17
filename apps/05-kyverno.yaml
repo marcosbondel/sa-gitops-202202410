@@ -22,8 +22,13 @@ metadata:
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "-40"
+  # Los dos `pre-delete-finalizer` los añade ArgoCD por su cuenta porque el
+  # chart de Kyverno trae hooks de pre-borrado. Si no se declaran aquí, la
+  # raíz ve la diferencia y queda `OutOfSync` para siempre.
   finalizers:
     - resources-finalizer.argocd.argoproj.io
+    - pre-delete-finalizer.argocd.argoproj.io
+    - pre-delete-finalizer.argocd.argoproj.io/cleanup
 spec:
   project: sa-p9-base
   source:
@@ -47,6 +52,14 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: kyverno
+  # Los CRD de Kyverno declaran `labels: {}` vacío y Kubernetes no guarda un
+  # mapa vacío: diferencia cosmética, permanente, que dejaría la Application
+  # `OutOfSync`.
+  ignoreDifferences:
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      jsonPointers:
+        - /metadata/labels
   syncPolicy:
     automated:
       prune: true
@@ -54,3 +67,4 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+      - RespectIgnoreDifferences=true

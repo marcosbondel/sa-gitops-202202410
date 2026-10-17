@@ -76,3 +76,19 @@ namespace:
 networkPolicies:
   enabled: true
   gatewayExposure: ingress
+
+  # ## DNS en GKE: NodeLocal DNSCache
+  #
+  # En GKE con Dataplane V2 los pods resuelven contra `node-local-dns` (un
+  # DaemonSet en kube-system, en 169.254.20.10), no contra los pods de
+  # kube-dns. Con solo `k8s-app: kube-dns` autorizado, el `default-deny`
+  # bloquea el DNS y los servicios mueren al arrancar con «gaierror: Try
+  # again». En kind (P8) no se notaba: kind no aplica NetworkPolicy. La P6 ya
+  # lo había resuelto en `values-gcp.yaml`; aquí se recupera.
+  dnsPodSelectors:
+    - labels:
+        k8s-app: kube-dns
+    - labels:
+        k8s-app: node-local-dns
+  dnsServerCidrs:
+    - 169.254.20.10/32
