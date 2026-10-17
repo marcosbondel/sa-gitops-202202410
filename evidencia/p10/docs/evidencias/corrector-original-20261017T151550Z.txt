@@ -1,7 +1,7 @@
 ================================================================
  VERIFICACION PRACTICA 10 - v1.0
- Carnet: 202202410        Fecha: 2026-10-17 08:10
- Hash del script: 604509c91df248a0
+ Carnet: 202202410        Fecha: 2026-10-17 09:15
+ Hash del script: 0f423f0112af7767
 ================================================================
 
 --- 0. Herramientas y contexto (debe verificarlo el auxiliar)
@@ -22,14 +22,15 @@
 --- 2.1 Instrumentacion y correlacion (14 pts)
   Servicios declarados:        3   con rastro de OpenTelemetry: 3
   [OK]    Tres o mas servicios instrumentados
-  [OK]    Collector de OpenTelemetry desplegado
+  [FALLA] No se encuentra el Collector de OpenTelemetry
   [OK]    Se evidencia propagacion de contexto
   [OK]    Metrica de negocio presente en Prometheus: pedidos_creados_total
-  >> 2.1 = 14 / 14
+  >> 2.1 = 11 / 14
 
 --- 2.2 Canary gobernado por metricas (16 pts)
   AnalysisTemplates en sa-p8-stage: 1
-  [OK]    El analisis usa provider prometheus
+0
+  [FALLA] El analisis NO consulta Prometheus (sigue con Job o no existe)
   Consultas declaradas: 12
     sum(increase(http_server_request_duration_seconds_count{namespace="{{args.namespace}}", service="{{args.servic
      
@@ -48,16 +49,22 @@
   [OK]    Al menos una consulta devuelve datos reales
   [OK]    Evidencia de reversion por metricas: 1 AnalysisRun fallido(s)
     run=sa-platform-api-gateway-7d7ffb5988-3-1 fase=Failed
-  >> 2.2 = 16 / 16
+  >> 2.2 = 11 / 16
 
 --- 2.3 SLO y alertas por presupuesto de error (12 pts)
-  Reglas de registro: 28   reglas de alerta: 4
-  [OK]    Existen reglas de registro
+  Reglas de registro: 28
+0   reglas de alerta: 4
+0
+./verificar_p10.sh: line 229: [: 28
+0: integer expected
+  [FALLA] Sin reglas de registro (recording rules)
   [OK]    El indicador se calcula y devuelve datos: sli:checkout_disponibilidad:ratio_rate5m
-  [OK]    Existen reglas de alerta
-  [OK]    Alertas basadas en consumo del presupuesto
-  [OK]    Las alertas enlazan a un runbook
-  >> 2.3 = 12 / 12
+./verificar_p10.sh: line 236: [: 4
+0: integer expected
+  [FALLA] Sin reglas de alerta
+  [FALLA] Alertas por umbral instantaneo, no por presupuesto de error
+  [FALLA] Alertas sin anotacion de runbook
+  >> 2.3 = 2 / 12
 
 --- 2.4 Recorrido del sintoma a la causa (10 pts)
   Pods en observabilidad: 13
@@ -70,7 +77,7 @@
 
 --- 2.5 Registros estructurados (8 pts)
   [OK]    Los registros salen en JSON valido
-    {"timestamp":"2026-10-17T14:10:59.505Z","level":"info","service":"api-gateway","message":"petición atendida","trace_id":
+    {"timestamp":"2026-10-17T15:15:28.382Z","level":"info","service":"api-gateway","message":"petición atendida","trace_id":
   [OK]    El registro incluye identificador de traza
   [OK]    Los registros se centralizan en un almacen consultable
   [AVISO] Confirmar en la demostracion una consulta real por campo
@@ -85,19 +92,20 @@
 ================================================================
  RESUMEN - carnet 202202410
 ================================================================
-  2.1 Instrumentacion y correlacion ... 14 / 14
-  2.2 Canary por metricas ............. 16 / 16
-  2.3 SLO y alertas ................... 12 / 12
+  2.1 Instrumentacion y correlacion ... 11 / 14
+  2.2 Canary por metricas ............. 11 / 16
+  2.3 SLO y alertas ...................  2 / 12
   2.4 Sintoma a la causa .............. 10 / 10
   2.5 Registros estructurados .........  8 / 8
   ----------------------------------------------
-  CONOCIMIENTO ........................ 60 / 60
+  CONOCIMIENTO ........................ 42 / 60
 
   Pendiente de evaluacion presencial: 40 pts
     1.1 SLO (10)   1.2 Tablero (8)
     1.3 Informe de operacion (12)   1.4 Preguntas teoricas (10)
 
-  Requisitos eliminatorios: todos cumplidos
+  REQUISITOS ELIMINATORIOS INCUMPLIDOS: analisis-sin-prometheus
+  Revisar la seccion 8.1 del enunciado antes de asignar nota.
 
-  Duracion: 42s    Reporte: reporte_p10_202202410.txt
+  Duracion: 23s    Reporte: reporte_p10_202202410.txt
 ================================================================

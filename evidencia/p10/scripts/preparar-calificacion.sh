@@ -14,8 +14,8 @@
 # Además:
 #   · `verificar_p10.sh` usa `mapfile` (bash 4+); el bash de macOS es 3.2. Se
 #     antepone el de Homebrew al PATH.
-#   · Se ejecuta también una COPIA corregida del corrector, en /tmp, con la
-#     única línea defectuosa arreglada (ver P10/README.md, «El corrector»).
+#   · Se ejecuta también `verificar_p10_corregido.sh`, la copia con los dos
+#     defectos del corrector arreglados (docs/06-defectos-del-corrector.md).
 #     El original, sin tocar, es el que cuenta.
 # ===========================================================================
 set -euo pipefail
@@ -43,29 +43,16 @@ echo
 echo "════ Corrector oficial (sin modificar) ════"
 env -u CLOUDSDK_CORE_ACCOUNT -u CLOUDSDK_CORE_PROJECT -u GOOGLE_OAUTH_ACCESS_TOKEN bash ./verificar_p10.sh || true
 
-# La copia corregida, con DOS arreglos y nada más:
-#
-#   1. `"${X:-{}}"` deja una `}` pegada al JSON cuando X no está vacía; jq
-#      falla y todas las comprobaciones de 2.2 y 2.3 que pasan por esas
-#      variables salen en cero.
-#   2. `… | grep -qi …` con `set -o pipefail` en dos comprobaciones (Collector
-#      y orígenes de Grafana): grep termina en el primer acierto, el comando
-#      que escribe en la tubería recibe SIGPIPE y `pipefail` convierte el
-#      acierto en fallo. Se cambia `-q` por `>/dev/null`: grep lee todo.
-TMP="$(mktemp -d)"
-# shellcheck disable=SC2016  # las comillas simples son a propósito: es texto de bash, no se expande aquí
-sed -e 's/"\${ATJSON:-{}}"/"${ATJSON:-"{}"}"/g; s/"\${PRJSON:-{}}"/"${PRJSON:-"{}"}"/g' \
-    -e 's/| grep -qi "otel/| grep -i >\/dev\/null "otel/' \
-    -e 's/echo "\${DS:-}" | grep -qi /echo "${DS:-}" | grep -i >\/dev\/null /' \
-    verificar_p10.sh >"$TMP/verificar_p10.sh"
-cp p10.conf "$TMP/"
+# Referencia: `verificar_p10_corregido.sh`, la copia con solo los dos defectos
+# del corrector arreglados (ver docs/06-defectos-del-corrector.md). Escribe su
+# propio reporte, así que no pisa el del original.
 echo
-echo "════ Copia con la línea de \${X:-{}} corregida (referencia) ════"
-diff verificar_p10.sh "$TMP/verificar_p10.sh" | grep -c '^>' | xargs -I{} echo "  líneas cambiadas: {}"
-(cd "$TMP" && env -u CLOUDSDK_CORE_ACCOUNT -u CLOUDSDK_CORE_PROJECT -u GOOGLE_OAUTH_ACCESS_TOKEN bash ./verificar_p10.sh) || true
+echo "════ Copia corregida (referencia) ════"
+env -u CLOUDSDK_CORE_ACCOUNT -u CLOUDSDK_CORE_PROJECT -u GOOGLE_OAUTH_ACCESS_TOKEN bash ./verificar_p10_corregido.sh || true
+
 mkdir -p "$EVIDENCIAS"
 SELLO="$(date -u +%Y%m%dT%H%M%SZ)"
-cp "reporte_p10_202202410.txt" "${EVIDENCIAS}/corrector-original-${SELLO}.txt"
-cp "$TMP/reporte_p10_202202410.txt" "${EVIDENCIAS}/corrector-corregido-${SELLO}.txt"
+sed 's/\x1b\[[0-9;]*m//g' "reporte_p10_202202410.txt" >"${EVIDENCIAS}/corrector-original-${SELLO}.txt"
+sed 's/\x1b\[[0-9;]*m//g' "reporte_p10_202202410_corregido.txt" >"${EVIDENCIAS}/corrector-corregido-${SELLO}.txt"
 echo
 echo "Reportes guardados en docs/evidencias/corrector-{original,corregido}-${SELLO}.txt"

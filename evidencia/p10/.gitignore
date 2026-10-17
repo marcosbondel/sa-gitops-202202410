@@ -9,7 +9,7 @@
 # Lo que deja el corrector (`scripts/verificar_p10.sh`) donde se ejecuta. El
 # reporte que valga como evidencia se copia a docs/evidencias/.
 scripts/reporte_p10_*.txt
-scripts/resultados_p10.csv
+scripts/resultados_p10*.csv
 
 node_modules/
 dist/

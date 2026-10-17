@@ -61,6 +61,9 @@ marca "1·metricas" "✓ el error nace en ${SERVICIO} (el gateway solo lo reenv�
 AHORA=$(ahora_epoch)
 TRAZA="$(tempo_buscar "{ resource.service.name = \"${SERVICIO}\" && resource.k8s.namespace.name = \"${NS}\" && status = error }" $(( AHORA - 900 )) "$AHORA" | head -1)"
 [[ -n "$TRAZA" ]] || fallar "Tempo no devolvió trazas con error de ${SERVICIO}"
+# Tempo devuelve el ID sin los ceros a la izquierda; los registros lo llevan
+# completo, con 32 dígitos.
+TRAZA="$(printf '%032s' "$TRAZA" | tr ' ' 0)"
 tempo_traza "$TRAZA" >"/tmp/recorrido-traza-$$.json"
 marca "2·trazas" "traza con error: ${TRAZA} — cascada:"
 jq -r '[.trace.resourceSpans[] | (.resource.attributes[] | select(.key=="service.name") | .value.stringValue) as $s

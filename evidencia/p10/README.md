@@ -55,6 +55,7 @@ P10/
 │   ├── 03-informe-operacion.md     los seis campos de la §4.2, con tiempos medidos
 │   ├── 04-preguntas-teoricas.md    cómo se comporta esta instrumentación y dónde no alcanza
 │   ├── 05-guion-video.md           guion y minutaje
+│   ├── 06-defectos-del-corrector.md  para el auxiliar: los defectos de verificar_p10.sh, reproducidos
 │   ├── runbooks/                   uno por alerta
 │   └── evidencias/                 registros con marcas UTC de cada demostración
 └── scripts/
@@ -63,7 +64,8 @@ P10/
     ├── recorrido.sh            alerta → métricas → traza → registro, cronometrado
     ├── exportar-tablero.sh     JSON de Grafana + captura
     ├── preparar-calificacion.sh  deja gcloud/kubectl listos y corre el corrector
-    └── verificar_p10.sh        el corrector del curso, sin modificar
+    ├── verificar_p10.sh        el corrector del curso, sin modificar
+    └── verificar_p10_corregido.sh  copia con solo sus dos defectos corregidos (referencia)
 ```
 
 En el repositorio GitOps:
@@ -128,14 +130,16 @@ P9/scripts/apagar.sh                      # al terminar
 
 `scripts/verificar_p10.sh` es el del curso, **sin modificar** (sha256
 `0f423f0112af7767…`). Ejecutado contra el clúster vivo el 2026-10-17 a las
-14:09 UTC:
+15:15 UTC con `preparar-calificacion.sh`, desde un entorno limpio:
 
 | | 2.1 | 2.2 | 2.3 | 2.4 | 2.5 | Total | Eliminatorios |
 |---|---|---|---|---|---|---|---|
-| [Original](docs/evidencias/corrector-original-20261017T140934Z.txt) | 14 | 11 | 2 | 10 | 8 | **45 / 60** | «análisis sin Prometheus» (falso) |
-| [Copia con dos expresiones corregidas](docs/evidencias/corrector-corregido-20261017T140934Z.txt) | 14 | 16 | 12 | 10 | 8 | **60 / 60** | ninguno |
+| [Original](docs/evidencias/corrector-original-20261017T151550Z.txt) | 11 | 11 | 2 | 10 | 8 | **42 / 60** | «análisis sin Prometheus» (falso) |
+| [Copia corregida](docs/evidencias/corrector-corregido-20261017T151550Z.txt) | 14 | 16 | 12 | 10 | 8 | **60 / 60** | ninguno |
 
-Los 15 puntos de diferencia son dos defectos del corrector, no de la entrega:
+El original oscila entre 42 y 45 según gane o pierda la carrera de la
+comprobación del Collector (defecto 2). Los puntos de diferencia son dos
+defectos del corrector, no de la entrega:
 
 1. **`"${ATJSON:-{}}"` y `"${PRJSON:-{}}"`** —el mismo defecto que tenía el de
    la P9— dejan una `}` pegada al JSON cuando la variable no está vacía; `jq`
@@ -158,6 +162,10 @@ interpretaba mal: el canary ya no termina en un `setWeight: 100` redundante
 `annotations: {}` (la comprobación de runbooks hacía `with_entries` sobre
 `null`).
 
-`preparar-calificacion.sh` deja gcloud y kubectl listos en esta máquina,
-ejecuta el original y, como referencia, la copia en `/tmp` con solo esas dos
-expresiones corregidas.
+Detalle y reproducción mínima para el auxiliar:
+[`docs/06-defectos-del-corrector.md`](docs/06-defectos-del-corrector.md).
+
+`preparar-calificacion.sh` deja gcloud y kubectl listos en esta máquina y
+ejecuta el original y, como referencia,
+[`scripts/verificar_p10_corregido.sh`](scripts/verificar_p10_corregido.sh)
+—la copia con solo esas dos correcciones, que escribe su propio reporte—.
