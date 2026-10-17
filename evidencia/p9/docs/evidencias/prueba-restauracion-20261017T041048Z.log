@@ -1,0 +1,1454 @@
+# prueba-restauracion — Práctica 9 (202202410)
+# inicio:   2026-10-17T04:10:48Z
+# máquina:  Darwin arm64 · marcosbondel
+# cuenta:   <cuenta-del-operador> · proyecto sociedadanonima-507519
+# comando:  P9/scripts/prueba-restauracion.sh prueba-restauracion
+#
+# Formato:  <UTC>  +<min:seg desde el inicio>  [etapa]  mensaje
+
+2026-10-17T04:10:48Z  +00:00  [prueba]  restauración de datos verificada en sa-p8-prod (RPO declarado 15 min)
+2026-10-17T04:11:22Z  +00:34  [datos]  10 marcas PRE-respaldo escritas (ids 1–10)
+2026-10-17T04:11:23Z  +00:35  [respaldo]  esperando al siguiente respaldo programado de sa-p9-cada-15m (≤ 15 min)…
+2026-10-17T04:15:53Z  +05:05  [respaldo]  respaldo sa-p9-cada-15m-20261017041510 Completed (inicio 2026-10-17T04:15:10Z)
+2026-10-17T04:15:53Z  +05:05  [respaldo]  ▶ contenido del respaldo
+        Name:         [1msa-p9-cada-15m-20261017041510[22m
+        Namespace:    velero
+        Labels:       sa.usac.edu.gt/practica=p9
+                      velero.io/schedule-name=sa-p9-cada-15m
+                      velero.io/storage-location=default
+        Annotations:  argocd.argoproj.io/tracking-id=sa-p9-respaldos:velero.io/Schedule:velero/sa-p9-cada-15m
+                      kubectl.kubernetes.io/last-applied-configuration={"apiVersion":"velero.io/v1","kind":"Schedule","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"sa-p9-respaldos:velero.io/Schedule:velero/sa-p9-cada-15m"},"labels":{"sa.usac.edu.gt/practica":"p9"},"name":"sa-p9-cada-15m","namespace":"velero"},"spec":{"schedule":"*/15 * * * *","template":{"defaultVolumesToFsBackup":false,"hooks":{"resources":[{"includedNamespaces":["sa-p8-stage","sa-p8-prod"],"labelSelector":{"matchLabels":{"app.kubernetes.io/instance":"sa-platform","app.kubernetes.io/name":"postgresql"}},"name":"postgresql-checkpoint","pre":[{"exec":{"command":["/bin/bash","-c","PGPASSWORD=\"$(cat \"$POSTGRES_PASSWORD_FILE\")\" psql -h 127.0.0.1 -U postgres -d postgres -c CHECKPOINT"],"container":"postgresql","onError":"Continue","timeout":"30s"}}]}]},"includedNamespaces":["sa-p8-stage","sa-p8-prod"],"snapshotVolumes":true,"storageLocation":"default","ttl":"720h0m0s","volumeSnapshotLocations":["default"]},"useOwnerReferencesInBackup":false}}
+        
+          velero.io/resource-timeout=10m0s
+          velero.io/source-cluster-k8s-gitversion=v1.35.6-gke.1250001
+          velero.io/source-cluster-k8s-major-version=1
+          velero.io/source-cluster-k8s-minor-version=35
+        
+        Phase:  [32mCompleted[0m
+        
+        
+        Namespaces:
+          Included:  sa-p8-stage, sa-p8-prod
+          Excluded:  <none>
+        
+        Resources:
+          Included cluster-scoped:    <none>
+          Excluded cluster-scoped:    volumesnapshotcontents.snapshot.storage.k8s.io
+          Included namespace-scoped:  *
+          Excluded namespace-scoped:  volumesnapshots.snapshot.storage.k8s.io
+        
+        Label selector:  <none>
+        
+        Or label selector:  <none>
+        
+        Storage Location:  default
+        
+        Velero-Native Snapshot PVs:    true
+        File System Backup (Default):  false
+        Snapshot Move Data:            false
+        Data Mover:                    velero
+        
+        TTL:  720h0m0s
+        
+        CSISnapshotTimeout:    10m0s
+        ItemOperationTimeout:  4h0m0s
+        
+        Hooks:
+          Resources:
+            postgresql-checkpoint:
+              Namespaces:
+                Included:  sa-p8-stage, sa-p8-prod
+                Excluded:  <none>
+        
+              Resources:
+                Included:  *
+                Excluded:  <none>
+        
+              Label selector:  app.kubernetes.io/instance=sa-platform,app.kubernetes.io/name=postgresql
+        
+              Pre Exec Hook:
+                Container:  postgresql
+                Command:    /bin/bash -c PGPASSWORD="$(cat "$POSTGRES_PASSWORD_FILE")" psql -h 127.0.0.1 -U postgres -d postgres -c CHECKPOINT
+                On Error:   Continue
+                Timeout:    30s
+        
+        Backup Format Version:  1.1.0
+        
+        Started:    2026-10-16 22:15:10 -0600 CST
+        Completed:  2026-10-16 22:15:33 -0600 CST
+        
+        Expiration:  2026-11-15 22:15:10 -0600 CST
+        
+        Total items to be backed up:  1209
+        Items backed up:              1209
+        
+        Resource List:
+          apiextensions.k8s.io/v1/CustomResourceDefinition:
+            - analysistemplates.argoproj.io
+            - ciliumendpoints.cilium.io
+            - ephemeralreports.reports.kyverno.io
+            - policyreports.wgpolicyk8s.io
+            - rollouts.argoproj.io
+            - sealedsecrets.bitnami.com
+          apps/v1/ControllerRevision:
+            - sa-p8-prod/sa-platform-postgresql-8464979769
+            - sa-p8-prod/sa-platform-rabbitmq-7797b5d9cc
+            - sa-p8-stage/sa-platform-postgresql-6b9ffdc9c9
+            - sa-p8-stage/sa-platform-rabbitmq-5d7d556c97
+          apps/v1/Deployment:
+            - sa-p8-prod/sa-platform-auth-service
+            - sa-p8-prod/sa-platform-catalog-service
+            - sa-p8-prod/sa-platform-notification-service
+            - sa-p8-prod/sa-platform-notification-worker
+            - sa-p8-prod/sa-platform-order-service
+            - sa-p8-stage/sa-platform-auth-service
+            - sa-p8-stage/sa-platform-catalog-service
+            - sa-p8-stage/sa-platform-notification-service
+            - sa-p8-stage/sa-platform-notification-worker
+            - sa-p8-stage/sa-platform-order-service
+          apps/v1/ReplicaSet:
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59
+            - sa-p8-prod/sa-platform-order-service-89ff54b7
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d
+            - sa-p8-stage/sa-platform-notification-worker-55cdb899c7
+            - sa-p8-stage/sa-platform-order-service-6d47db4469
+          apps/v1/StatefulSet:
+            - sa-p8-prod/sa-platform-postgresql
+            - sa-p8-prod/sa-platform-rabbitmq
+            - sa-p8-stage/sa-platform-postgresql
+            - sa-p8-stage/sa-platform-rabbitmq
+          argoproj.io/v1alpha1/AnalysisTemplate:
+            - sa-p8-prod/sa-p8-carga
+            - sa-p8-prod/sa-p8-humo
+            - sa-p8-prod/sa-p8-integracion
+            - sa-p8-stage/sa-p8-carga
+            - sa-p8-stage/sa-p8-humo
+            - sa-p8-stage/sa-p8-integracion
+          argoproj.io/v1alpha1/Rollout:
+            - sa-p8-prod/sa-platform-api-gateway
+            - sa-p8-stage/sa-platform-api-gateway
+          autoscaling/v2/HorizontalPodAutoscaler:
+            - sa-p8-prod/sa-platform-api-gateway
+            - sa-p8-prod/sa-platform-auth-service
+            - sa-p8-prod/sa-platform-catalog-service
+            - sa-p8-prod/sa-platform-notification-service
+            - sa-p8-prod/sa-platform-order-service
+          batch/v1/CronJob:
+            - sa-p8-prod/sa-platform-heartbeat-summarizer
+            - sa-p8-prod/sa-platform-heartbeat-writer
+          batch/v1/Job:
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870170
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870170
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870172
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870174
+          bitnami.com/v1alpha1/SealedSecret:
+            - sa-p8-prod/sa-platform-auth-service-secret
+            - sa-p8-prod/sa-platform-broker-credentials
+            - sa-p8-prod/sa-platform-catalog-service-secret
+            - sa-p8-prod/sa-platform-db-credentials
+            - sa-p8-prod/sa-platform-db-initdb-env
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-secret
+            - sa-p8-prod/sa-platform-heartbeat-writer-secret
+            - sa-p8-prod/sa-platform-notification-service-secret
+            - sa-p8-prod/sa-platform-order-service-secret
+            - sa-p8-stage/sa-platform-auth-service-secret
+            - sa-p8-stage/sa-platform-broker-credentials
+            - sa-p8-stage/sa-platform-catalog-service-secret
+            - sa-p8-stage/sa-platform-db-credentials
+            - sa-p8-stage/sa-platform-db-initdb-env
+            - sa-p8-stage/sa-platform-notification-service-secret
+            - sa-p8-stage/sa-platform-order-service-secret
+          cilium.io/v2/CiliumEndpoint:
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-92c7m
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-k4j9s
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-xp8gm
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-hqf47
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-j2844
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-9c2kz
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-s76w5
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-4xrjd
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-nbqk5
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-9k5bd
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-cmnfg
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-f5cdh
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-j7vk4
+            - sa-p8-prod/sa-platform-postgresql-0
+            - sa-p8-prod/sa-platform-rabbitmq-0
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-8xmhh
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-964sd
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-q8fc8
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c-7hpb5
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-wwc2r
+            - sa-p8-stage/sa-platform-notification-worker-55cdb899c7-tqxlf
+            - sa-p8-stage/sa-platform-order-service-6d47db4469-qsz6l
+            - sa-p8-stage/sa-platform-postgresql-0
+            - sa-p8-stage/sa-platform-rabbitmq-0
+          discovery.k8s.io/v1/EndpointSlice:
+            - sa-p8-prod/sa-platform-api-gateway-8l5lh
+            - sa-p8-prod/sa-platform-api-gateway-canary-g667t
+            - sa-p8-prod/sa-platform-auth-service-zw2jh
+            - sa-p8-prod/sa-platform-catalog-service-9fd7p
+            - sa-p8-prod/sa-platform-notification-service-rmww7
+            - sa-p8-prod/sa-platform-order-service-z58xn
+            - sa-p8-prod/sa-platform-postgresql-hl-d4btd
+            - sa-p8-prod/sa-platform-postgresql-tmzk4
+            - sa-p8-prod/sa-platform-rabbitmq-headless-scgjn
+            - sa-p8-prod/sa-platform-rabbitmq-sss6w
+            - sa-p8-stage/sa-platform-api-gateway-55hnv
+            - sa-p8-stage/sa-platform-api-gateway-canary-tjf5l
+            - sa-p8-stage/sa-platform-auth-service-2gczg
+            - sa-p8-stage/sa-platform-catalog-service-vqvm4
+            - sa-p8-stage/sa-platform-notification-service-wcqsg
+            - sa-p8-stage/sa-platform-order-service-xd9fn
+            - sa-p8-stage/sa-platform-postgresql-7pt5p
+            - sa-p8-stage/sa-platform-postgresql-hl-sdd8k
+            - sa-p8-stage/sa-platform-rabbitmq-headless-t5pwg
+            - sa-p8-stage/sa-platform-rabbitmq-jzmbx
+          networking.k8s.io/v1/Ingress:
+            - sa-p8-prod/sa-platform
+            - sa-p8-prod/sa-platform-api-gateway-sa-platform-canary
+            - sa-p8-stage/sa-platform
+            - sa-p8-stage/sa-platform-api-gateway-sa-platform-canary
+          networking.k8s.io/v1/NetworkPolicy:
+            - sa-p8-prod/sa-p8-analisis-egress
+            - sa-p8-prod/sa-p8-analisis-ingress-al-gateway
+            - sa-p8-prod/sa-platform-allow-dns
+            - sa-p8-prod/sa-platform-allow-ingress-to-gateway
+            - sa-p8-prod/sa-platform-auth-service-from-gateway
+            - sa-p8-prod/sa-platform-auth-service-to-postgresql
+            - sa-p8-prod/sa-platform-catalog-service-from-gateway
+            - sa-p8-prod/sa-platform-catalog-service-from-order-service
+            - sa-p8-prod/sa-platform-catalog-service-to-postgresql
+            - sa-p8-prod/sa-platform-default-deny
+            - sa-p8-prod/sa-platform-gateway-egress
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-to-postgresql
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-to-rabbitmq
+            - sa-p8-prod/sa-platform-heartbeat-writer-to-postgresql
+            - sa-p8-prod/sa-platform-notification-service-from-gateway
+            - sa-p8-prod/sa-platform-notification-service-to-postgresql
+            - sa-p8-prod/sa-platform-notification-worker-to-postgresql
+            - sa-p8-prod/sa-platform-notification-worker-to-rabbitmq
+            - sa-p8-prod/sa-platform-order-service-from-gateway
+            - sa-p8-prod/sa-platform-order-service-to-catalog-service
+            - sa-p8-prod/sa-platform-order-service-to-postgresql
+            - sa-p8-prod/sa-platform-order-service-to-rabbitmq
+            - sa-p8-prod/sa-platform-postgresql
+            - sa-p8-prod/sa-platform-postgresql-ingress
+            - sa-p8-prod/sa-platform-rabbitmq-ingress
+            - sa-p8-stage/sa-p8-analisis-egress
+            - sa-p8-stage/sa-p8-analisis-ingress-al-gateway
+            - sa-p8-stage/sa-platform-allow-dns
+            - sa-p8-stage/sa-platform-allow-ingress-to-gateway
+            - sa-p8-stage/sa-platform-auth-service-from-gateway
+            - sa-p8-stage/sa-platform-auth-service-to-postgresql
+            - sa-p8-stage/sa-platform-catalog-service-from-gateway
+            - sa-p8-stage/sa-platform-catalog-service-from-order-service
+            - sa-p8-stage/sa-platform-catalog-service-to-postgresql
+            - sa-p8-stage/sa-platform-default-deny
+            - sa-p8-stage/sa-platform-gateway-egress
+            - sa-p8-stage/sa-platform-heartbeat-summarizer-to-postgresql
+            - sa-p8-stage/sa-platform-heartbeat-summarizer-to-rabbitmq
+            - sa-p8-stage/sa-platform-heartbeat-writer-to-postgresql
+            - sa-p8-stage/sa-platform-notification-service-from-gateway
+            - sa-p8-stage/sa-platform-notification-service-to-postgresql
+            - sa-p8-stage/sa-platform-notification-worker-to-postgresql
+            - sa-p8-stage/sa-platform-notification-worker-to-rabbitmq
+            - sa-p8-stage/sa-platform-order-service-from-gateway
+            - sa-p8-stage/sa-platform-order-service-to-catalog-service
+            - sa-p8-stage/sa-platform-order-service-to-postgresql
+            - sa-p8-stage/sa-platform-order-service-to-rabbitmq
+            - sa-p8-stage/sa-platform-postgresql
+            - sa-p8-stage/sa-platform-postgresql-ingress
+            - sa-p8-stage/sa-platform-rabbitmq-ingress
+          policy/v1/PodDisruptionBudget:
+            - sa-p8-prod/sa-platform-api-gateway
+            - sa-p8-prod/sa-platform-auth-service
+            - sa-p8-prod/sa-platform-catalog-service
+            - sa-p8-prod/sa-platform-notification-service
+            - sa-p8-prod/sa-platform-notification-worker
+            - sa-p8-prod/sa-platform-order-service
+            - sa-p8-prod/sa-platform-postgresql
+            - sa-p8-prod/sa-platform-rabbitmq
+            - sa-p8-stage/sa-platform-notification-worker
+            - sa-p8-stage/sa-platform-postgresql
+            - sa-p8-stage/sa-platform-rabbitmq
+          rbac.authorization.k8s.io/v1/Role:
+            - sa-p8-prod/sa-p8-lectura
+            - sa-p8-prod/sa-platform-api-gateway
+            - sa-p8-prod/sa-platform-auth-service
+            - sa-p8-prod/sa-platform-catalog-service
+            - sa-p8-prod/sa-platform-heartbeat-summarizer
+            - sa-p8-prod/sa-platform-heartbeat-writer
+            - sa-p8-prod/sa-platform-notification-service
+            - sa-p8-prod/sa-platform-order-service
+            - sa-p8-prod/sa-platform-rabbitmq-endpoint-reader
+            - sa-p8-stage/sa-p8-lectura
+            - sa-p8-stage/sa-p8-operador-rollouts
+            - sa-p8-stage/sa-platform-api-gateway
+            - sa-p8-stage/sa-platform-auth-service
+            - sa-p8-stage/sa-platform-catalog-service
+            - sa-p8-stage/sa-platform-notification-service
+            - sa-p8-stage/sa-platform-order-service
+            - sa-p8-stage/sa-platform-rabbitmq-endpoint-reader
+          rbac.authorization.k8s.io/v1/RoleBinding:
+            - sa-p8-prod/sa-p8-lectura
+            - sa-p8-prod/sa-platform-api-gateway
+            - sa-p8-prod/sa-platform-auth-service
+            - sa-p8-prod/sa-platform-catalog-service
+            - sa-p8-prod/sa-platform-heartbeat-summarizer
+            - sa-p8-prod/sa-platform-heartbeat-writer
+            - sa-p8-prod/sa-platform-notification-service
+            - sa-p8-prod/sa-platform-order-service
+            - sa-p8-prod/sa-platform-rabbitmq-endpoint-reader
+            - sa-p8-stage/sa-p8-lectura
+            - sa-p8-stage/sa-p8-operador-rollouts
+            - sa-p8-stage/sa-platform-api-gateway
+            - sa-p8-stage/sa-platform-auth-service
+            - sa-p8-stage/sa-platform-catalog-service
+            - sa-p8-stage/sa-platform-notification-service
+            - sa-p8-stage/sa-platform-order-service
+            - sa-p8-stage/sa-platform-rabbitmq-endpoint-reader
+          reports.kyverno.io/v1/EphemeralReport:
+            - sa-p8-prod/908e7943-a861-450d-a4ef-aa142b005ab9-xklh2
+          v1/ConfigMap:
+            - sa-p8-prod/kube-root-ca.crt
+            - sa-p8-prod/sa-p8-pruebas
+            - sa-p8-prod/sa-platform-api-gateway
+            - sa-p8-prod/sa-platform-auth-service
+            - sa-p8-prod/sa-platform-catalog-service
+            - sa-p8-prod/sa-platform-notification-service
+            - sa-p8-prod/sa-platform-order-service
+            - sa-p8-prod/sa-platform-postgres-initdb
+            - sa-p8-stage/kube-root-ca.crt
+            - sa-p8-stage/sa-p8-pruebas
+            - sa-p8-stage/sa-platform-api-gateway
+            - sa-p8-stage/sa-platform-auth-service
+            - sa-p8-stage/sa-platform-catalog-service
+            - sa-p8-stage/sa-platform-notification-service
+            - sa-p8-stage/sa-platform-order-service
+            - sa-p8-stage/sa-platform-postgres-initdb
+          v1/Endpoints:
+            - sa-p8-prod/sa-platform-api-gateway
+            - sa-p8-prod/sa-platform-api-gateway-canary
+            - sa-p8-prod/sa-platform-auth-service
+            - sa-p8-prod/sa-platform-catalog-service
+            - sa-p8-prod/sa-platform-notification-service
+            - sa-p8-prod/sa-platform-order-service
+            - sa-p8-prod/sa-platform-postgresql
+            - sa-p8-prod/sa-platform-postgresql-hl
+            - sa-p8-prod/sa-platform-rabbitmq
+            - sa-p8-prod/sa-platform-rabbitmq-headless
+            - sa-p8-stage/sa-platform-api-gateway
+            - sa-p8-stage/sa-platform-api-gateway-canary
+            - sa-p8-stage/sa-platform-auth-service
+            - sa-p8-stage/sa-platform-catalog-service
+            - sa-p8-stage/sa-platform-notification-service
+            - sa-p8-stage/sa-platform-order-service
+            - sa-p8-stage/sa-platform-postgresql
+            - sa-p8-stage/sa-platform-postgresql-hl
+            - sa-p8-stage/sa-platform-rabbitmq
+            - sa-p8-stage/sa-platform-rabbitmq-headless
+          v1/Event:
+            - sa-p8-prod/data-sa-platform-postgresql-0.18df336cf305c8ab
+            - sa-p8-prod/data-sa-platform-postgresql-0.18df336d0f359cdd
+            - sa-p8-prod/data-sa-platform-postgresql-0.18df336d1089648d
+            - sa-p8-prod/data-sa-platform-postgresql-0.18df336d6b6f0c90
+            - sa-p8-prod/data-sa-platform-rabbitmq-0.18df336caaae0818
+            - sa-p8-prod/data-sa-platform-rabbitmq-0.18df336d0ec47c0b
+            - sa-p8-prod/data-sa-platform-rabbitmq-0.18df336d102d5456
+            - sa-p8-prod/data-sa-platform-rabbitmq-0.18df336d65104315
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-4hrft.18df336ff04cc9f5
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-4hrft.18df33705e74acf3
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-4hrft.18df33722b23d996
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-4hrft.18df337231b7ac62
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-4hrft.18df33724b19a77c
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-4hrft.18df350eff4edf83
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-92c7m.18df336d58411cac
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-92c7m.18df336d9b8fbb72
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-92c7m.18df336f27c77b56
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-92c7m.18df336f2b7e10cc
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-92c7m.18df336f372c3a84
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-k4j9s.18df350f3ff6c2b9
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-k4j9s.18df350fbc228784
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-k4j9s.18df350fc40ee0ba
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-k4j9s.18df35104e06b4c8
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-tqdtq.18df336fb0da9b97
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-tqdtq.18df3370111e325f
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-tqdtq.18df33701c373458
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-tqdtq.18df337028de6602
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-tqdtq.18df3557024f66ea
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-xp8gm.18df3557fb217492
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-xp8gm.18df35597593d368
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-xp8gm.18df3559b1bc5d96
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-xp8gm.18df3559fadee272
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb.18df336d54af4c15
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb.18df336fa66d1620
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb.18df336fe8d42045
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb.18df350f39e98d12
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb.18df3557ec870e10
+            - sa-p8-prod/sa-platform-api-gateway-sa-platform-canary.18df3372f10fc54e
+            - sa-p8-prod/sa-platform-api-gateway-sa-platform-canary.18df3372f13ae32c
+            - sa-p8-prod/sa-platform-api-gateway-sa-platform-canary.18df3513cc366f59
+            - sa-p8-prod/sa-platform-api-gateway-sa-platform-canary.18df355a60d9ac0e
+            - sa-p8-prod/sa-platform-api-gateway.18df3369c77968ab
+            - sa-p8-prod/sa-platform-api-gateway.18df336d11334765
+            - sa-p8-prod/sa-platform-api-gateway.18df336d2d0555cc
+            - sa-p8-prod/sa-platform-api-gateway.18df336d2d080fc6
+            - sa-p8-prod/sa-platform-api-gateway.18df336d3ca15d78
+            - sa-p8-prod/sa-platform-api-gateway.18df336d44bf2d17
+            - sa-p8-prod/sa-platform-api-gateway.18df336d44e7da1e
+            - sa-p8-prod/sa-platform-api-gateway.18df336f6eb56813
+            - sa-p8-prod/sa-platform-api-gateway.18df336f78b36fd1
+            - sa-p8-prod/sa-platform-api-gateway.18df3370669a2969
+            - sa-p8-prod/sa-platform-api-gateway.18df3372e9cc44a7
+            - sa-p8-prod/sa-platform-api-gateway.18df3372eb6f78f7
+            - sa-p8-prod/sa-platform-api-gateway.18df3372eb72b43b
+            - sa-p8-prod/sa-platform-api-gateway.18df3372f07d1968
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-9tjjr.18df350fb064fc77
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-9tjjr.18df35100dd539fa
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-9tjjr.18df35101305c09a
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-9tjjr.18df351022505023
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-9tjjr.18df35107f1dd135
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-9tjjr.18df35562f3b2159
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-hqf47.18df3556e79e4e07
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-hqf47.18df3557cb68d515
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-hqf47.18df35587097aa87
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-hqf47.18df35589acee41c
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-hqf47.18df355916ce8bd9
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-hqf47.18df3570d6b1c349
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-j2844.18df33d7c8616d5c
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-j2844.18df33d7f76c8c02
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-j2844.18df33d7fb6e67ba
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-j2844.18df33d804327f15
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-j2844.18df33d88fb75b4c
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-j2844.18df355f7c3a6363
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-m2n2s.18df33d7aa2c9c30
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-m2n2s.18df33d7df951ea7
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-m2n2s.18df33d8be8e76c1
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-m2n2s.18df33d8c3a1eb3f
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-m2n2s.18df33d8cc4905aa
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-m2n2s.18df33d924a7c0a0
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-m2n2s.18df3475d189e7ee
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-p2qcg.18df336c49771693
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-p2qcg.18df336ca668bfff
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-p2qcg.18df336e8638a074
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-p2qcg.18df336e8bc0c8e1
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-p2qcg.18df336e9a46287c
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-p2qcg.18df336f2fa1e3bc
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-p2qcg.18df33725b8cebe8
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-p2qcg.18df3375a9588113
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-p2qcg.18df33d0f9a5b07b
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-p2qcg.18df3467d4b00f19
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-rvl8r.18df336fcea2963e
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-rvl8r.18df3370355e4f23
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-rvl8r.18df33703cacc305
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-rvl8r.18df337057f6345c
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-rvl8r.18df337096fa39dd
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-rvl8r.18df337a331ca357
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-rvl8r.18df33a9ddd2848d
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-rvl8r.18df350f61116383
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf.18df336c296bc194
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf.18df336fc1169d55
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf.18df33d7a2d8525b
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf.18df33d7c35346cd
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf.18df3467d2d3442f
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf.18df3475cfba2f68
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf.18df350fa9535ff1
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf.18df3556e20e00de
+            - sa-p8-prod/sa-platform-auth-service-secret.18df336415047bb2
+            - sa-p8-prod/sa-platform-auth-service.18df3369c8d4b3e5
+            - sa-p8-prod/sa-platform-auth-service.18df336bb080e5ca
+            - sa-p8-prod/sa-platform-auth-service.18df336f80743d33
+            - sa-p8-prod/sa-platform-auth-service.18df336f8bfd5868
+            - sa-p8-prod/sa-platform-auth-service.18df33705e04c3c2
+            - sa-p8-prod/sa-platform-auth-service.18df33748b4b6db1
+            - sa-p8-prod/sa-platform-auth-service.18df33d77ed54900
+            - sa-p8-prod/sa-platform-auth-service.18df33d77ed563b6
+            - sa-p8-prod/sa-platform-auth-service.18df33d783f2b77b
+            - sa-p8-prod/sa-platform-auth-service.18df3467cb910396
+            - sa-p8-prod/sa-platform-auth-service.18df3467cec5b430
+            - sa-p8-prod/sa-platform-auth-service.18df3475c8b3607c
+            - sa-p8-prod/sa-platform-auth-service.18df3475ccd6f20d
+            - sa-p8-prod/sa-platform-broker-credentials.18df33645f25b7a7
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-9c2kz.18df35572113e558
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-9c2kz.18df35589fe5597e
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-9c2kz.18df3558f6e68a59
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-9c2kz.18df355915fc0e28
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-9c2kz.18df35594fdd2ff1
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-s76w5.18df336ffa6ae744
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-s76w5.18df3370609f0057
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-s76w5.18df33728534383d
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-s76w5.18df3372893636e6
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-s76w5.18df337295e8793a
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-s76w5.18df3372eccae455
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-s76w5.18df3383b0470665
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-s76w5.18df338ab9a506e4
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-s76w5.18df356087af9e42
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-t4x5k.18df350ee725d3f5
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-t4x5k.18df350f2c8b5e9e
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-t4x5k.18df3511b1423c6c
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-t4x5k.18df3511b52870ab
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-t4x5k.18df3511c5891d0d
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-t4x5k.18df3556472933d7
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-vpbxq.18df336ca54e047e
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-vpbxq.18df336cf7de5956
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-vpbxq.18df336f78ea2a48
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-vpbxq.18df336f7faf1346
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-vpbxq.18df336f95f46c56
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-vpbxq.18df33703bb75778
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-vpbxq.18df338106dada4d
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-vpbxq.18df3387fc8b3bfe
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-vpbxq.18df350e991b863f
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7.18df336c87672127
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7.18df336ff684aad8
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7.18df350edd942cd7
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7.18df355709c69ba3
+            - sa-p8-prod/sa-platform-catalog-service-secret.18df3363a9fdedb4
+            - sa-p8-prod/sa-platform-catalog-service.18df3369c64e8ef3
+            - sa-p8-prod/sa-platform-catalog-service.18df336bdca7e415
+            - sa-p8-prod/sa-platform-catalog-service.18df336fa2bcec05
+            - sa-p8-prod/sa-platform-catalog-service.18df336fbee18997
+            - sa-p8-prod/sa-platform-catalog-service.18df33706dadaab8
+            - sa-p8-prod/sa-platform-catalog-service.18df3375b29760a2
+            - sa-p8-prod/sa-platform-db-credentials.18df3363f16c8d05
+            - sa-p8-prod/sa-platform-db-initdb-env.18df33643a253720
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870130-72q76.18df338de6ed7c59
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870130-72q76.18df338e23816897
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870130-72q76.18df338e26b652a7
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870130-72q76.18df338e3accaf3e
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870130-9hznn.18df3385fc12c5ce
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870130-9hznn.18df33863a6fa515
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870130-9hznn.18df33863e2cbd53
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870130-9hznn.18df33865211a68c
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870130-k4bb4.18df337fd0b47c94
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870130-k4bb4.18df3380112f63d2
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870130-k4bb4.18df33807e594caf
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870130-k4bb4.18df338082afbf71
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870130-k4bb4.18df33809c7c6683
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870130.18df337fcc99d208
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870130.18df3385f9c272dd
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870130.18df338de40fb7c9
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870130.18df3391e4730caa
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870140-xhw97.18df340b7c93cd6f
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870140-xhw97.18df340bbd62c11f
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870140-xhw97.18df340bc3196674
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870140-xhw97.18df340bdb5d714a
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870140.18df340b79b2ed5f
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870140.18df340e6dd372d1
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870150-7sc4h.18df34972e560ec7
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870150-7sc4h.18df34976df7bc31
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870150-7sc4h.18df3497736a8595
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870150-7sc4h.18df3497865fb049
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870150.18df34972bc8544f
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870150.18df349a4d407abc
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870160-wvv7z.18df3522d6da2020
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870160-wvv7z.18df352324bd4ad8
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870160-wvv7z.18df35232936b826
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870160-wvv7z.18df3523416585b5
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870160.18df3522d41728a6
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870160.18df3525e79f7dc2
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870170-8p5vg.18df35ae92731b53
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870170-8p5vg.18df35aed501e4cb
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870170-8p5vg.18df35aed7d65255
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870170-8p5vg.18df35aef05df954
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870170.18df35ae8e6a7e16
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870170.18df35b1c21d9b71
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-secret.18df3364c7f0d47d
+            - sa-p8-prod/sa-platform-heartbeat-summarizer.18df337fad13cef9
+            - sa-p8-prod/sa-platform-heartbeat-summarizer.18df3391e495b48e
+            - sa-p8-prod/sa-platform-heartbeat-summarizer.18df340b5ee74eee
+            - sa-p8-prod/sa-platform-heartbeat-summarizer.18df340e6e6d70d6
+            - sa-p8-prod/sa-platform-heartbeat-summarizer.18df349713d5e3d8
+            - sa-p8-prod/sa-platform-heartbeat-summarizer.18df349a4db36da0
+            - sa-p8-prod/sa-platform-heartbeat-summarizer.18df3522c441dbae
+            - sa-p8-prod/sa-platform-heartbeat-summarizer.18df3525e8553467
+            - sa-p8-prod/sa-platform-heartbeat-summarizer.18df35ae778b5348
+            - sa-p8-prod/sa-platform-heartbeat-summarizer.18df35b1c2c98664
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870130-kqqhh.18df337fcdd2bab0
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870130-kqqhh.18df33800b852e9f
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870130-kqqhh.18df33807e2e0686
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870130-kqqhh.18df338082213293
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870130-kqqhh.18df33809b3785cd
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870130-lhcl6.18df338cf6ad26cf
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870130-lhcl6.18df338d32f89784
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870130-lhcl6.18df338d369a904b
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870130-lhcl6.18df338d4a977730
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870130-pdd9s.18df338584730081
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870130-pdd9s.18df3385c0cd1bdf
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870130-pdd9s.18df3385c3b08c29
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870130-pdd9s.18df3385d838e676
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870130.18df337fca5fc3ef
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870130.18df3385820fbb0e
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870130.18df338cf4707ee7
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870130.18df339075ebfc5e
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870132-kt8pc.18df339bab9dbca8
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870132-kt8pc.18df339be4c10385
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870132-kt8pc.18df339be8f35354
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870132-kt8pc.18df339bfbdac2ac
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870132-z6z2w.18df33a0c0bf2883
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870132-z6z2w.18df33a0f9357475
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870132-z6z2w.18df33a0fd7a4c62
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870132-z6z2w.18df33a11121be7e
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870132-zsqlk.18df33a83546b36d
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870132-zsqlk.18df33a875879812
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870132-zsqlk.18df33a87896521c
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870132-zsqlk.18df33a88d96f643
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870132.18df339ba8cc8cff
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870132.18df33a0be5ed3e8
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870132.18df33a8323c7a77
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870132.18df33abbb77581d
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870134-hdl2w.18df33b79beac18e
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870134-hdl2w.18df33b7d7ab9f97
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870134-hdl2w.18df33b7dc922933
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870134-hdl2w.18df33b7f08cd2b1
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870134.18df33b798ff0319
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870134.18df33ba097b3eb3
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870136-9x9gl.18df33d39b745e2f
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870136-9x9gl.18df33d3d86ca91e
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870136-9x9gl.18df33d3de2f3da4
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870136-9x9gl.18df33d3f0215410
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870136.18df33d398f33430
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870136.18df33d5ee95f2a6
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870138-cgvwb.18df33ef859de222
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870138-cgvwb.18df33efbfd1baee
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870138-cgvwb.18df33efc5090fce
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870138-cgvwb.18df33efd8336f7e
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870138.18df33ef82dd40ef
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870138.18df33f1d5614810
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870140-9jr6n.18df340b79a22783
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870140-9jr6n.18df340bbec7a9d3
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870140-9jr6n.18df340bc40ff67f
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870140-9jr6n.18df340bd7494e16
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870140.18df340b75ff7beb
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870140.18df340df6004ee1
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870142-g6fl6.18df3427657a4ea7
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870142-g6fl6.18df3427a0a15bfc
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870142-g6fl6.18df3427a425c6da
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870142-g6fl6.18df3427b8f105f1
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870142.18df342762b72c75
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870142.18df3429e08a5830
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870144-z8ghr.18df3443592a4015
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870144-z8ghr.18df344391152153
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870144-z8ghr.18df344394fd42f8
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870144-z8ghr.18df3443a94c5b42
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870144.18df3443551e5b8d
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870144.18df3445c4d87db9
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870146-xlhqz.18df345f46e4897b
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870146-xlhqz.18df345f81d80ca9
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870146-xlhqz.18df345f8649b20d
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870146-xlhqz.18df345f99a95f49
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870146.18df345f445d198d
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870146.18df3461a551e9a5
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870148-zcm64.18df347b388f0a62
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870148-zcm64.18df347b774068ec
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870148-zcm64.18df347b7d073a93
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870148-zcm64.18df347b8ee73cc6
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870148.18df347b355f8842
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870148.18df347dbd01f349
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870150-dtfcq.18df349733d592d6
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870150-dtfcq.18df349772faa422
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870150-dtfcq.18df349776246af0
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870150-dtfcq.18df349789662bfd
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870150.18df349730ded98e
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870150.18df3499989a2f7e
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870152-9lqgn.18df34b31de0f8fb
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870152-9lqgn.18df34b3541b44ab
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870152-9lqgn.18df34b3578f52bd
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870152-9lqgn.18df34b36ee9435e
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870152.18df34b317802207
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870152.18df34b5780596e2
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870154-xznxj.18df34cf0a2889d9
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870154-xznxj.18df34cf49ef8849
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870154-xznxj.18df34cf4d1423e3
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870154-xznxj.18df34cf61e8a5cb
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870154.18df34cf07f20cbb
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870154.18df34d18e58d537
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870156-nx65g.18df34eaf8fe1ec6
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870156-nx65g.18df34eb2f759d27
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870156-nx65g.18df34eb32dc379b
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870156-nx65g.18df34eb47b62995
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870156.18df34eaf6321e8e
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870156.18df34ed6aa7f817
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870158-stzs8.18df3506f088d7c1
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870158-stzs8.18df35072797faf7
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870158-stzs8.18df35072ad5cbe9
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870158-stzs8.18df35073f813f05
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870158.18df3506edcb170a
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870158.18df35094b1ee23d
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870160-klftp.18df3522da4e83bf
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870160-klftp.18df35231f14ee1e
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870160-klftp.18df35232447b084
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870160-klftp.18df35233c76477f
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870160.18df3522d6e362f7
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870160.18df35256e0dab84
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870162-pd9jm.18df353ecf75b0fb
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870162-pd9jm.18df353f1574d316
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870162-pd9jm.18df353f1d2ddda0
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870162-pd9jm.18df353f396cfb0f
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870162.18df353ecb92424c
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870162.18df354191312675
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870164-ns22v.18df355aca106cbe
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870164-ns22v.18df355b5c1195d7
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870164-ns22v.18df355b6a35dcbd
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870164-ns22v.18df355b980e14ac
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870164-xwv7z.18df356041f200e1
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870164-xwv7z.18df3560c9eee010
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870164-xwv7z.18df35623c40984d
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870164-xwv7z.18df356241e8f840
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870164-xwv7z.18df35625f1f726b
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870164.18df355ac4c6e135
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870164.18df35603f607e46
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870164.18df356d6fd1b7af
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870166-969zf.18df3576b05f3da2
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870166-969zf.18df3576efacc6ce
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870166-969zf.18df3576f3863a88
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870166-969zf.18df357708d7255a
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870166.18df3576ab937758
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870166.18df35794be024bc
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870168-rdn2q.18df3592f8e3cafb
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870168-rdn2q.18df3593317b87ea
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870168-rdn2q.18df35939565b8f0
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870168-rdn2q.18df359397be2798
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870168-rdn2q.18df3593b6642fcd
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870168.18df3592f4ac68a9
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870168.18df3595b67d82b6
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870170-r6gqb.18df35ae8e39d911
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870170-r6gqb.18df35aed3dd7863
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870170-r6gqb.18df35aed728ab6b
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870170-r6gqb.18df35aef020af0b
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870170.18df35ae8b8cf34f
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870170.18df35b10e438a36
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870172-49775.18df35ca7f2ec796
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870172-49775.18df35cab6e4ce8f
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870172-49775.18df35cab9e9fa3d
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870172-49775.18df35cad4145797
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870172.18df35ca7c3ac7a8
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870172.18df35cce2544ded
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870174-rtjsb.18df35e67880f1e0
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870174-rtjsb.18df35e6b2b0c346
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870174-rtjsb.18df35e6b5013508
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870174-rtjsb.18df35e6c52e0378
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870174.18df35e674ebcc83
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870174.18df35e8b6b9b099
+            - sa-p8-prod/sa-platform-heartbeat-writer-secret.18df3364806cf470
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df337fac66ef2f
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df339076a76c35
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df339b9b1b2c0e
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df33abbbedcbce
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df33b78c09c13f
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df33ba0a426016
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df33d37cd15b36
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df33d5ef215adb
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df33ef6dff2963
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df33f1d4e020ed
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df340b5f8e3333
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df340df92bd60c
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df340df93108ec
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df34274e88532b
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df3429e39ab425
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df3429e39b8ccd
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df3443401e5cd6
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df3445c795a327
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df3445c798580f
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df345f2fdf2d2e
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df3461a770e315
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df3461a77160fe
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df347b1fac9d72
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df347dc042ca0d
+            - sa-p8-prod/sa-platform-heartbeat-writer.18df35094e2e715e
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-4xrjd.18df35581445a63f
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-4xrjd.18df355977019935
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-4xrjd.18df3559acca4df0
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-4xrjd.18df3559fac94478
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-4xrjd.18df355a8fdb5cce
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-4xrjd.18df356b537bfb3e
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-6756x.18df336ca19285a7
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-6756x.18df336d77e0917b
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-6756x.18df336e4cfbf12d
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-6756x.18df336e50b4cc07
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-6756x.18df336e5b1dd2ed
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-6756x.18df336eda0add89
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-6756x.18df3371e37e9ab3
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-6756x.18df3375a8eedc29
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-6756x.18df33a76e20954e
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-6756x.18df3421fa192962
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-7r24m.18df33d1df759bb1
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-7r24m.18df33d214facd26
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-7r24m.18df33d218e0cf72
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-7r24m.18df33d2241097e5
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-7r24m.18df33d2a74989c4
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-7r24m.18df3430de437b52
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-kkm8p.18df350eb8d01202
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-kkm8p.18df350ef052b1cb
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-kkm8p.18df350eff4b4da2
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-kkm8p.18df350f14305f33
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-kkm8p.18df350f7f396548
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-kkm8p.18df355711be2042
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-nbqk5.18df33d1efb3a396
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-nbqk5.18df33d2279f461a
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-nbqk5.18df33d22d2990f2
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-nbqk5.18df33d238d1ef51
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-nbqk5.18df33d2b7228695
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-nbqk5.18df35609fdf6a63
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-pm7hh.18df336fdefbe924
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-pm7hh.18df33704b08387f
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-pm7hh.18df337052423ed0
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-pm7hh.18df33706e47cbb2
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-pm7hh.18df3370a8351a36
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-pm7hh.18df337a31f4d3a3
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-pm7hh.18df339878a54569
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-pm7hh.18df350e7b08ea73
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-pm7hh.18df350fcba9bdcc
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b.18df336c875edd77
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b.18df336fcf9f24e7
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b.18df33d1dd4381c3
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b.18df33d1ed5d01d5
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b.18df3421f8b4a4bb
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b.18df3430dcb72721
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b.18df350ea38549ad
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b.18df355807f5d2cb
+            - sa-p8-prod/sa-platform-notification-service-secret.18df3364a43034eb
+            - sa-p8-prod/sa-platform-notification-service.18df3369c3c0ace3
+            - sa-p8-prod/sa-platform-notification-service.18df336bcb3f58dc
+            - sa-p8-prod/sa-platform-notification-service.18df336f8a577f5b
+            - sa-p8-prod/sa-platform-notification-service.18df336f9e149060
+            - sa-p8-prod/sa-platform-notification-service.18df337057dc1c90
+            - sa-p8-prod/sa-platform-notification-service.18df33748e725ef4
+            - sa-p8-prod/sa-platform-notification-service.18df33d19b6d54e5
+            - sa-p8-prod/sa-platform-notification-service.18df33d19b6d93b0
+            - sa-p8-prod/sa-platform-notification-service.18df33d19ff19cfb
+            - sa-p8-prod/sa-platform-notification-service.18df3421f1e595e2
+            - sa-p8-prod/sa-platform-notification-service.18df3421f1e625d5
+            - sa-p8-prod/sa-platform-notification-service.18df3421f5532c37
+            - sa-p8-prod/sa-platform-notification-service.18df3430d0942d3e
+            - sa-p8-prod/sa-platform-notification-service.18df3430d8e9623e
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-9k5bd.18df3557744dff72
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-9k5bd.18df355907eb6841
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-9k5bd.18df355983a18f6c
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-9k5bd.18df35599b2b9df4
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-9k5bd.18df355a57db6b63
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-9k5bd.18df355d0db8ec41
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-9k5bd.18df356bbe1233de
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-cmnfg.18df350f6e9c987d
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-cmnfg.18df350ff8269fb1
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-cmnfg.18df35104c507551
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-cmnfg.18df3510681a70aa
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-cmnfg.18df351118c860dc
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-cmnfg.18df3521d2913bac
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-k55ms.18df336c2f516a50
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-k55ms.18df336c53ba4a95
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-k55ms.18df336dc88f7443
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-k55ms.18df336dd3239391
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-k55ms.18df336de65fd15b
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-k55ms.18df336e65e8b446
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-k55ms.18df3371af916b2a
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-k55ms.18df3371c46a9e66
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-k55ms.18df337587aaaf88
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-k55ms.18df33d0e7c8cf7b
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-k55ms.18df3556b0d8e457
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-x6bgd.18df336c7fa249b8
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-x6bgd.18df336cdd66ef5e
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-x6bgd.18df336f481f7c71
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-x6bgd.18df336f4dd97f8f
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-x6bgd.18df336f60f5ab31
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-x6bgd.18df3370334dae90
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-x6bgd.18df3375af9b53a5
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-x6bgd.18df3375b136ec32
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-x6bgd.18df3379b9179547
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-x6bgd.18df33aa26d79021
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-x6bgd.18df350eff808655
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59.18df336c156a7264
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59.18df336c6f0b6075
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59.18df350f69038eda
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59.18df35577006243b
+            - sa-p8-prod/sa-platform-notification-worker.18df3369d533dba6
+            - sa-p8-prod/sa-platform-notification-worker.18df336bccf29c87
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-7hcxq.18df336c598562d8
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-7hcxq.18df336c8e791277
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-7hcxq.18df336dcb45fdcb
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-7hcxq.18df336e0d2b4f6b
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-7hcxq.18df336e39ad3824
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-7hcxq.18df336e895d6728
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-7hcxq.18df33723c2808e9
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-7hcxq.18df3375c41b7ded
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-7hcxq.18df33a71d596c89
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-7hcxq.18df3556f795531f
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-f5cdh.18df33700833a1a2
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-f5cdh.18df3370a3ef98fe
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-f5cdh.18df337245ad9167
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-f5cdh.18df337248a7821d
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-f5cdh.18df337256479fd2
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-f5cdh.18df3372f7142970
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-f5cdh.18df3375a98d997a
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-f5cdh.18df3378b6d3e6c8
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-f5cdh.18df33a8bfcced6e
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-f5cdh.18df355f2bc7510d
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-j7vk4.18df3557e07aee64
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-j7vk4.18df35598c520abf
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-j7vk4.18df3559b51a03fe
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-j7vk4.18df3559fad0b2f7
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-j7vk4.18df355a8bfea801
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-j7vk4.18df356b4f6e0f04
+            - sa-p8-prod/sa-platform-order-service-89ff54b7.18df336c3a7ecf10
+            - sa-p8-prod/sa-platform-order-service-89ff54b7.18df337005c5bf30
+            - sa-p8-prod/sa-platform-order-service-89ff54b7.18df3557c4e21daf
+            - sa-p8-prod/sa-platform-order-service-secret.18df3363cda75937
+            - sa-p8-prod/sa-platform-order-service.18df3369c244f758
+            - sa-p8-prod/sa-platform-order-service.18df336bd2abd88c
+            - sa-p8-prod/sa-platform-order-service.18df336fbc35e0f0
+            - sa-p8-prod/sa-platform-order-service.18df336fd379eb5a
+            - sa-p8-prod/sa-platform-order-service.18df337056748472
+            - sa-p8-prod/sa-platform-order-service.18df3373e6e0bef1
+            - sa-p8-prod/sa-platform-postgresql-0.18df336d7c8920ba
+            - sa-p8-prod/sa-platform-postgresql-0.18df336f6d100380
+            - sa-p8-prod/sa-platform-postgresql-0.18df337039d122a3
+            - sa-p8-prod/sa-platform-postgresql-0.18df337237ae720e
+            - sa-p8-prod/sa-platform-postgresql-0.18df337242745a49
+            - sa-p8-prod/sa-platform-postgresql-0.18df33724eecf6bf
+            - sa-p8-prod/sa-platform-postgresql-0.18df355738924ec4
+            - sa-p8-prod/sa-platform-postgresql-0.18df3559540b99e3
+            - sa-p8-prod/sa-platform-postgresql-0.18df355e85a83d4a
+            - sa-p8-prod/sa-platform-postgresql-0.18df355e8a519987
+            - sa-p8-prod/sa-platform-postgresql-0.18df3562e481d873
+            - sa-p8-prod/sa-platform-postgresql-0.18df3563cf67fc53
+            - sa-p8-prod/sa-platform-postgresql-0.18df3566580df227
+            - sa-p8-prod/sa-platform-postgresql-0.18df356676072898
+            - sa-p8-prod/sa-platform-postgresql-0.18df35668cc826bd
+            - sa-p8-prod/sa-platform-postgresql.18df3369cab4f64b
+            - sa-p8-prod/sa-platform-postgresql.18df336cbafc3fac
+            - sa-p8-prod/sa-platform-postgresql.18df336cec4ffe56
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df336d7ca521a8
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df336eac5b8940
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df336f403a3c4a
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df3374496ccf55
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df3374645144dc
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df33747794ff48
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df33762bc50ab8
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df33763fd63b14
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df33765e5baade
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df350e9f995633
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df3511c1e9546f
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df3511c4e9d8c4
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df3515424c4c88
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df3517a03a3dad
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df3517b5d66a06
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df3517c2b316b9
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df3518c1d48060
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df3518c73f3bc2
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df3518d1d39c28
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df355723e05a19
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df3557f6875383
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df355aee9f2fe7
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df355af2be86b4
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df355eeef1288f
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df355f968f1680
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df355f9faed145
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df355faeadd43b
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df3560abe9497c
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df3560caedffcd
+            - sa-p8-prod/sa-platform-rabbitmq-0.18df3560d7f2da45
+            - sa-p8-prod/sa-platform-rabbitmq.18df3369c9d56432
+            - sa-p8-prod/sa-platform-rabbitmq.18df336ca8ed305b
+            - sa-p8-prod/sa-platform-rabbitmq.18df336cf07abd04
+            - sa-p8-prod/sa-platform.18df336cefcd3f99
+            - sa-p8-prod/sa-platform.18df336cefea06d2
+            - sa-p8-prod/sa-platform.18df3513cc2e809c
+            - sa-p8-prod/sa-platform.18df355a60598557
+            - sa-p8-stage/data-sa-platform-postgresql-0.18df336b9b7cc2ef
+            - sa-p8-stage/data-sa-platform-postgresql-0.18df336c15bdd8dd
+            - sa-p8-stage/data-sa-platform-postgresql-0.18df336c18d54d22
+            - sa-p8-stage/data-sa-platform-postgresql-0.18df336cafc9875c
+            - sa-p8-stage/data-sa-platform-rabbitmq-0.18df336b9c7cc5c9
+            - sa-p8-stage/data-sa-platform-rabbitmq-0.18df336c12b03a05
+            - sa-p8-stage/data-sa-platform-rabbitmq-0.18df336c14054114
+            - sa-p8-stage/data-sa-platform-rabbitmq-0.18df336cb041b601
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-5lpvw.18df336d3238f1b0
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-5lpvw.18df336dc03304fe
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-5lpvw.18df336f04f627f8
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-5lpvw.18df336f07a07ad5
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-5lpvw.18df336f12d0bb88
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-5lpvw.18df355645a75090
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-8xmhh.18df336d0c4e5eb7
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-8xmhh.18df336d8b40f2b1
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-8xmhh.18df336f27be59d9
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-8xmhh.18df336f2bbad9a1
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-8xmhh.18df336f39e7f7d0
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-964sd.18df355721161ec0
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-964sd.18df3558743327f3
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-964sd.18df3558bfb10510
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-964sd.18df3558ee3a50bd
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6.18df336d047c4922
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6.18df336d2a46d426
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6.18df35570a129993
+            - sa-p8-stage/sa-platform-api-gateway-sa-platform-canary.18df337030a206fc
+            - sa-p8-stage/sa-platform-api-gateway-sa-platform-canary.18df337030cf2e73
+            - sa-p8-stage/sa-platform-api-gateway-sa-platform-canary.18df3513cc4210c8
+            - sa-p8-stage/sa-platform-api-gateway-sa-platform-canary.18df355a6115c536
+            - sa-p8-stage/sa-platform-api-gateway.18df336c0952796d
+            - sa-p8-stage/sa-platform-api-gateway.18df336c485a467d
+            - sa-p8-stage/sa-platform-api-gateway.18df336c485cf50a
+            - sa-p8-stage/sa-platform-api-gateway.18df336c63a5f3c4
+            - sa-p8-stage/sa-platform-api-gateway.18df336c90c800e4
+            - sa-p8-stage/sa-platform-api-gateway.18df336c90ee8336
+            - sa-p8-stage/sa-platform-api-gateway.18df337027c6a154
+            - sa-p8-stage/sa-platform-api-gateway.18df33702a808c81
+            - sa-p8-stage/sa-platform-api-gateway.18df33702a8f5da6
+            - sa-p8-stage/sa-platform-api-gateway.18df337030cec36a
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-lqdxf.18df350eaca60eb9
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-lqdxf.18df350eeced0bf7
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-lqdxf.18df350ef114af37
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-lqdxf.18df350f1077c006
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-lqdxf.18df350f74d23c8f
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-lqdxf.18df35564e584abb
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-mjx8l.18df336bec19f82d
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-mjx8l.18df336c53715b0f
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-mjx8l.18df336f2a23362f
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-mjx8l.18df336f2f5d7345
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-mjx8l.18df336f530deb63
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-mjx8l.18df337032b5cb46
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-mjx8l.18df33762b12e642
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-mjx8l.18df337c155ffab1
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-mjx8l.18df338c2302d27b
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-mjx8l.18df350e6a8da7e8
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-q8fc8.18df3556fc44d160
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-q8fc8.18df355800280a89
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-q8fc8.18df35589a11e6c9
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-q8fc8.18df3558ce3d9bca
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-q8fc8.18df355931446837
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb.18df336bdd00cc3f
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb.18df350ea0ba2687
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb.18df3556f7bd210a
+            - sa-p8-stage/sa-platform-auth-service-secret.18df336317f30dd1
+            - sa-p8-stage/sa-platform-auth-service.18df336b710056d2
+            - sa-p8-stage/sa-platform-broker-credentials.18df3363450d8974
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c-7hpb5.18df350f1e1df5ef
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c-7hpb5.18df350f64d9c7f4
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c-7hpb5.18df350f79232bfe
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c-7hpb5.18df350f95df819f
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c-7hpb5.18df350fe5325092
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c-7hpb5.18df356075f86df4
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c-d7bjf.18df336bf80fc4a3
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c-d7bjf.18df336c56683c25
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c-d7bjf.18df336f78c0a3e9
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c-d7bjf.18df336f7e5651bd
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c-d7bjf.18df336f999659d2
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c-d7bjf.18df337042aae163
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c-d7bjf.18df33810623b821
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c-d7bjf.18df33881e6ef3a2
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c-d7bjf.18df350ed54d3386
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c.18df336be8d047d9
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c.18df350f191178e2
+            - sa-p8-stage/sa-platform-catalog-service-secret.18df336310f8752a
+            - sa-p8-stage/sa-platform-catalog-service.18df336b742ce408
+            - sa-p8-stage/sa-platform-db-credentials.18df336367b22c21
+            - sa-p8-stage/sa-platform-db-initdb-env.18df336386195e30
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-wwc2r.18df35572756e196
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-wwc2r.18df355899d19525
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-wwc2r.18df3558e105f39d
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-wwc2r.18df3559126a9925
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-wwc2r.18df355961245814
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-wwc2r.18df356a24b36cf3
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-z7dq4.18df336bd678032b
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-z7dq4.18df336c462e8407
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-z7dq4.18df336e1ed65a6d
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-z7dq4.18df336e25034e2d
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-z7dq4.18df336e32a70f0d
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-z7dq4.18df336eb6f8a7ca
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-z7dq4.18df33762b4a1584
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-z7dq4.18df337b9c275339
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-z7dq4.18df3382f86a1516
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-z7dq4.18df350e976c7830
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-zwl98.18df350ed1a48d39
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-zwl98.18df350f20fe510d
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-zwl98.18df350f26611095
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-zwl98.18df350f38e7c56f
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-zwl98.18df350f9f7e07a4
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-zwl98.18df35565bac9bfb
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d.18df336bc8ace0cd
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d.18df350ec3133613
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d.18df355720af0ead
+            - sa-p8-stage/sa-platform-notification-service-secret.18df33631ca66ec8
+            - sa-p8-stage/sa-platform-notification-service.18df336b753247b7
+            - sa-p8-stage/sa-platform-notification-worker-55cdb899c7-tqxlf.18df336be1b83490
+            - sa-p8-stage/sa-platform-notification-worker-55cdb899c7-tqxlf.18df336c3daf80f2
+            - sa-p8-stage/sa-platform-notification-worker-55cdb899c7-tqxlf.18df336e3e71fdb8
+            - sa-p8-stage/sa-platform-notification-worker-55cdb899c7-tqxlf.18df336e416c7bb6
+            - sa-p8-stage/sa-platform-notification-worker-55cdb899c7-tqxlf.18df336e4ecee2ee
+            - sa-p8-stage/sa-platform-notification-worker-55cdb899c7-tqxlf.18df336eedf63b54
+            - sa-p8-stage/sa-platform-notification-worker-55cdb899c7-tqxlf.18df3372ff18def9
+            - sa-p8-stage/sa-platform-notification-worker-55cdb899c7-tqxlf.18df3373144922ca
+            - sa-p8-stage/sa-platform-notification-worker-55cdb899c7-tqxlf.18df33778a0e9544
+            - sa-p8-stage/sa-platform-notification-worker-55cdb899c7-tqxlf.18df3393f241d8cf
+            - sa-p8-stage/sa-platform-notification-worker-55cdb899c7.18df336bd314facc
+            - sa-p8-stage/sa-platform-notification-worker.18df3369a8db73be
+            - sa-p8-stage/sa-platform-notification-worker.18df336b793b16ab
+            - sa-p8-stage/sa-platform-order-service-6d47db4469-fj8bk.18df336bd2b72461
+            - sa-p8-stage/sa-platform-order-service-6d47db4469-fj8bk.18df336c32233ee4
+            - sa-p8-stage/sa-platform-order-service-6d47db4469-fj8bk.18df336df7fec2a3
+            - sa-p8-stage/sa-platform-order-service-6d47db4469-fj8bk.18df336dfc3ed67b
+            - sa-p8-stage/sa-platform-order-service-6d47db4469-fj8bk.18df336e1bba244e
+            - sa-p8-stage/sa-platform-order-service-6d47db4469-fj8bk.18df336eb4a3d7e7
+            - sa-p8-stage/sa-platform-order-service-6d47db4469-fj8bk.18df33762ac8227c
+            - sa-p8-stage/sa-platform-order-service-6d47db4469-fj8bk.18df337bd8bb4dfc
+            - sa-p8-stage/sa-platform-order-service-6d47db4469-fj8bk.18df3382f64c684d
+            - sa-p8-stage/sa-platform-order-service-6d47db4469-fj8bk.18df350f24ca9649
+            - sa-p8-stage/sa-platform-order-service-6d47db4469-qsz6l.18df350f6a11651a
+            - sa-p8-stage/sa-platform-order-service-6d47db4469-qsz6l.18df350fec3c7560
+            - sa-p8-stage/sa-platform-order-service-6d47db4469-qsz6l.18df35104d8dacc7
+            - sa-p8-stage/sa-platform-order-service-6d47db4469-qsz6l.18df35107604b7ce
+            - sa-p8-stage/sa-platform-order-service-6d47db4469-qsz6l.18df3510f712ff31
+            - sa-p8-stage/sa-platform-order-service-6d47db4469-qsz6l.18df355fa9d8482d
+            - sa-p8-stage/sa-platform-order-service-6d47db4469.18df336bc12336fb
+            - sa-p8-stage/sa-platform-order-service-6d47db4469.18df350f5fbd6513
+            - sa-p8-stage/sa-platform-order-service-secret.18df336321f4b16e
+            - sa-p8-stage/sa-platform-order-service.18df336b7af57ac6
+            - sa-p8-stage/sa-platform-postgresql-0.18df336ce7714f2d
+            - sa-p8-stage/sa-platform-postgresql-0.18df336e6430e5d6
+            - sa-p8-stage/sa-platform-postgresql-0.18df336f46320f9e
+            - sa-p8-stage/sa-platform-postgresql-0.18df33722c835a6f
+            - sa-p8-stage/sa-platform-postgresql-0.18df337232ff2ee4
+            - sa-p8-stage/sa-platform-postgresql-0.18df337241224d64
+            - sa-p8-stage/sa-platform-postgresql-0.18df355693b03227
+            - sa-p8-stage/sa-platform-postgresql-0.18df3556fff9d272
+            - sa-p8-stage/sa-platform-postgresql-0.18df355dd139c6f3
+            - sa-p8-stage/sa-platform-postgresql-0.18df355dd486661c
+            - sa-p8-stage/sa-platform-postgresql-0.18df3561bb60c4a2
+            - sa-p8-stage/sa-platform-postgresql-0.18df356285ed23e3
+            - sa-p8-stage/sa-platform-postgresql-0.18df356657ce4e66
+            - sa-p8-stage/sa-platform-postgresql-0.18df35666d4355fc
+            - sa-p8-stage/sa-platform-postgresql-0.18df35668a372942
+            - sa-p8-stage/sa-platform-postgresql.18df3369b21ca91c
+            - sa-p8-stage/sa-platform-postgresql.18df336b9a87d263
+            - sa-p8-stage/sa-platform-postgresql.18df336bba72e710
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df336d1afe3abc
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df336f4ec39b0e
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df336fe318b9d0
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df3373173e0b28
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df33731a7b1ff1
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df337322f9452d
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df3373e335a111
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df3373e9784ca0
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df3373f654e6b0
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df337b6701c7fe
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df3556a8d9b4eb
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df355bf7bb9221
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df355bf9ccdc04
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df3560b692e29e
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df356131165076
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df356137460638
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df356152fb61d3
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df35621bb6efb9
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df356229c73f9e
+            - sa-p8-stage/sa-platform-rabbitmq-0.18df35623ea120d7
+            - sa-p8-stage/sa-platform-rabbitmq.18df3369ab336723
+            - sa-p8-stage/sa-platform-rabbitmq.18df336b9c1d4235
+            - sa-p8-stage/sa-platform-rabbitmq.18df336bc39c8125
+            - sa-p8-stage/sa-platform.18df336bb5bb84a8
+            - sa-p8-stage/sa-platform.18df336bb65f8b30
+            - sa-p8-stage/sa-platform.18df3513cc3b9d5a
+            - sa-p8-stage/sa-platform.18df355a60ea4028
+          v1/LimitRange:
+            - sa-p8-prod/sa-p8-limits
+            - sa-p8-stage/sa-p8-limits
+          v1/Namespace:
+            - sa-p8-prod
+            - sa-p8-stage
+          v1/PersistentVolume:
+            - pvc-3d92a646-81fa-408d-9948-3c000053a051
+            - pvc-66865499-10ac-4d70-b281-6de5ea0be0e2
+            - pvc-89017c53-b8c1-434e-8e50-5f2021a208f8
+            - pvc-ce088b1c-1913-4794-9585-a8cb3d5746d6
+          v1/PersistentVolumeClaim:
+            - sa-p8-prod/data-sa-platform-postgresql-0
+            - sa-p8-prod/data-sa-platform-rabbitmq-0
+            - sa-p8-stage/data-sa-platform-postgresql-0
+            - sa-p8-stage/data-sa-platform-rabbitmq-0
+          v1/Pod:
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-92c7m
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-k4j9s
+            - sa-p8-prod/sa-platform-api-gateway-549b68ddcb-xp8gm
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-hqf47
+            - sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-j2844
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-9c2kz
+            - sa-p8-prod/sa-platform-catalog-service-56d49b9db7-s76w5
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-29870170-8p5vg
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870170-r6gqb
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870172-49775
+            - sa-p8-prod/sa-platform-heartbeat-writer-29870174-rtjsb
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-4xrjd
+            - sa-p8-prod/sa-platform-notification-service-dffb4898b-nbqk5
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-9k5bd
+            - sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-cmnfg
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-f5cdh
+            - sa-p8-prod/sa-platform-order-service-89ff54b7-j7vk4
+            - sa-p8-prod/sa-platform-postgresql-0
+            - sa-p8-prod/sa-platform-rabbitmq-0
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-8xmhh
+            - sa-p8-stage/sa-platform-api-gateway-76ff5f9f6-964sd
+            - sa-p8-stage/sa-platform-auth-service-58d557f7bb-q8fc8
+            - sa-p8-stage/sa-platform-catalog-service-5ccd8f648c-7hpb5
+            - sa-p8-stage/sa-platform-notification-service-5bb778c46d-wwc2r
+            - sa-p8-stage/sa-platform-notification-worker-55cdb899c7-tqxlf
+            - sa-p8-stage/sa-platform-order-service-6d47db4469-qsz6l
+            - sa-p8-stage/sa-platform-postgresql-0
+            - sa-p8-stage/sa-platform-rabbitmq-0
+          v1/ResourceQuota:
+            - sa-p8-prod/sa-p8-quota
+            - sa-p8-stage/sa-p8-quota
+          v1/Secret:
+            - sa-p8-prod/sa-platform-auth-service-secret
+            - sa-p8-prod/sa-platform-broker-credentials
+            - sa-p8-prod/sa-platform-catalog-service-secret
+            - sa-p8-prod/sa-platform-db-credentials
+            - sa-p8-prod/sa-platform-db-initdb-env
+            - sa-p8-prod/sa-platform-heartbeat-summarizer-secret
+            - sa-p8-prod/sa-platform-heartbeat-writer-secret
+            - sa-p8-prod/sa-platform-notification-service-secret
+            - sa-p8-prod/sa-platform-order-service-secret
+            - sa-p8-prod/sa-platform-rabbitmq-config
+            - sa-p8-stage/sa-platform-auth-service-secret
+            - sa-p8-stage/sa-platform-broker-credentials
+            - sa-p8-stage/sa-platform-catalog-service-secret
+            - sa-p8-stage/sa-platform-db-credentials
+            - sa-p8-stage/sa-platform-db-initdb-env
+            - sa-p8-stage/sa-platform-notification-service-secret
+            - sa-p8-stage/sa-platform-order-service-secret
+            - sa-p8-stage/sa-platform-rabbitmq-config
+          v1/Service:
+            - sa-p8-prod/sa-platform-api-gateway
+            - sa-p8-prod/sa-platform-api-gateway-canary
+            - sa-p8-prod/sa-platform-auth-service
+            - sa-p8-prod/sa-platform-catalog-service
+            - sa-p8-prod/sa-platform-notification-service
+            - sa-p8-prod/sa-platform-order-service
+            - sa-p8-prod/sa-platform-postgresql
+            - sa-p8-prod/sa-platform-postgresql-hl
+            - sa-p8-prod/sa-platform-rabbitmq
+            - sa-p8-prod/sa-platform-rabbitmq-headless
+            - sa-p8-stage/sa-platform-api-gateway
+            - sa-p8-stage/sa-platform-api-gateway-canary
+            - sa-p8-stage/sa-platform-auth-service
+            - sa-p8-stage/sa-platform-catalog-service
+            - sa-p8-stage/sa-platform-notification-service
+            - sa-p8-stage/sa-platform-order-service
+            - sa-p8-stage/sa-platform-postgresql
+            - sa-p8-stage/sa-platform-postgresql-hl
+            - sa-p8-stage/sa-platform-rabbitmq
+            - sa-p8-stage/sa-platform-rabbitmq-headless
+          v1/ServiceAccount:
+            - sa-p8-prod/default
+            - sa-p8-prod/sa-p8-lectura
+            - sa-p8-prod/sa-platform-api-gateway
+            - sa-p8-prod/sa-platform-auth-service
+            - sa-p8-prod/sa-platform-catalog-service
+            - sa-p8-prod/sa-platform-heartbeat-summarizer
+            - sa-p8-prod/sa-platform-heartbeat-writer
+            - sa-p8-prod/sa-platform-notification-service
+            - sa-p8-prod/sa-platform-order-service
+            - sa-p8-prod/sa-platform-postgresql
+            - sa-p8-prod/sa-platform-rabbitmq
+            - sa-p8-stage/default
+            - sa-p8-stage/sa-p8-lectura
+            - sa-p8-stage/sa-platform-api-gateway
+            - sa-p8-stage/sa-platform-auth-service
+            - sa-p8-stage/sa-platform-catalog-service
+            - sa-p8-stage/sa-platform-notification-service
+            - sa-p8-stage/sa-platform-order-service
+            - sa-p8-stage/sa-platform-postgresql
+            - sa-p8-stage/sa-platform-rabbitmq
+          wgpolicyk8s.io/v1alpha2/PolicyReport:
+            - sa-p8-prod/01555819-638a-4388-ab29-35bb4c37f108
+            - sa-p8-prod/0294a166-5519-4912-b1b8-1160b738dc45
+            - sa-p8-prod/13c03ad2-c572-412d-bbda-e3ecb13d807e
+            - sa-p8-prod/15402571-9e7c-42ae-ada2-24d154e68562
+            - sa-p8-prod/396bd1ed-cb0a-4452-8d02-afcfa92329f0
+            - sa-p8-prod/3d5c970c-abb3-4fc2-b1a6-d9f316e27269
+            - sa-p8-prod/40c753ea-a999-4920-aa5f-ba3b9a887368
+            - sa-p8-prod/4ab0c5d2-05cd-4690-9865-f9599b3b7996
+            - sa-p8-prod/4cb1dc0d-b8a9-43cf-a192-25db8b37715d
+            - sa-p8-prod/4f52453f-fcb9-4be4-a1d3-7f6112382cd3
+            - sa-p8-prod/50035ab8-8b49-4a38-a138-c5aa7e41181f
+            - sa-p8-prod/573563b0-57fc-4ba1-9b76-168d4a910f5f
+            - sa-p8-prod/5aca3265-a987-4c69-8600-10acfabfe03b
+            - sa-p8-prod/66f0389a-9d7d-448e-a27b-d4973e434f4f
+            - sa-p8-prod/748746a2-1f25-460f-9013-92eb6e20bc49
+            - sa-p8-prod/7a1bf172-86cb-4c9c-b39d-f37b23f2f353
+            - sa-p8-prod/7b36767d-ed60-40af-b199-88cc38d22b8d
+            - sa-p8-prod/7f0ed53a-8632-40a9-ab61-19ec373cd721
+            - sa-p8-prod/90a880cc-c45b-4816-99c7-a773ae17e848
+            - sa-p8-prod/93d47626-1914-4a73-accf-618562441353
+            - sa-p8-prod/a25ee9a2-c918-428b-b6c3-534fba112269
+            - sa-p8-prod/a8af2885-ea4d-4c8a-a82d-353d3d98ea57
+            - sa-p8-prod/aa97a29d-2320-4055-ac61-773810743f5e
+            - sa-p8-prod/b26c3fd0-6c61-4bf8-a415-8a5d8aaf636a
+            - sa-p8-prod/b778e0c7-0d04-455c-9fcc-627c69038fdd
+            - sa-p8-prod/b860f5e4-7b28-4cf1-8e0f-fdc43e462d48
+            - sa-p8-prod/bd46aa9f-8ae5-4635-b5b9-70f288dd73d8
+            - sa-p8-prod/c3c80169-c70b-48be-ad21-90b0a543175c
+            - sa-p8-prod/c481abba-d913-472c-99e6-066376d22d54
+            - sa-p8-prod/c97dafc1-20c2-46df-87f2-f354bbaeaa82
+            - sa-p8-prod/ca4de5f5-bda4-4aaf-9be4-e1a7446da320
+            - sa-p8-prod/d28d6689-ab68-4986-aab2-733ca8f71e28
+            - sa-p8-prod/ded2c85a-4b84-44d1-990e-8d4ba5e095bc
+            - sa-p8-prod/e3efaf03-091d-48f2-9304-7f9c82517498
+            - sa-p8-prod/e8d4b43b-96f9-44ec-a42b-3cc98ccb9e8b
+            - sa-p8-prod/ea1c522b-75ff-487c-880b-6271e554460e
+            - sa-p8-prod/f1c2c2de-fb3e-48e8-8a0b-99f9d143334b
+            - sa-p8-prod/f2eeac88-b012-4f8a-804e-b247bb5c1ea7
+            - sa-p8-stage/07ea2da2-1c67-435d-9354-0a03ff0ff6f4
+            - sa-p8-stage/09abd9ff-3934-459c-b1ac-b33edc2e72aa
+            - sa-p8-stage/0a21cacc-d0fb-4b50-86d4-97c1487f059b
+            - sa-p8-stage/2943113c-4993-4132-841d-4568bbd93aea
+            - sa-p8-stage/32e71aaf-b6c1-47bc-ba91-56e45995db16
+            - sa-p8-stage/3525897d-a02b-4a26-ad17-1d9ce49d6fb0
+            - sa-p8-stage/49c6c2a1-145f-49ba-afcf-9cc4bef1d2ba
+            - sa-p8-stage/4cf96d03-ad5c-4b62-b54b-0bbd7a42b799
+            - sa-p8-stage/4f489f7c-906f-45c6-9761-1857a4c1ce32
+            - sa-p8-stage/5aecd8c7-6b70-4157-bad8-39c07f9660e1
+            - sa-p8-stage/665c2b07-bb1b-4904-a852-577eb962786b
+            - sa-p8-stage/85cfb471-ff3e-4eca-9118-6b22da271f52
+            - sa-p8-stage/863baebc-fc71-4bfe-831a-8997f94b113e
+            - sa-p8-stage/894f26fa-d6e2-488b-81f7-9e9f1acd049d
+            - sa-p8-stage/8c3ae4e0-d938-4f22-bd70-7ca3b9dd6b3d
+            - sa-p8-stage/8f0e36b4-6bca-481f-86d1-1f6db20994e9
+            - sa-p8-stage/955c75ff-2cb6-47e7-9754-2bc0e427ef20
+            - sa-p8-stage/b5e01f0c-2f14-479a-8fde-0fe5cc39409a
+            - sa-p8-stage/c879b2dc-94be-413a-828b-d9da6e7e7612
+            - sa-p8-stage/c8c80bf0-9a71-41e8-b456-0c2e136fb0cf
+            - sa-p8-stage/f2b47e87-16ec-4383-aeef-1daeac8f5b54
+            - sa-p8-stage/fe211db9-28b5-4895-bead-3f601d2fb950
+        
+        Backup Volumes:
+          Velero-Native Snapshots:
+            pvc-3d92a646-81fa-408d-9948-3c000053a051:
+              Snapshot ID:        pvc-3d92a646-81fa-408d-994-805fe3d0-dc4c-47da-be2b-d85ccd71f165
+              Type:               https://www.googleapis.com/compute/v1/projects/sociedadanonima-507519/zones/us-central1-a/diskTypes/pd-balanced
+              Availability Zone:  us-central1-a
+              IOPS:               0
+              Result:             succeeded
+            pvc-66865499-10ac-4d70-b281-6de5ea0be0e2:
+              Snapshot ID:        pvc-66865499-10ac-4d70-b28-cc9adebe-a5c6-44ca-81cf-037c32d68031
+              Type:               https://www.googleapis.com/compute/v1/projects/sociedadanonima-507519/zones/us-central1-a/diskTypes/pd-balanced
+              Availability Zone:  us-central1-a
+              IOPS:               0
+              Result:             succeeded
+            pvc-ce088b1c-1913-4794-9585-a8cb3d5746d6:
+              Snapshot ID:        pvc-ce088b1c-1913-4794-958-cce3f865-2206-4408-87a5-b4de817af430
+              Type:               https://www.googleapis.com/compute/v1/projects/sociedadanonima-507519/zones/us-central1-a/diskTypes/pd-balanced
+              Availability Zone:  us-central1-a
+              IOPS:               0
+              Result:             succeeded
+            pvc-89017c53-b8c1-434e-8e50-5f2021a208f8:
+              Snapshot ID:        pvc-89017c53-b8c1-434e-8e5-9915ceac-03c9-484d-850d-877226a0f5df
+              Type:               https://www.googleapis.com/compute/v1/projects/sociedadanonima-507519/zones/us-central1-a/diskTypes/pd-balanced
+              Availability Zone:  us-central1-a
+              IOPS:               0
+              Result:             succeeded
+        
+          CSI Snapshots: <none included>
+        
+          Pod Volume Backups: <none included>
+        
+        HooksAttempted:  2
+        HooksFailed:     0
+2026-10-17T04:15:57Z  +05:09  [respaldo]  ✓ contenido del respaldo
+2026-10-17T04:17:02Z  +06:14  [datos]  6 marcas POST-respaldo escritas: estas se perderán, y es lo que mide el RPO
+2026-10-17T04:17:04Z  +06:16  [datos]  huella antes del borrado:
+        auth_db.users 1 43867f3902ea1247b6f6e4b858b01c08
+        catalog_db.categories 5 2f464d08418bbc0cda57c319b41f2036
+        catalog_db.products 10 360cc2d9bf5502d4655a084449c2e5af
+        notification_db.heartbeat_summaries 4 85fb919caa4e6b572a668e165f826725
+        notification_db.notifications 0 d41d8cd98f00b204e9800998ecf8427e
+        ops_db.heartbeats 22 e7d2895208e8f5ff74b28edc2f89f8a2
+        ops_db.p9_marcas 16 687de9df890626eafe9612d727aba2c7
+        order_db.order_items 0 d41d8cd98f00b204e9800998ecf8427e
+        order_db.orders 0 d41d8cd98f00b204e9800998ecf8427e
+2026-10-17T04:17:05Z  +06:17  [borrado]  ═══ T_borrado = 2026-10-17T04:17:05Z: TRUNCATE de todas las tablas de ops_db y catalog_db ═══
+2026-10-17T04:17:08Z  +06:20  [borrado]  huella después del borrado (los datos ya no están):
+        catalog_db.categories 0 d41d8cd98f00b204e9800998ecf8427e
+        catalog_db.products 0 d41d8cd98f00b204e9800998ecf8427e
+        ops_db.heartbeats 0 d41d8cd98f00b204e9800998ecf8427e
+        ops_db.p9_marcas 0 d41d8cd98f00b204e9800998ecf8427e
+2026-10-17T04:17:08Z  +06:20  [restauracion]  1/6 pausar la sincronización automática (raíz y plataforma-prod)
+2026-10-17T04:17:10Z  +06:22  [restauracion]  2/6 bajar PostgreSQL a 0 réplicas
+2026-10-17T04:17:41Z  +06:53  [restauracion]  3/6 borrar el PVC data-sa-platform-postgresql-0 (su disco se va con él)
+2026-10-17T04:17:42Z  +06:54  [restauracion]  ▶ 4/6 velero restore p9-restauracion-20261017-041742 desde sa-p9-cada-15m-20261017041510
+        Restore request "p9-restauracion-20261017-041742" submitted successfully.
+        Waiting for restore to complete. You may safely press ctrl-c to stop waiting - your restore will continue in the background.
+        ..................
+        Restore completed with status: Completed. You may check for more information using the commands `velero restore describe p9-restauracion-20261017-041742` and `velero restore logs p9-restauracion-20261017-041742`.
+2026-10-17T04:18:02Z  +07:14  [restauracion]  ✓ 4/6 velero restore p9-restauracion-20261017-041742 desde sa-p9-cada-15m-20261017041510
+2026-10-17T04:18:02Z  +07:14  [restauracion]  Restore p9-restauracion-20261017-041742: Completed (el PVC de RabbitMQ ya existía y se omite: es lo esperado)
+        NAME                            STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+        data-sa-platform-postgresql-0   Bound    pvc-3d92a646-81fa-408d-9948-3c000053a051   2Gi        RWO            standard-rwo   <unset>                 4s
+        data-sa-platform-rabbitmq-0     Bound    pvc-66865499-10ac-4d70-b281-6de5ea0be0e2   2Gi        RWO            standard-rwo   <unset>                 49m
+2026-10-17T04:18:03Z  +07:15  [restauracion]  5/6 subir PostgreSQL y esperar a que acepte conexiones
+2026-10-17T04:18:53Z  +08:05  [restauracion]  PostgreSQL listo con el volumen restaurado (2026-10-17T04:18:53Z)
+2026-10-17T04:18:53Z  +08:05  [restauracion]  6/6 reanudar ArgoCD (la raíz devuelve a la plataforma su política desde Git)
+2026-10-17T04:19:19Z  +08:31  [restauracion]  Application: todas Synced/Healthy
+
+════════════════════════════════════════════════════════════════════
+ VERIFICACIÓN DEL CONTENIDO RESTAURADO
+════════════════════════════════════════════════════════════════════
+Disponibilidad de /health durante el incidente:
+  peticiones 58 · 200: 47 · fallidas: 11 · disponibilidad 81.03 %
+  racha de fallos más larga: 11 peticiones, de 2026-10-17T04:18:14Z a 2026-10-17T04:18:57Z
+
+Desastre (inicio de la destrucción)  2026-10-17T04:17:05Z
+
+RTO — disponibilidad medida desde la URL pública
+  primera petición fallida      04:18:14Z
+  primera respuesta 200 después 04:19:00Z
+  RTO MEDIDO                    0 min 46 s
+
+RPO — marcas escritas en ops_db.p9_marcas antes del desastre
+  escritas antes del desastre   16
+  recuperadas, contenido IGUAL  10
+  recuperadas, contenido DISTINTO 0
+  perdidas                      6
+  última marca recuperada       04:11:20.531Z
+  última marca escrita          04:16:52.773Z
+  ventana perdida               04:15:58Z → 04:16:52Z
+  RPO MEDIDO                    5 min 32 s
+  respaldo restaurado: inició   04:15:10Z  (1 min 55 s antes del desastre)
+
+Huella de las bases (filas y md5 de TODO el contenido, por tabla)
+  tabla                                          antes  después  resultado
+  auth_db.users                                      1        1  idéntica
+  catalog_db.categories                              5        5  idéntica
+  catalog_db.products                               10       10  idéntica
+  notification_db.heartbeat_summaries                4        4  idéntica
+  notification_db.notifications                      0        0  idéntica
+  ops_db.heartbeats                                 22       22  distinta
+  ops_db.p9_marcas                                  16       10  faltan 6 filas (escritas tras el respaldo)
+  order_db.order_items                               0        0  idéntica
+  order_db.orders                                    0        0  idéntica
+
+Declarado frente a medido
+  RPO  declarado 15 min · medido 5 min 32 s · CUMPLE
+
+Marcas, una por una (✓ volvió con el mismo contenido · ✗ perdida):
+  ✓     1  2026-10-17T04:10:53.492Z  prueba-restauracion-041052-1543830089
+  ✓     2  2026-10-17T04:10:56.671Z  prueba-restauracion-041055-135272028
+  ✓     3  2026-10-17T04:10:59.587Z  prueba-restauracion-041058-25873987
+  ✓     4  2026-10-17T04:11:02.984Z  prueba-restauracion-041101-2364811052
+  ✓     5  2026-10-17T04:11:05.839Z  prueba-restauracion-041104-3114915878
+  ✓     6  2026-10-17T04:11:08.848Z  prueba-restauracion-041107-2054520573
+  ✓     7  2026-10-17T04:11:11.737Z  prueba-restauracion-041110-296671627
+  ✓     8  2026-10-17T04:11:14.774Z  prueba-restauracion-041113-69902282
+  ✓     9  2026-10-17T04:11:17.672Z  prueba-restauracion-041116-77942087
+  ✓    10  2026-10-17T04:11:20.531Z  prueba-restauracion-041119-2892720332
+  ✗    11  2026-10-17T04:15:58.141Z  prueba-restauracion-041557-749716316
+  ✗    12  2026-10-17T04:16:09.082Z  prueba-restauracion-041608-1481730948
+  ✗    13  2026-10-17T04:16:19.974Z  prueba-restauracion-041619-286193114
+  ✗    14  2026-10-17T04:16:30.977Z  prueba-restauracion-041629-1564723776
+  ✗    15  2026-10-17T04:16:41.848Z  prueba-restauracion-041640-810227827
+  ✗    16  2026-10-17T04:16:52.773Z  prueba-restauracion-041651-2451223250
+2026-10-17T04:19:42Z  +08:54  [fin]  prueba de restauración terminada → P9/docs/evidencias/prueba-restauracion-20261017T041048Z.log

@@ -1,0 +1,70 @@
+{{/*
+proyectos.yaml — Las dos fronteras de lo que ArgoCD tiene permitido hacer.
+
+  sa-p9-base   La capa de plataforma: complementos del clúster, namespaces,
+               cuotas, RBAC, Velero, la restauración y el Schedule. Puede
+               crear recursos de ámbito de clúster (CRD, webhooks,
+               ClusterRole), porque instalar Kyverno o Velero lo exige.
+
+  sa-p8        La capa de aplicación, IDÉNTICA a la de la P8: solo el
+               repositorio GitOps, solo los dos ambientes y `argocd`, solo
+               ClusterPolicy como recurso de clúster, y SIN permiso para
+               tocar cuotas, límites ni RBAC de clúster. Un Pull Request de la
+               plataforma no puede subirse su propia cuota.
+
+Separarlos es lo que impide que el permiso amplio que necesita instalar
+Kyverno se extienda a los manifiestos que cambian en cada entrega.
+*/}}
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: sa-p9-base
+  namespace: argocd
+  labels:
+    {{- toYaml .Values.etiquetas | nindent 4 }}
+spec:
+  description: Plataforma del clúster — complementos, namespaces, respaldos (Práctica 9, 202202410).
+  sourceRepos:
+    - {{ .Values.gitopsUrl | quote }}
+  {{- range .Values.reposBase }}
+    - {{ . | quote }}
+  {{- end }}
+  destinations:
+  {{- range .Values.namespacesBase }}
+    - server: https://kubernetes.default.svc
+      namespace: {{ . | quote }}
+  {{- end }}
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: sa-p8
+  namespace: argocd
+  labels:
+    {{- toYaml .Values.etiquetas | nindent 4 }}
+spec:
+  description: Plataforma de microservicios — flujo de la Práctica 8 (202202410).
+  sourceRepos:
+    - {{ .Values.gitopsUrl | quote }}
+  destinations:
+  {{- range .Values.namespacesPlataforma }}
+    - server: https://kubernetes.default.svc
+      namespace: {{ . | quote }}
+  {{- end }}
+    - server: https://kubernetes.default.svc
+      namespace: argocd
+  clusterResourceWhitelist:
+    - group: kyverno.io
+      kind: ClusterPolicy
+  namespaceResourceBlacklist:
+    - group: ""
+      kind: ResourceQuota
+    - group: ""
+      kind: LimitRange
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding

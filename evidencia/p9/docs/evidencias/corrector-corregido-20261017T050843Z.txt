@@ -1,0 +1,104 @@
+================================================================
+ VERIFICACION PRACTICA 9 - v1.0
+ Carnet: 202202410        Fecha: 2026-10-16 23:08
+ Hash del script: 5fc90822f8bc20fd
+================================================================
+
+--- 0. Herramientas y contexto (debe verificarlo el auxiliar)
+  [OK]    Todas las herramientas presentes
+  Contexto de kubectl: gke_sociedadanonima-507519_us-central1-a_sa-p9
+  [OK]    Acceso al cluster confirmado
+
+--- 1. Repositorios
+  [OK]    Repositorio de codigo accesible
+  [OK]    Repositorio GitOps accesible
+  [OK]    Carpeta /P9 presente
+  [OK]    README de entrega presente
+
+--- 2.1 Bootstrap automatizado desde cero (14 pts)
+  [OK]    Punto de entrada presente: P9/scripts/bootstrap.sh
+  Pasos automatizados detectados en el bootstrap: 13
+  [OK]    Terraform instala ArgoCD (capa de plataforma)
+  Aplicaciones registradas en ArgoCD:       16
+  Aplicacion raiz 'sa-p9-raiz': sync=Synced  aplicaciones hijas=15
+  [OK]    Patron app-of-apps operativo
+  [OK]    Aplicacion raiz sincronizada
+  >> 2.1 = 14 / 14
+
+--- 2.2 Estado remoto y disciplina de IaC (8 pts)
+  [OK]    Backend remoto declarado: backend "gcs"
+  [OK]    Se evidencia bloqueo de estado
+  [OK]    Sin archivos de estado en el repositorio
+  [OK]    Sin credenciales evidentes en el codigo
+  >> 2.2 = 8 / 8
+
+--- 2.3 Respaldo y restauracion con Velero (14 pts)
+  [OK]    Velero instalado en el namespace velero
+  [OK]    Respaldo programado (2 schedule)
+  schedule=sa-p9-cada-15m cron=*/15 * * * * ttl=720h0m0s
+  schedule=sa-p9-llave cron=7 * * * * ttl=720h0m0s
+  [OK]    Politica de retencion declarada (ttl)
+  [OK]    8 respaldo(s) completado(s)
+  ultimo=sa-p9-llave-20261017050737 completado=2026-10-17T05:07:40Z items=1
+  destino: provider=gcp bucket=sociedadanonima-507519-sa-p9-respaldos estado=Available
+  [OK]    Destino de respaldo externo configurado
+  [OK]    Los respaldos incluyen volumenes persistentes
+  >> 2.3 = 14 / 14
+
+--- 2.4 Continuidad de los secretos (8 pts)
+  [OK]    Mecanismo de secretos: SealedSecrets
+  [OK]    El procedimiento de respaldo de la llave esta documentado
+  [OK]    El respaldo de Velero incluye el namespace de la llave
+  >> 2.4 = 8 / 8
+
+--- 2.5 Resiliencia ante perdida de nodo (8 pts)
+  [OK]    PodDisruptionBudget definido (       8)
+  pdb=sa-platform-api-gateway minAvailable=1 maxUnavailable=- saludables=3
+  pdb=sa-platform-auth-service minAvailable=1 maxUnavailable=- saludables=2
+  pdb=sa-platform-catalog-service minAvailable=1 maxUnavailable=- saludables=2
+  pdb=sa-platform-notification-service minAvailable=1 maxUnavailable=- saludables=2
+  pdb=sa-platform-notification-worker minAvailable=1 maxUnavailable=- saludables=2
+  pdb=sa-platform-order-service minAvailable=1 maxUnavailable=- saludables=2
+  pdb=sa-platform-postgresql minAvailable=- maxUnavailable=1 saludables=1
+  pdb=sa-platform-rabbitmq minAvailable=- maxUnavailable=1 saludables=1
+  [OK]    Anti-afinidad o distribucion topologica declarada
+  Replicas minimas entre las cargas de trabajo: 1
+  [FALLA] Existe al menos una carga de trabajo con una sola replica
+  >> 2.5 = 6 / 8
+
+--- 2.6 Restauracion de datos verificada (8 pts)
+  [OK]    PVC 'data-sa-platform-postgresql-0' presente (fase=Bound)
+  [OK]    1 restauracion(es) ejecutada(s)
+  restore=sa-p9-dr-20261017-050248 fase=Completed desde=sa-p9-cada-15m-20261017043010
+  [OK]    Evidencia de verificacion de datos presente en el repositorio
+  >> 2.6 = 8 / 8
+
+--- Comprobaciones informativas
+  [OK]    Runbook presente en el repositorio
+  [OK]    El informe declara RTO y RPO
+42s         Normal    Pulled                    pod/sa-platform-heartbeat-writer-29870228-b785n            Container image "ghcr.io/marcosbondel/cronjobs:1.2.0@sha256:bb3d61efcb434c2ab851f6387e0f4f9cb6d605ce2a0935875345b4978e594783" already present on machine and can be accessed by the pod
+41s         Normal    Started                   pod/sa-platform-heartbeat-writer-29870228-b785n            Container started
+41s         Normal    Created                   pod/sa-platform-heartbeat-writer-29870228-b785n            Container created
+32s         Normal    SawCompletedJob           cronjob/sa-platform-heartbeat-writer                       Saw completed job: sa-platform-heartbeat-writer-29870228, condition: Complete
+32s         Normal    Completed                 job/sa-platform-heartbeat-writer-29870228                  Job completed
+
+================================================================
+ RESUMEN - carnet 202202410
+================================================================
+  2.1 Bootstrap automatizado ....... 14 / 14
+  2.2 Estado remoto e IaC ..........  8 / 8
+  2.3 Respaldo con Velero .......... 14 / 14
+  2.4 Continuidad de secretos ......  8 / 8
+  2.5 Resiliencia ante fallo .......  6 / 8
+  2.6 Restauracion verificada ......  8 / 8
+  --------------------------------------------
+  CONOCIMIENTO ..................... 58 / 60
+
+  Pendiente de evaluacion presencial: 40 pts
+    1.1 Runbook (12)   1.2 Informe de DR (12)
+    1.3 Diagrama del bootstrap (6)   1.4 Preguntas teoricas (10)
+
+  Requisitos eliminatorios: todos cumplidos
+
+  Duracion: 10s    Reporte: reporte_p9_202202410.txt
+================================================================

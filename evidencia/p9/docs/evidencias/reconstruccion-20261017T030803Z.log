@@ -1,0 +1,137 @@
+# reconstruccion — Práctica 9 (202202410)
+# inicio:   2026-10-17T03:08:03Z
+# máquina:  Darwin arm64 · marcosbondel
+# cuenta:   <cuenta-del-operador> · proyecto sociedadanonima-507519
+# comando:  P9/scripts/bootstrap.sh reconstruccion
+#
+# Formato:  <UTC>  +<min:seg desde el inicio>  [etapa]  mensaje
+
+2026-10-17T03:08:03Z  +00:00  [inicio]  bootstrap: reconstrucción desde cero (punto de entrada único)
+2026-10-17T03:08:04Z  +00:01  [estado]  facturación habilitada en sociedadanonima-507519
+2026-10-17T03:08:06Z  +00:03  [estado]  gs://sociedadanonima-507519-sa-p9-tfstate ya existe (estado remoto con bloqueo)
+2026-10-17T03:08:08Z  +00:05  [fundacion]  ▶ terraform apply 00-fundacion
+        tls_private_key.sealed_secrets: Refreshing state... [id=c07fc8592d91cbc3c55c100ad086e066491e6d04]
+        tls_self_signed_cert.sealed_secrets: Refreshing state... [id=203739470127680119934353811738386127452]
+        data.google_client_openid_userinfo.yo: Reading...
+        google_project_service.requeridas["compute.googleapis.com"]: Refreshing state... [id=sociedadanonima-507519/compute.googleapis.com]
+        google_project_service.requeridas["secretmanager.googleapis.com"]: Refreshing state... [id=sociedadanonima-507519/secretmanager.googleapis.com]
+        google_project_service.requeridas["iam.googleapis.com"]: Refreshing state... [id=sociedadanonima-507519/iam.googleapis.com]
+        google_project_service.requeridas["container.googleapis.com"]: Refreshing state... [id=sociedadanonima-507519/container.googleapis.com]
+        google_project_service.requeridas["storage.googleapis.com"]: Refreshing state... [id=sociedadanonima-507519/storage.googleapis.com]
+        google_project_service.requeridas["iamcredentials.googleapis.com"]: Refreshing state... [id=sociedadanonima-507519/iamcredentials.googleapis.com]
+        data.google_client_openid_userinfo.yo: Read complete after 1s [id=<cuenta-del-operador>]
+        google_service_account.velero: Refreshing state... [id=projects/sociedadanonima-507519/serviceAccounts/sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com]
+        google_compute_address.ingress: Refreshing state... [id=projects/sociedadanonima-507519/regions/us-central1/addresses/sa-p9-ingress]
+        google_service_account.nodos: Refreshing state... [id=projects/sociedadanonima-507519/serviceAccounts/sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com]
+        google_secret_manager_secret.llave_sealed_secrets: Refreshing state... [id=projects/sociedadanonima-507519/secrets/sa-p9-sealed-secrets-llave]
+        google_storage_bucket.respaldos: Refreshing state... [id=sociedadanonima-507519-sa-p9-respaldos]
+        google_secret_manager_secret_iam_member.operador: Refreshing state... [id=projects/sociedadanonima-507519/secrets/sa-p9-sealed-secrets-llave/roles/secretmanager.secretAccessor/user:<cuenta-del-operador>]
+        google_secret_manager_secret_version.llave_sealed_secrets: Refreshing state... [id=projects/185086324090/secrets/sa-p9-sealed-secrets-llave/versions/1]
+        
+        Terraform used the selected providers to generate the following execution
+        plan. Resource actions are indicated with the following symbols:
+          + create
+        -/+ destroy and then create replacement
+        
+        Terraform planned the following actions, but then encountered a problem:
+        
+          # google_compute_address.ingress is tainted, so must be replaced
+        -/+ resource "google_compute_address" "ingress" {
+              ~ address            = "35.253.196.204" -> (known after apply)
+              ~ creation_timestamp = "2026-10-16T19:17:42.142-07:00" -> (known after apply)
+              ~ id                 = "projects/sociedadanonima-507519/regions/us-central1/addresses/sa-p9-ingress" -> (known after apply)
+              ~ label_fingerprint  = "NKstF47i5Fs=" -> (known after apply)
+                name               = "sa-p9-ingress"
+              ~ prefix_length      = 0 -> (known after apply)
+              + purpose            = (known after apply)
+              ~ self_link          = "https://www.googleapis.com/compute/v1/projects/sociedadanonima-507519/regions/us-central1/addresses/sa-p9-ingress" -> (known after apply)
+              + subnetwork         = (known after apply)
+              ~ users              = [] -> (known after apply)
+                # (11 unchanged attributes hidden)
+            }
+        
+          # google_project_iam_member.nodos["roles/logging.logWriter"] will be created
+          + resource "google_project_iam_member" "nodos" {
+              + etag    = (known after apply)
+              + id      = (known after apply)
+              + member  = "serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com"
+              + project = "sociedadanonima-507519"
+              + role    = "roles/logging.logWriter"
+            }
+        
+          # google_project_iam_member.nodos["roles/monitoring.metricWriter"] will be created
+          + resource "google_project_iam_member" "nodos" {
+              + etag    = (known after apply)
+              + id      = (known after apply)
+              + member  = "serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com"
+              + project = "sociedadanonima-507519"
+              + role    = "roles/monitoring.metricWriter"
+            }
+        
+          # google_project_iam_member.nodos["roles/monitoring.viewer"] will be created
+          + resource "google_project_iam_member" "nodos" {
+              + etag    = (known after apply)
+              + id      = (known after apply)
+              + member  = "serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com"
+              + project = "sociedadanonima-507519"
+              + role    = "roles/monitoring.viewer"
+            }
+        
+          # google_project_iam_member.nodos["roles/stackdriver.resourceMetadata.writer"] will be created
+          + resource "google_project_iam_member" "nodos" {
+              + etag    = (known after apply)
+              + id      = (known after apply)
+              + member  = "serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com"
+              + project = "sociedadanonima-507519"
+              + role    = "roles/stackdriver.resourceMetadata.writer"
+            }
+        
+          # google_project_iam_member.velero_discos will be created
+          + resource "google_project_iam_member" "velero_discos" {
+              + etag    = (known after apply)
+              + id      = (known after apply)
+              + member  = "serviceAccount:sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+              + project = "sociedadanonima-507519"
+              + role    = "roles/compute.storageAdmin"
+            }
+        
+          # google_service_account_iam_member.velero_firma will be created
+          + resource "google_service_account_iam_member" "velero_firma" {
+              + etag               = (known after apply)
+              + id                 = (known after apply)
+              + member             = "serviceAccount:sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+              + role               = "roles/iam.serviceAccountTokenCreator"
+              + service_account_id = "projects/sociedadanonima-507519/serviceAccounts/sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+            }
+        
+          # google_storage_bucket_iam_member.velero_bucket will be created
+          + resource "google_storage_bucket_iam_member" "velero_bucket" {
+              + bucket = "sociedadanonima-507519-sa-p9-respaldos"
+              + etag   = (known after apply)
+              + id     = (known after apply)
+              + member = "serviceAccount:sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+              + role   = "roles/storage.legacyBucketReader"
+            }
+        
+          # google_storage_bucket_iam_member.velero_objetos will be created
+          + resource "google_storage_bucket_iam_member" "velero_objetos" {
+              + bucket = "sociedadanonima-507519-sa-p9-respaldos"
+              + etag   = (known after apply)
+              + id     = (known after apply)
+              + member = "serviceAccount:sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+              + role   = "roles/storage.objectAdmin"
+            }
+        
+        Plan: 9 to add, 0 to change, 1 to destroy.
+        
+        Error: Instance cannot be destroyed
+        
+          on red.tf line 21:
+          21: resource "google_compute_address" "ingress" {
+        
+        Resource google_compute_address.ingress has lifecycle.prevent_destroy set,
+        but the plan calls for this resource to be destroyed. To avoid this error and
+        continue with the plan, either disable lifecycle.prevent_destroy or reduce
+        the scope of the plan using the -target option.
+        Releasing state lock. This may take a few moments...
+2026-10-17T03:08:15Z  +00:12  [fundacion]  ✗ terraform apply 00-fundacion (código 1)

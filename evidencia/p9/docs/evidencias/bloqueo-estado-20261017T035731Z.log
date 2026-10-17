@@ -1,0 +1,39 @@
+# bloqueo-estado — Práctica 9 (202202410)
+# inicio:   2026-10-17T03:57:31Z
+# máquina:  Darwin arm64 · marcosbondel
+# cuenta:   <cuenta-del-operador> · proyecto sociedadanonima-507519
+# comando:  P9/scripts/prueba-bloqueo.sh bloqueo-estado
+#
+# Formato:  <UTC>  +<min:seg desde el inicio>  [etapa]  mensaje
+
+2026-10-17T03:57:33Z  +00:02  [estado]  backend: gcs · bucket gs://sociedadanonima-507519-sa-p9-tfstate · prefijos fundacion/ cluster/ gitops/
+2026-10-17T03:57:33Z  +00:02  [estado]  ▶ contenido del bucket de estado
+             31514  2026-10-17T03:23:46Z  gs://sociedadanonima-507519-sa-p9-tfstate/cluster/default.tfstate
+             57014  2026-10-17T03:10:17Z  gs://sociedadanonima-507519-sa-p9-tfstate/fundacion/default.tfstate
+             33937  2026-10-17T03:25:30Z  gs://sociedadanonima-507519-sa-p9-tfstate/gitops/default.tfstate
+        TOTAL: 3 objects, 122465 bytes (119.59kiB)
+2026-10-17T03:57:34Z  +00:03  [estado]  ✓ contenido del bucket de estado
+2026-10-17T03:57:34Z  +00:03  [estado]  ▶ versionado del bucket de estado
+        True	enforced	True
+2026-10-17T03:57:34Z  +00:03  [estado]  ✓ versionado del bucket de estado
+2026-10-17T03:57:34Z  +00:03  [bloqueo]  plan A: toma el candado del estado de la fundación
+2026-10-17T03:57:36Z  +00:05  [bloqueo]  ▶ el candado existe mientras A trabaja
+        {"ID":"13da5143-3456-137a-45de-b644b2763237","Operation":"OperationTypePlan","Info":"","Who":"marcosbondel@Marcoss-MacBook-Pro.local","Version":"1.16.2","Created":"2026-10-17T03:57:35.238854Z","Path":"gs://sociedadanonima-507519-sa-p9-tfstate/fundacion/default.tflock"}2026-10-17T03:57:37Z  +00:06  [bloqueo]  ✓ el candado existe mientras A trabaja
+2026-10-17T03:57:37Z  +00:06  [bloqueo]  plan B: intenta lo mismo, sin esperar (-lock-timeout=0s)
+2026-10-17T03:57:38Z  +00:07  [bloqueo]  ✓ B fue rechazado por el candado:
+        Error: Error acquiring the state lock
+        
+        Lock Info:
+          ID:        1792209455486025
+          Path:      gs://sociedadanonima-507519-sa-p9-tfstate/fundacion/default.tflock
+          Operation: OperationTypePlan
+          Who:       marcosbondel@Marcoss-MacBook-Pro.local
+          Version:   1.16.2
+          Created:   2026-10-17 03:57:35.238854 +0000 UTC
+          Info:      
+        
+2026-10-17T03:57:41Z  +00:11  [bloqueo]  A terminó: No changes. Your infrastructure matches the configuration.
+2026-10-17T03:57:42Z  +00:11  [bloqueo]  ✓ el candado se liberó al terminar A
+2026-10-17T03:57:42Z  +00:11  [repositorio]  archivos de estado en el árbol: 0
+2026-10-17T03:57:42Z  +00:11  [repositorio]  archivos de estado en TODA la historia: 0
+2026-10-17T03:57:42Z  +00:11  [repositorio]  credenciales en el repositorio (llaves JSON de cuenta de servicio): 0

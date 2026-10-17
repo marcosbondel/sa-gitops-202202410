@@ -1,0 +1,192 @@
+# reconstruccion — Práctica 9 (202202410)
+# inicio:   2026-10-17T03:08:33Z
+# máquina:  Darwin arm64 · marcosbondel
+# cuenta:   <cuenta-del-operador> · proyecto sociedadanonima-507519
+# comando:  P9/scripts/bootstrap.sh reconstruccion
+#
+# Formato:  <UTC>  +<min:seg desde el inicio>  [etapa]  mensaje
+
+2026-10-17T03:08:33Z  +00:00  [inicio]  bootstrap: reconstrucción desde cero (punto de entrada único)
+2026-10-17T03:08:34Z  +00:01  [estado]  facturación habilitada en sociedadanonima-507519
+2026-10-17T03:08:36Z  +00:03  [estado]  gs://sociedadanonima-507519-sa-p9-tfstate ya existe (estado remoto con bloqueo)
+2026-10-17T03:08:38Z  +00:05  [fundacion]  ▶ terraform apply 00-fundacion
+        tls_private_key.sealed_secrets: Refreshing state... [id=c07fc8592d91cbc3c55c100ad086e066491e6d04]
+        tls_self_signed_cert.sealed_secrets: Refreshing state... [id=203739470127680119934353811738386127452]
+        google_project_service.requeridas["iamcredentials.googleapis.com"]: Refreshing state... [id=sociedadanonima-507519/iamcredentials.googleapis.com]
+        data.google_client_openid_userinfo.yo: Reading...
+        google_project_service.requeridas["compute.googleapis.com"]: Refreshing state... [id=sociedadanonima-507519/compute.googleapis.com]
+        google_project_service.requeridas["iam.googleapis.com"]: Refreshing state... [id=sociedadanonima-507519/iam.googleapis.com]
+        google_project_service.requeridas["container.googleapis.com"]: Refreshing state... [id=sociedadanonima-507519/container.googleapis.com]
+        google_project_service.requeridas["secretmanager.googleapis.com"]: Refreshing state... [id=sociedadanonima-507519/secretmanager.googleapis.com]
+        google_project_service.requeridas["storage.googleapis.com"]: Refreshing state... [id=sociedadanonima-507519/storage.googleapis.com]
+        data.google_client_openid_userinfo.yo: Read complete after 0s [id=<cuenta-del-operador>]
+        google_service_account.velero: Refreshing state... [id=projects/sociedadanonima-507519/serviceAccounts/sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com]
+        google_service_account.nodos: Refreshing state... [id=projects/sociedadanonima-507519/serviceAccounts/sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com]
+        google_compute_address.ingress: Refreshing state... [id=projects/sociedadanonima-507519/regions/us-central1/addresses/sa-p9-ingress]
+        google_secret_manager_secret.llave_sealed_secrets: Refreshing state... [id=projects/sociedadanonima-507519/secrets/sa-p9-sealed-secrets-llave]
+        google_storage_bucket.respaldos: Refreshing state... [id=sociedadanonima-507519-sa-p9-respaldos]
+        google_secret_manager_secret_iam_member.operador: Refreshing state... [id=projects/sociedadanonima-507519/secrets/sa-p9-sealed-secrets-llave/roles/secretmanager.secretAccessor/user:<cuenta-del-operador>]
+        google_secret_manager_secret_version.llave_sealed_secrets: Refreshing state... [id=projects/185086324090/secrets/sa-p9-sealed-secrets-llave/versions/1]
+        
+        Terraform used the selected providers to generate the following execution
+        plan. Resource actions are indicated with the following symbols:
+          + create
+        
+        Terraform will perform the following actions:
+        
+          # google_project_iam_member.nodos["roles/logging.logWriter"] will be created
+          + resource "google_project_iam_member" "nodos" {
+              + etag    = (known after apply)
+              + id      = (known after apply)
+              + member  = "serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com"
+              + project = "sociedadanonima-507519"
+              + role    = "roles/logging.logWriter"
+            }
+        
+          # google_project_iam_member.nodos["roles/monitoring.metricWriter"] will be created
+          + resource "google_project_iam_member" "nodos" {
+              + etag    = (known after apply)
+              + id      = (known after apply)
+              + member  = "serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com"
+              + project = "sociedadanonima-507519"
+              + role    = "roles/monitoring.metricWriter"
+            }
+        
+          # google_project_iam_member.nodos["roles/monitoring.viewer"] will be created
+          + resource "google_project_iam_member" "nodos" {
+              + etag    = (known after apply)
+              + id      = (known after apply)
+              + member  = "serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com"
+              + project = "sociedadanonima-507519"
+              + role    = "roles/monitoring.viewer"
+            }
+        
+          # google_project_iam_member.nodos["roles/stackdriver.resourceMetadata.writer"] will be created
+          + resource "google_project_iam_member" "nodos" {
+              + etag    = (known after apply)
+              + id      = (known after apply)
+              + member  = "serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com"
+              + project = "sociedadanonima-507519"
+              + role    = "roles/stackdriver.resourceMetadata.writer"
+            }
+        
+          # google_project_iam_member.velero_discos will be created
+          + resource "google_project_iam_member" "velero_discos" {
+              + etag    = (known after apply)
+              + id      = (known after apply)
+              + member  = "serviceAccount:sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+              + project = "sociedadanonima-507519"
+              + role    = "roles/compute.storageAdmin"
+            }
+        
+          # google_service_account_iam_member.velero_firma will be created
+          + resource "google_service_account_iam_member" "velero_firma" {
+              + etag               = (known after apply)
+              + id                 = (known after apply)
+              + member             = "serviceAccount:sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+              + role               = "roles/iam.serviceAccountTokenCreator"
+              + service_account_id = "projects/sociedadanonima-507519/serviceAccounts/sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+            }
+        
+          # google_storage_bucket_iam_member.velero_bucket will be created
+          + resource "google_storage_bucket_iam_member" "velero_bucket" {
+              + bucket = "sociedadanonima-507519-sa-p9-respaldos"
+              + etag   = (known after apply)
+              + id     = (known after apply)
+              + member = "serviceAccount:sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+              + role   = "roles/storage.legacyBucketReader"
+            }
+        
+          # google_storage_bucket_iam_member.velero_objetos will be created
+          + resource "google_storage_bucket_iam_member" "velero_objetos" {
+              + bucket = "sociedadanonima-507519-sa-p9-respaldos"
+              + etag   = (known after apply)
+              + id     = (known after apply)
+              + member = "serviceAccount:sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+              + role   = "roles/storage.objectAdmin"
+            }
+        
+        Plan: 8 to add, 0 to change, 0 to destroy.
+        
+        Changes to Outputs:
+          + ip_ingress                   = "35.253.196.204"
+          + resumen                      = <<-EOT
+                Respaldos     gs://sociedadanonima-507519-sa-p9-respaldos (US, versionado, retención GCS 45 d)
+                Velero SA     sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com
+                Nodos SA      sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com
+                IP pública    35.253.196.204
+                Llave sellada projects/sociedadanonima-507519/secrets/sa-p9-sealed-secrets-llave
+            EOT
+        google_project_iam_member.nodos["roles/monitoring.metricWriter"]: Creating...
+        google_service_account_iam_member.velero_firma: Creating...
+        google_storage_bucket_iam_member.velero_bucket: Creating...
+        google_project_iam_member.nodos["roles/monitoring.viewer"]: Creating...
+        google_project_iam_member.nodos["roles/stackdriver.resourceMetadata.writer"]: Creating...
+        google_project_iam_member.velero_discos: Creating...
+        google_project_iam_member.nodos["roles/logging.logWriter"]: Creating...
+        google_storage_bucket_iam_member.velero_objetos: Creating...
+        google_service_account_iam_member.velero_firma: Creation complete after 5s [id=projects/sociedadanonima-507519/serviceAccounts/sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com/roles/iam.serviceAccountTokenCreator/serviceAccount:sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com]
+        google_project_iam_member.velero_discos: Creation complete after 8s [id=sociedadanonima-507519/roles/compute.storageAdmin/serviceAccount:sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com]
+        google_project_iam_member.nodos["roles/stackdriver.resourceMetadata.writer"]: Creation complete after 8s [id=sociedadanonima-507519/roles/stackdriver.resourceMetadata.writer/serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com]
+        google_project_iam_member.nodos["roles/monitoring.viewer"]: Creation complete after 9s [id=sociedadanonima-507519/roles/monitoring.viewer/serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com]
+        google_project_iam_member.nodos["roles/monitoring.metricWriter"]: Creation complete after 9s [id=sociedadanonima-507519/roles/monitoring.metricWriter/serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com]
+        google_storage_bucket_iam_member.velero_objetos: Creation complete after 9s [id=b/sociedadanonima-507519-sa-p9-respaldos/roles/storage.objectAdmin/serviceAccount:sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com]
+        google_storage_bucket_iam_member.velero_bucket: Creation complete after 9s [id=b/sociedadanonima-507519-sa-p9-respaldos/roles/storage.legacyBucketReader/serviceAccount:sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com]
+        google_project_iam_member.nodos["roles/logging.logWriter"]: Creation complete after 9s [id=sociedadanonima-507519/roles/logging.logWriter/serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com]
+        
+        Apply complete! Resources: 8 added, 0 changed, 0 destroyed.
+        
+        Outputs:
+        
+        bucket_respaldos = "sociedadanonima-507519-sa-p9-respaldos"
+        certificado_sealed_secrets = <<EOT
+        -----BEGIN CERTIFICATE-----
+        MIIFCzCCAvOgAwIBAgIRAJlGy21Yw7mmKxEJYDsWWlwwDQYJKoZIhvcNAQELBQAw
+        MDEWMBQGA1UEChMNc2VhbGVkLXNlY3JldDEWMBQGA1UEAxMNc2VhbGVkLXNlY3Jl
+        dDAeFw0yNjEwMTcwMjE3MTZaFw0zNjEwMTQwMjE3MTZaMDAxFjAUBgNVBAoTDXNl
+        YWxlZC1zZWNyZXQxFjAUBgNVBAMTDXNlYWxlZC1zZWNyZXQwggIiMA0GCSqGSIb3
+        DQEBAQUAA4ICDwAwggIKAoICAQDBL6xsqRYt30GOdEvhZeq3TpJhix4Szc40XuzC
+        WwkJlejuQZOhVLQfRuy1Ckj2u2rI/1lRs3N5Gy7MwQCR0+dMt3jyT9W/GVDY0RAy
+        +fWuLSUD9pXxDMuiu+wGaOEvE6v/thz2VuySmlX4PgKbAEcXMjo6/4pSrzO55bZS
+        jQGl1z1I/VY3q49OtDQRpBAsG8sK7V2SmXwPpk5Q4DmDqgFwSyZwPzrSYFtwF/ZL
+        kI5V0zyJrQcYpKRgk5XFlW+78zxm77GcD8jpaPGzzM98GSiHTLazilggPoOI810L
+        vBGLavaEs4yCyYyCoVglLIEkL3AkbEbxAG/PX7DEDIJknmF9fCTPiEHobe0OScH1
+        QnwLV1ul/CmlIxaCP86zAistgqSsz/do5nELtFkeN7vRdxzrkeTFJCzvjo94gY1l
+        SaO/5Oxe29iJzt9/QDKCEWxVlRpJQDvKWqXs3oXQb4sczn/8Hwh7dJnqKfBoOVxL
+        jIcvPAvRDatX6adwL8LnQHrBYaJ4k1XRFmIb8DsTk7PQKlRw3cGFzSW9MuWZkQbX
+        Dkd+vXU5qiVEGp0PqlbTpxJD4A+EXwde5tF071R9/tJUBGOFnX29KbXL3uLLJ/tK
+        eZ8g1Bq7QoTGa1lVY4+9j4EXPmPzdrn+X19MPpO8XOs1vBdva+/b9cObvkWAZ600
+        n2TuQwIDAQABoyAwHjAOBgNVHQ8BAf8EBAMCBDAwDAYDVR0TAQH/BAIwADANBgkq
+        hkiG9w0BAQsFAAOCAgEAmyd/+2bWNZ9fX+NabG8AcBhJT7KT/In7lH/8ePGj0AYz
+        CqPCP5gqYDv/fkFAZTUDQigP1zwllBLleBEFIPpdr+8oyuGTXIGlPbI17HRKgdck
+        JZ2CZuOTP50QTUeTblQRW/EP6f+2V+M3kxKOQvt9R24DsLrQY6JS9tHrwh1ircnS
+        Y9FigLoMwF1Fhfmn6HlS4EH+bl/ZQfy9bvFex7yYrBZ+58a9iCZ0WQGhee+9kIYc
+        iTWWSgKncKuGhPZlaXzZIlhKGx4Rldvuf0eINza3NnMjp2d7W+p1zKn0ou0dTWsA
+        1FCz142Xj6DDWRrEkq2Y/wAYeiajUFZHDNBxn+uvkh6drA5oHchhdv5RxtUYKoMj
+        rPnEwqQ2WaHU2VzwOHMgzmvaigjxgoYTRasjL/7CsRtRH95/1o8eipByqcOWIprp
+        dqAbsLA8qDrOMROtB0YzPPLrGjQN3q3tuIW6NT/hi4+qDDM5T4ZTzIW0R43aeYzn
+        7b0p1BU14eVnq8WZUgnByNSWnE7PM9XkEyOp+3XJfWWmIcJGY2vCsYO7P0ecqQz2
+        Owr81RVwliOY1IGyxunnmZ6XtVkh7IlpUjyXuAGs19ytzxMi2Nw+CVz7zsbuS5WZ
+        4H9UBz5AYKub8eiIgyjfcJfBY8NEqDvva71UfEEIzFZTjm+5PruzdH72gK/4CVI=
+        -----END CERTIFICATE-----
+        
+        EOT
+        cluster = "sa-p9"
+        ip_ingress = "35.253.196.204"
+        nodos_service_account = "sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com"
+        project_id = "sociedadanonima-507519"
+        region = "us-central1"
+        resumen = <<EOT
+        Respaldos     gs://sociedadanonima-507519-sa-p9-respaldos (US, versionado, retención GCS 45 d)
+        Velero SA     sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com
+        Nodos SA      sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com
+        IP pública    35.253.196.204
+        Llave sellada projects/sociedadanonima-507519/secrets/sa-p9-sealed-secrets-llave
+        
+        EOT
+        secreto_llave_sealed_secrets = "sa-p9-sealed-secrets-llave"
+        velero_service_account = "sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+        velero_service_account_id = "projects/sociedadanonima-507519/serviceAccounts/sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+        zona = "us-central1-a"
+2026-10-17T03:08:54Z  +00:21  [fundacion]  ✓ terraform apply 00-fundacion
+2026-10-17T03:08:55Z  +00:22  [error]  el repositorio GitOps (rama main) aún no tiene la IP reservada: ejecuta P9/scripts/configurar-gitops.sh una vez y lleva el cambio a main

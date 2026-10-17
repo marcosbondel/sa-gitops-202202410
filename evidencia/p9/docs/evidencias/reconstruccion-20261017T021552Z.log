@@ -1,0 +1,675 @@
+# reconstruccion — Práctica 9 (202202410)
+# inicio:   2026-10-17T02:15:52Z
+# máquina:  Darwin arm64 · marcosbondel
+# cuenta:   <cuenta-del-operador> · proyecto sociedadanonima-507519
+# comando:  P9/scripts/bootstrap.sh reconstruccion
+#
+# Formato:  <UTC>  +<min:seg desde el inicio>  [etapa]  mensaje
+
+2026-10-17T02:15:52Z  +00:00  [inicio]  bootstrap: reconstrucción desde cero (punto de entrada único)
+2026-10-17T02:15:54Z  +00:02  [estado]  facturación habilitada en sociedadanonima-507519
+2026-10-17T02:15:57Z  +00:05  [estado]  ▶ crear gs://sociedadanonima-507519-sa-p9-tfstate (versionado, sin acceso público)
+        Creating gs://sociedadanonima-507519-sa-p9-tfstate/...
+2026-10-17T02:15:59Z  +00:07  [estado]  ✓ crear gs://sociedadanonima-507519-sa-p9-tfstate (versionado, sin acceso público)
+2026-10-17T02:17:12Z  +01:20  [fundacion]  ▶ terraform apply 00-fundacion
+        data.google_client_openid_userinfo.yo: Reading...
+        data.google_client_openid_userinfo.yo: Read complete after 0s [id=<cuenta-del-operador>]
+        
+        Terraform used the selected providers to generate the following execution
+        plan. Resource actions are indicated with the following symbols:
+          + create
+        
+        Terraform will perform the following actions:
+        
+          # google_compute_address.ingress will be created
+          + resource "google_compute_address" "ingress" {
+              + address            = (known after apply)
+              + address_type       = "EXTERNAL"
+              + creation_timestamp = (known after apply)
+              + description        = "IP del balanceador de ingress-nginx. Duradera: sobrevive a la reconstrucción del clúster."
+              + effective_labels   = {
+                  + "capa"                       = "fundacion"
+                  + "carne"                      = "202202410"
+                  + "goog-terraform-provisioned" = "true"
+                  + "managed-by"                 = "terraform"
+                  + "part-of"                    = "sa-platform"
+                  + "practica"                   = "p9"
+                }
+              + id                 = (known after apply)
+              + label_fingerprint  = (known after apply)
+              + labels             = {
+                  + "capa"       = "fundacion"
+                  + "carne"      = "202202410"
+                  + "managed-by" = "terraform"
+                  + "part-of"    = "sa-platform"
+                  + "practica"   = "p9"
+                }
+              + name               = "sa-p9-ingress"
+              + network_tier       = "PREMIUM"
+              + prefix_length      = (known after apply)
+              + project            = "sociedadanonima-507519"
+              + purpose            = (known after apply)
+              + region             = "us-central1"
+              + self_link          = (known after apply)
+              + subnetwork         = (known after apply)
+              + terraform_labels   = {
+                  + "capa"                       = "fundacion"
+                  + "carne"                      = "202202410"
+                  + "goog-terraform-provisioned" = "true"
+                  + "managed-by"                 = "terraform"
+                  + "part-of"                    = "sa-platform"
+                  + "practica"                   = "p9"
+                }
+              + users              = (known after apply)
+            }
+        
+          # google_project_iam_member.nodos["roles/logging.logWriter"] will be created
+          + resource "google_project_iam_member" "nodos" {
+              + etag    = (known after apply)
+              + id      = (known after apply)
+              + member  = "serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com"
+              + project = "sociedadanonima-507519"
+              + role    = "roles/logging.logWriter"
+            }
+        
+          # google_project_iam_member.nodos["roles/monitoring.metricWriter"] will be created
+          + resource "google_project_iam_member" "nodos" {
+              + etag    = (known after apply)
+              + id      = (known after apply)
+              + member  = "serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com"
+              + project = "sociedadanonima-507519"
+              + role    = "roles/monitoring.metricWriter"
+            }
+        
+          # google_project_iam_member.nodos["roles/monitoring.viewer"] will be created
+          + resource "google_project_iam_member" "nodos" {
+              + etag    = (known after apply)
+              + id      = (known after apply)
+              + member  = "serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com"
+              + project = "sociedadanonima-507519"
+              + role    = "roles/monitoring.viewer"
+            }
+        
+          # google_project_iam_member.nodos["roles/stackdriver.resourceMetadata.writer"] will be created
+          + resource "google_project_iam_member" "nodos" {
+              + etag    = (known after apply)
+              + id      = (known after apply)
+              + member  = "serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com"
+              + project = "sociedadanonima-507519"
+              + role    = "roles/stackdriver.resourceMetadata.writer"
+            }
+        
+          # google_project_iam_member.velero_discos will be created
+          + resource "google_project_iam_member" "velero_discos" {
+              + etag    = (known after apply)
+              + id      = (known after apply)
+              + member  = "serviceAccount:sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+              + project = "sociedadanonima-507519"
+              + role    = "roles/compute.storageAdmin"
+            }
+        
+          # google_project_service.requeridas["compute.googleapis.com"] will be created
+          + resource "google_project_service" "requeridas" {
+              + disable_dependent_services = false
+              + disable_on_destroy         = false
+              + id                         = (known after apply)
+              + project                    = "sociedadanonima-507519"
+              + service                    = "compute.googleapis.com"
+            }
+        
+          # google_project_service.requeridas["container.googleapis.com"] will be created
+          + resource "google_project_service" "requeridas" {
+              + disable_dependent_services = false
+              + disable_on_destroy         = false
+              + id                         = (known after apply)
+              + project                    = "sociedadanonima-507519"
+              + service                    = "container.googleapis.com"
+            }
+        
+          # google_project_service.requeridas["iam.googleapis.com"] will be created
+          + resource "google_project_service" "requeridas" {
+              + disable_dependent_services = false
+              + disable_on_destroy         = false
+              + id                         = (known after apply)
+              + project                    = "sociedadanonima-507519"
+              + service                    = "iam.googleapis.com"
+            }
+        
+          # google_project_service.requeridas["iamcredentials.googleapis.com"] will be created
+          + resource "google_project_service" "requeridas" {
+              + disable_dependent_services = false
+              + disable_on_destroy         = false
+              + id                         = (known after apply)
+              + project                    = "sociedadanonima-507519"
+              + service                    = "iamcredentials.googleapis.com"
+            }
+        
+          # google_project_service.requeridas["secretmanager.googleapis.com"] will be created
+          + resource "google_project_service" "requeridas" {
+              + disable_dependent_services = false
+              + disable_on_destroy         = false
+              + id                         = (known after apply)
+              + project                    = "sociedadanonima-507519"
+              + service                    = "secretmanager.googleapis.com"
+            }
+        
+          # google_project_service.requeridas["storage.googleapis.com"] will be created
+          + resource "google_project_service" "requeridas" {
+              + disable_dependent_services = false
+              + disable_on_destroy         = false
+              + id                         = (known after apply)
+              + project                    = "sociedadanonima-507519"
+              + service                    = "storage.googleapis.com"
+            }
+        
+          # google_secret_manager_secret.llave_sealed_secrets will be created
+          + resource "google_secret_manager_secret" "llave_sealed_secrets" {
+              + create_time           = (known after apply)
+              + deletion_protection   = false
+              + effective_annotations = (known after apply)
+              + effective_labels      = {
+                  + "capa"                       = "fundacion"
+                  + "carne"                      = "202202410"
+                  + "goog-terraform-provisioned" = "true"
+                  + "managed-by"                 = "terraform"
+                  + "part-of"                    = "sa-platform"
+                  + "practica"                   = "p9"
+                }
+              + expire_time           = (known after apply)
+              + id                    = (known after apply)
+              + labels                = {
+                  + "capa"       = "fundacion"
+                  + "carne"      = "202202410"
+                  + "managed-by" = "terraform"
+                  + "part-of"    = "sa-platform"
+                  + "practica"   = "p9"
+                }
+              + name                  = (known after apply)
+              + project               = "sociedadanonima-507519"
+              + secret_id             = "sa-p9-sealed-secrets-llave"
+              + terraform_labels      = {
+                  + "capa"                       = "fundacion"
+                  + "carne"                      = "202202410"
+                  + "goog-terraform-provisioned" = "true"
+                  + "managed-by"                 = "terraform"
+                  + "part-of"                    = "sa-platform"
+                  + "practica"                   = "p9"
+                }
+        
+              + replication {
+                  + auto {
+                    }
+                }
+            }
+        
+          # google_secret_manager_secret_iam_member.operador will be created
+          + resource "google_secret_manager_secret_iam_member" "operador" {
+              + etag      = (known after apply)
+              + id        = (known after apply)
+              + member    = "user:<cuenta-del-operador>"
+              + project   = "sociedadanonima-507519"
+              + role      = "roles/secretmanager.secretAccessor"
+              + secret_id = "sa-p9-sealed-secrets-llave"
+            }
+        
+          # google_secret_manager_secret_version.llave_sealed_secrets will be created
+          + resource "google_secret_manager_secret_version" "llave_sealed_secrets" {
+              + create_time            = (known after apply)
+              + deletion_policy        = "DELETE"
+              + destroy_time           = (known after apply)
+              + enabled                = true
+              + id                     = (known after apply)
+              + is_secret_data_base64  = false
+              + name                   = (known after apply)
+              + secret                 = (known after apply)
+              + secret_data            = (sensitive value)
+              + secret_data_wo         = (write-only attribute)
+              + secret_data_wo_version = 0
+              + version                = (known after apply)
+            }
+        
+          # google_service_account.nodos will be created
+          + resource "google_service_account" "nodos" {
+              + account_id   = "sa-p9-nodos"
+              + disabled     = false
+              + display_name = "Nodos del clúster sa-p9 (P9)"
+              + email        = "sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com"
+              + id           = (known after apply)
+              + member       = "serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com"
+              + name         = (known after apply)
+              + project      = "sociedadanonima-507519"
+              + unique_id    = (known after apply)
+            }
+        
+          # google_service_account.velero will be created
+          + resource "google_service_account" "velero" {
+              + account_id   = "sa-p9-velero"
+              + description  = "Escribe en gs://sociedadanonima-507519-sa-p9-respaldos y gestiona snapshots de disco. Vinculada por Workload Identity a velero/velero."
+              + disabled     = false
+              + display_name = "Velero · respaldos de la Práctica 9"
+              + email        = "sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+              + id           = (known after apply)
+              + member       = "serviceAccount:sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+              + name         = (known after apply)
+              + project      = "sociedadanonima-507519"
+              + unique_id    = (known after apply)
+            }
+        
+          # google_service_account_iam_member.velero_firma will be created
+          + resource "google_service_account_iam_member" "velero_firma" {
+              + etag               = (known after apply)
+              + id                 = (known after apply)
+              + member             = "serviceAccount:sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+              + role               = "roles/iam.serviceAccountTokenCreator"
+              + service_account_id = (known after apply)
+            }
+        
+          # google_storage_bucket.respaldos will be created
+          + resource "google_storage_bucket" "respaldos" {
+              + effective_labels            = {
+                  + "capa"                       = "fundacion"
+                  + "carne"                      = "202202410"
+                  + "goog-terraform-provisioned" = "true"
+                  + "managed-by"                 = "terraform"
+                  + "part-of"                    = "sa-platform"
+                  + "practica"                   = "p9"
+                }
+              + force_destroy               = false
+              + id                          = (known after apply)
+              + labels                      = {
+                  + "capa"       = "fundacion"
+                  + "carne"      = "202202410"
+                  + "managed-by" = "terraform"
+                  + "part-of"    = "sa-platform"
+                  + "practica"   = "p9"
+                }
+              + location                    = "US"
+              + name                        = "sociedadanonima-507519-sa-p9-respaldos"
+              + project                     = "sociedadanonima-507519"
+              + project_number              = (known after apply)
+              + public_access_prevention    = "enforced"
+              + rpo                         = (known after apply)
+              + self_link                   = (known after apply)
+              + storage_class               = "STANDARD"
+              + terraform_labels            = {
+                  + "capa"                       = "fundacion"
+                  + "carne"                      = "202202410"
+                  + "goog-terraform-provisioned" = "true"
+                  + "managed-by"                 = "terraform"
+                  + "part-of"                    = "sa-platform"
+                  + "practica"                   = "p9"
+                }
+              + time_created                = (known after apply)
+              + uniform_bucket_level_access = true
+              + updated                     = (known after apply)
+              + url                         = (known after apply)
+        
+              + lifecycle_rule {
+                  + action {
+                      + type          = "Delete"
+                        # (1 unchanged attribute hidden)
+                    }
+                  + condition {
+                      + age                    = 45
+                      + matches_prefix         = []
+                      + matches_storage_class  = []
+                      + matches_suffix         = []
+                      + with_state             = (known after apply)
+                        # (3 unchanged attributes hidden)
+                    }
+                }
+              + lifecycle_rule {
+                  + action {
+                      + type          = "Delete"
+                        # (1 unchanged attribute hidden)
+                    }
+                  + condition {
+                      + days_since_noncurrent_time = 7
+                      + matches_prefix             = []
+                      + matches_storage_class      = []
+                      + matches_suffix             = []
+                      + with_state                 = "ARCHIVED"
+                        # (3 unchanged attributes hidden)
+                    }
+                }
+        
+              + soft_delete_policy (known after apply)
+        
+              + versioning {
+                  + enabled = true
+                }
+        
+              + website (known after apply)
+            }
+        
+          # google_storage_bucket_iam_member.velero_bucket will be created
+          + resource "google_storage_bucket_iam_member" "velero_bucket" {
+              + bucket = "sociedadanonima-507519-sa-p9-respaldos"
+              + etag   = (known after apply)
+              + id     = (known after apply)
+              + member = "serviceAccount:sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+              + role   = "roles/storage.legacyBucketReader"
+            }
+        
+          # google_storage_bucket_iam_member.velero_objetos will be created
+          + resource "google_storage_bucket_iam_member" "velero_objetos" {
+              + bucket = "sociedadanonima-507519-sa-p9-respaldos"
+              + etag   = (known after apply)
+              + id     = (known after apply)
+              + member = "serviceAccount:sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+              + role   = "roles/storage.objectAdmin"
+            }
+        
+          # tls_private_key.sealed_secrets will be created
+          + resource "tls_private_key" "sealed_secrets" {
+              + algorithm                     = "RSA"
+              + ecdsa_curve                   = "P224"
+              + id                            = (known after apply)
+              + private_key_openssh           = (sensitive value)
+              + private_key_pem               = (sensitive value)
+              + private_key_pem_pkcs8         = (sensitive value)
+              + public_key_fingerprint_md5    = (known after apply)
+              + public_key_fingerprint_sha256 = (known after apply)
+              + public_key_openssh            = (known after apply)
+              + public_key_pem                = (known after apply)
+              + rsa_bits                      = 4096
+            }
+        
+          # tls_self_signed_cert.sealed_secrets will be created
+          + resource "tls_self_signed_cert" "sealed_secrets" {
+              + allowed_uses          = [
+                  + "key_encipherment",
+                  + "data_encipherment",
+                ]
+              + cert_pem              = (known after apply)
+              + early_renewal_hours   = 0
+              + id                    = (known after apply)
+              + is_ca_certificate     = false
+              + key_algorithm         = (known after apply)
+              + max_path_length       = (known after apply)
+              + private_key_pem       = (sensitive value)
+              + private_key_pem_wo    = (write-only attribute)
+              + ready_for_renewal     = false
+              + set_authority_key_id  = false
+              + set_subject_key_id    = false
+              + validity_end_time     = (known after apply)
+              + validity_period_hours = 87600
+              + validity_start_time   = (known after apply)
+        
+              + subject {
+                  + common_name  = "sealed-secret"
+                  + organization = "sealed-secret"
+                }
+            }
+        
+        Plan: 23 to add, 0 to change, 0 to destroy.
+        
+        Changes to Outputs:
+          + bucket_respaldos             = "sociedadanonima-507519-sa-p9-respaldos"
+          + certificado_sealed_secrets   = (known after apply)
+          + cluster                      = "sa-p9"
+          + ip_ingress                   = (known after apply)
+          + nodos_service_account        = "sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com"
+          + project_id                   = "sociedadanonima-507519"
+          + region                       = "us-central1"
+          + resumen                      = (known after apply)
+          + secreto_llave_sealed_secrets = "sa-p9-sealed-secrets-llave"
+          + velero_service_account       = "sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com"
+          + velero_service_account_id    = (known after apply)
+          + zona                         = "us-central1-a"
+        tls_private_key.sealed_secrets: Creating...
+        google_project_service.requeridas["container.googleapis.com"]: Creating...
+        google_project_service.requeridas["storage.googleapis.com"]: Creating...
+        google_project_service.requeridas["secretmanager.googleapis.com"]: Creating...
+        google_project_service.requeridas["compute.googleapis.com"]: Creating...
+        google_project_service.requeridas["iamcredentials.googleapis.com"]: Creating...
+        google_project_service.requeridas["iam.googleapis.com"]: Creating...
+        tls_private_key.sealed_secrets: Creation complete after 2s [id=c07fc8592d91cbc3c55c100ad086e066491e6d04]
+        tls_self_signed_cert.sealed_secrets: Creating...
+        tls_self_signed_cert.sealed_secrets: Creation complete after 0s [id=203739470127680119934353811738386127452]
+        google_project_service.requeridas["compute.googleapis.com"]: Creation complete after 4s [id=sociedadanonima-507519/compute.googleapis.com]
+        google_project_service.requeridas["iamcredentials.googleapis.com"]: Creation complete after 4s [id=sociedadanonima-507519/iamcredentials.googleapis.com]
+        google_project_service.requeridas["iam.googleapis.com"]: Creation complete after 4s [id=sociedadanonima-507519/iam.googleapis.com]
+        google_project_service.requeridas["container.googleapis.com"]: Creation complete after 4s [id=sociedadanonima-507519/container.googleapis.com]
+        google_project_service.requeridas["storage.googleapis.com"]: Creation complete after 4s [id=sociedadanonima-507519/storage.googleapis.com]
+        google_project_service.requeridas["secretmanager.googleapis.com"]: Still creating... [00m10s elapsed]
+        google_project_service.requeridas["secretmanager.googleapis.com"]: Still creating... [00m20s elapsed]
+        google_project_service.requeridas["secretmanager.googleapis.com"]: Creation complete after 22s [id=sociedadanonima-507519/secretmanager.googleapis.com]
+        google_secret_manager_secret.llave_sealed_secrets: Creating...
+        google_service_account.nodos: Creating...
+        google_compute_address.ingress: Creating...
+        google_service_account.velero: Creating...
+        google_storage_bucket.respaldos: Creating...
+        google_secret_manager_secret.llave_sealed_secrets: Creation complete after 1s [id=projects/sociedadanonima-507519/secrets/sa-p9-sealed-secrets-llave]
+        google_secret_manager_secret_iam_member.operador: Creating...
+        google_secret_manager_secret_version.llave_sealed_secrets: Creating...
+        google_storage_bucket.respaldos: Creation complete after 2s [id=sociedadanonima-507519-sa-p9-respaldos]
+        google_secret_manager_secret_version.llave_sealed_secrets: Creation complete after 2s [id=projects/185086324090/secrets/sa-p9-sealed-secrets-llave/versions/1]
+        google_secret_manager_secret_iam_member.operador: Creation complete after 5s [id=projects/sociedadanonima-507519/secrets/sa-p9-sealed-secrets-llave/roles/secretmanager.secretAccessor/user:<cuenta-del-operador>]
+        google_service_account.velero: Still creating... [00m10s elapsed]
+        google_service_account.nodos: Still creating... [00m10s elapsed]
+        google_compute_address.ingress: Still creating... [00m10s elapsed]
+        google_service_account.nodos: Creation complete after 13s [id=projects/sociedadanonima-507519/serviceAccounts/sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com]
+        google_project_iam_member.nodos["roles/monitoring.viewer"]: Creating...
+        google_project_iam_member.nodos["roles/monitoring.metricWriter"]: Creating...
+        google_project_iam_member.nodos["roles/logging.logWriter"]: Creating...
+        google_project_iam_member.nodos["roles/stackdriver.resourceMetadata.writer"]: Creating...
+        google_service_account.velero: Creation complete after 5m5s [id=projects/sociedadanonima-507519/serviceAccounts/sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com]
+        google_project_iam_member.velero_discos: Creating...
+        google_storage_bucket_iam_member.velero_objetos: Creating...
+        google_storage_bucket_iam_member.velero_bucket: Creating...
+        google_service_account_iam_member.velero_firma: Creating...
+        google_compute_address.ingress: Still creating... [05m09s elapsed]
+        google_compute_address.ingress: Still creating... [05m19s elapsed]
+        google_compute_address.ingress: Still creating... [05m29s elapsed]
+        
+        Error: Failed to upload state to gs://sociedadanonima-507519-sa-p9-tfstate/fundacion/default.tfstate: googleapi: Error 401: Invalid Credentials, authError
+        
+        
+        Error: Failed to save state
+        
+        Error saving state: Failed to upload state to
+        gs://sociedadanonima-507519-sa-p9-tfstate/fundacion/default.tfstate:
+        googleapi: Error 401: Invalid Credentials, authError
+        
+        Error: Failed to persist state to backend
+        
+        The error shown above has prevented Terraform from writing the updated state
+        to the configured backend. To allow for recovery, the state has been written
+        to the file "errored.tfstate" in the current working directory.
+        
+        Running "terraform apply" again at this point will create a forked state,
+        making it harder to recover.
+        
+        To retry writing this state, use the following command:
+            terraform state push errored.tfstate
+        
+        
+        Error: Request `Create IAM Members roles/monitoring.metricWriter serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com for project "sociedadanonima-507519"` returned error: Batch request and retried single request "Create IAM Members roles/monitoring.metricWriter serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com for project \"sociedadanonima-507519\"" both failed. Final error: Error retrieving IAM policy for project "sociedadanonima-507519": googleapi: Error 401: Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.
+        Details:
+        [
+          {
+            "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+            "metadata": {
+              "method": "google.cloudresourcemanager.v1.Projects.GetIamPolicy",
+              "service": "cloudresourcemanager.googleapis.com"
+            },
+            "reason": "ACCESS_TOKEN_TYPE_UNSUPPORTED"
+          }
+        ]
+        
+        More details:
+        Reason: authError, Message: Invalid Credentials
+        
+        
+          with google_project_iam_member.nodos["roles/monitoring.metricWriter"],
+          on nodos.tf line 28, in resource "google_project_iam_member" "nodos":
+          28: resource "google_project_iam_member" "nodos" {
+        
+        
+        Error: Request `Create IAM Members roles/stackdriver.resourceMetadata.writer serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com for project "sociedadanonima-507519"` returned error: Batch request and retried single request "Create IAM Members roles/stackdriver.resourceMetadata.writer serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com for project \"sociedadanonima-507519\"" both failed. Final error: Error retrieving IAM policy for project "sociedadanonima-507519": googleapi: Error 401: Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.
+        Details:
+        [
+          {
+            "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+            "metadata": {
+              "method": "google.cloudresourcemanager.v1.Projects.GetIamPolicy",
+              "service": "cloudresourcemanager.googleapis.com"
+            },
+            "reason": "ACCESS_TOKEN_TYPE_UNSUPPORTED"
+          }
+        ]
+        
+        More details:
+        Reason: authError, Message: Invalid Credentials
+        
+        
+          with google_project_iam_member.nodos["roles/stackdriver.resourceMetadata.writer"],
+          on nodos.tf line 28, in resource "google_project_iam_member" "nodos":
+          28: resource "google_project_iam_member" "nodos" {
+        
+        
+        Error: Request `Create IAM Members roles/monitoring.viewer serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com for project "sociedadanonima-507519"` returned error: Batch request and retried single request "Create IAM Members roles/monitoring.viewer serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com for project \"sociedadanonima-507519\"" both failed. Final error: Error retrieving IAM policy for project "sociedadanonima-507519": googleapi: Error 401: Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.
+        Details:
+        [
+          {
+            "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+            "metadata": {
+              "method": "google.cloudresourcemanager.v1.Projects.GetIamPolicy",
+              "service": "cloudresourcemanager.googleapis.com"
+            },
+            "reason": "ACCESS_TOKEN_TYPE_UNSUPPORTED"
+          }
+        ]
+        
+        More details:
+        Reason: authError, Message: Invalid Credentials
+        
+        
+          with google_project_iam_member.nodos["roles/monitoring.viewer"],
+          on nodos.tf line 28, in resource "google_project_iam_member" "nodos":
+          28: resource "google_project_iam_member" "nodos" {
+        
+        
+        Error: Request `Create IAM Members roles/logging.logWriter serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com for project "sociedadanonima-507519"` returned error: Batch request and retried single request "Create IAM Members roles/logging.logWriter serviceAccount:sa-p9-nodos@sociedadanonima-507519.iam.gserviceaccount.com for project \"sociedadanonima-507519\"" both failed. Final error: Error retrieving IAM policy for project "sociedadanonima-507519": googleapi: Error 401: Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.
+        Details:
+        [
+          {
+            "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+            "metadata": {
+              "method": "google.cloudresourcemanager.v1.Projects.GetIamPolicy",
+              "service": "cloudresourcemanager.googleapis.com"
+            },
+            "reason": "ACCESS_TOKEN_TYPE_UNSUPPORTED"
+          }
+        ]
+        
+        More details:
+        Reason: authError, Message: Invalid Credentials
+        
+        
+          with google_project_iam_member.nodos["roles/logging.logWriter"],
+          on nodos.tf line 28, in resource "google_project_iam_member" "nodos":
+          28: resource "google_project_iam_member" "nodos" {
+        
+        
+        Error: Error when reading or editing ComputeAddress "projects/sociedadanonima-507519/regions/us-central1/addresses/sa-p9-ingress": googleapi: Error 401: Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.
+        Details:
+        [
+          {
+            "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+            "metadata": {
+              "method": "compute.v1.RegionAddressesService.Get",
+              "service": "compute.googleapis.com"
+            },
+            "reason": "ACCESS_TOKEN_TYPE_UNSUPPORTED"
+          }
+        ]
+        
+        More details:
+        Reason: authError, Message: Invalid Credentials
+        
+        
+          with google_compute_address.ingress,
+          on red.tf line 21, in resource "google_compute_address" "ingress":
+          21: resource "google_compute_address" "ingress" {
+        
+        
+        Error: Error retrieving IAM policy for storage bucket "b/sociedadanonima-507519-sa-p9-respaldos": googleapi: Error 401: Invalid Credentials, authError
+        
+          with google_storage_bucket_iam_member.velero_objetos,
+          on velero.tf line 49, in resource "google_storage_bucket_iam_member" "velero_objetos":
+          49: resource "google_storage_bucket_iam_member" "velero_objetos" {
+        
+        
+        Error: Error retrieving IAM policy for storage bucket "b/sociedadanonima-507519-sa-p9-respaldos": googleapi: Error 401: Invalid Credentials, authError
+        
+          with google_storage_bucket_iam_member.velero_bucket,
+          on velero.tf line 67, in resource "google_storage_bucket_iam_member" "velero_bucket":
+          67: resource "google_storage_bucket_iam_member" "velero_bucket" {
+        
+        
+        Error: Request `Create IAM Members roles/compute.storageAdmin serviceAccount:sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com for project "sociedadanonima-507519"` returned error: Error retrieving IAM policy for project "sociedadanonima-507519": googleapi: Error 401: Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.
+        Details:
+        [
+          {
+            "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+            "metadata": {
+              "method": "google.cloudresourcemanager.v1.Projects.GetIamPolicy",
+              "service": "cloudresourcemanager.googleapis.com"
+            },
+            "reason": "ACCESS_TOKEN_TYPE_UNSUPPORTED"
+          }
+        ]
+        
+        More details:
+        Reason: authError, Message: Invalid Credentials
+        
+        
+          with google_project_iam_member.velero_discos,
+          on velero.tf line 85, in resource "google_project_iam_member" "velero_discos":
+          85: resource "google_project_iam_member" "velero_discos" {
+        
+        
+        Error: Error retrieving IAM policy for service account 'projects/sociedadanonima-507519/serviceAccounts/sa-p9-velero@sociedadanonima-507519.iam.gserviceaccount.com': googleapi: Error 401: Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.
+        Details:
+        [
+          {
+            "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+            "metadata": {
+              "method": "google.iam.admin.v1.IAM.GetIamPolicy",
+              "service": "iam.googleapis.com"
+            },
+            "reason": "ACCESS_TOKEN_TYPE_UNSUPPORTED"
+          }
+        ]
+        
+        More details:
+        Reason: authError, Message: Invalid Credentials
+        
+        
+          with google_service_account_iam_member.velero_firma,
+          on velero.tf line 101, in resource "google_service_account_iam_member" "velero_firma":
+         101: resource "google_service_account_iam_member" "velero_firma" {
+        
+        
+        Error: Error releasing the state lock
+        
+        Error message: googleapi: Error 401: Invalid Credentials, authError
+        googleapi: got HTTP response code 401 with body: <?xml version='1.0'
+        encoding='UTF-8'?><Error><Code>AuthenticationRequired</Code><Message>Authentication
+        required.</Message></Error>
+        
+        Terraform acquires a lock when accessing your state to prevent others
+        running Terraform to potentially modify the state at the same time. An
+        error occurred while releasing this lock. This could mean that the lock
+        did or did not release properly. If the lock didn't release properly,
+        Terraform may not be able to run future commands since it'll appear as if
+        the lock is held.
+        
+        In this scenario, please call the "force-unlock" command to unlock the
+        state manually. This is a very dangerous operation since if it is done
+        erroneously it could result in two people modifying state at the same time.
+        Only call this command if you're certain that the unlock above failed and
+        that no one else is holding a lock.
+2026-10-17T02:23:16Z  +07:24  [fundacion]  ✗ terraform apply 00-fundacion (código 1)

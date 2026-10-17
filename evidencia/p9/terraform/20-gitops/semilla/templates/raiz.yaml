@@ -1,0 +1,57 @@
+{{/*
+raiz.yaml — La Application raíz del patrón app-of-apps.
+
+Es la ÚNICA Application que crea Terraform. Apunta a `apps/` del repositorio
+GitOps, donde están las demás, cada una con su `sync-wave`. Con la salud de
+las Application habilitada en `argocd-cm` (ver `20-gitops/argocd.tf`), la
+raíz las aplica ola por ola y no pasa a la siguiente hasta que la anterior
+está `Healthy`:
+
+  -40  complementos     sealed-secrets · metrics-server · ingress-nginx ·
+                        argo-rollouts · kyverno · velero
+  -30  namespaces       sa-p8-stage, sa-p8-prod, cuotas, límites, RBAC
+  -20  políticas        las 4 ClusterPolicy de Kyverno (P8)
+  -15  restauración     Job: trae los volúmenes del último respaldo, si hay
+  -10  secretos         los SealedSecret de stage y prod
+   -5  análisis         plantillas de análisis del canary (P8)
+    0  plataforma       stage y prod
+   10  respaldos        el Schedule de Velero, al final a propósito
+
+Nombre: sa-p9-raiz · namespace: argocd (tabla de enlaces del §4.1).
+*/}}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sa-p9-raiz
+  namespace: argocd
+  labels:
+    {{- toYaml .Values.etiquetas | nindent 4 }}
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sa-p9-base
+  source:
+    repoURL: {{ .Values.gitopsUrl | quote }}
+    targetRevision: {{ .Values.gitopsRama | quote }}
+    path: apps
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+    # Una ola que tarda más de lo esperado —Kyverno descargando su imagen,
+    # Velero esperando a que IAM propague el binding de Workload Identity—
+    # no debe dejar la raíz en `Failed` esperando a que alguien la repita a
+    # mano. Repetirla a mano es el paso manual que el §3.2 prohíbe.
+    retry:
+      limit: 10
+      backoff:
+        duration: 20s
+        factor: 2
+        maxDuration: 5m

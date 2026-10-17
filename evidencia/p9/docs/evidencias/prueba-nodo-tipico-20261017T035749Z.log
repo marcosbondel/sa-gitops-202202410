@@ -1,0 +1,115 @@
+# prueba-nodo-tipico — Práctica 9 (202202410)
+# inicio:   2026-10-17T03:57:49Z
+# máquina:  Darwin arm64 · marcosbondel
+# cuenta:   <cuenta-del-operador> · proyecto sociedadanonima-507519
+# comando:  P9/scripts/prueba-nodo.sh prueba-nodo-tipico
+#
+# Formato:  <UTC>  +<min:seg desde el inicio>  [etapa]  mensaje
+
+2026-10-17T03:57:50Z  +00:01  [topologia]  distribución ANTES del drenaje
+        NODO                                           PODS RELEVANTES
+        gke-sa-p9-sa-p9-principal-43d923d8-dff4        1×ingress-nginx-controller 1×kyverno-admission-controller 1×sa-platform 1×sa-platform-api-gateway 1×sa-platform-auth-service 1×sa-platform-catalog-service 1×sa-platform-notification-service 1×sa-platform-notification-worker 
+        gke-sa-p9-sa-p9-principal-43d923d8-hpv0        1×kyverno-admission-controller 1×sa-platform 1×sa-platform-api-gateway 1×sa-platform-notification-worker 1×sa-platform-order-service 
+        gke-sa-p9-sa-p9-principal-43d923d8-z6xl        1×ingress-nginx-controller 1×kyverno-admission-controller 1×sa-platform-api-gateway 1×sa-platform-auth-service 1×sa-platform-catalog-service 1×sa-platform-notification-service 1×sa-platform-order-service 
+2026-10-17T03:57:54Z  +00:05  [pdb]  ▶ PodDisruptionBudget antes del drenaje
+        NAMESPACE       NAME                               MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+        ingress-nginx   ingress-nginx-controller           1               N/A               1                     31m
+        kyverno         kyverno-admission-controller       1               N/A               2                     31m
+        sa-p8-prod      sa-platform-api-gateway            1               N/A               2                     29m
+        sa-p8-prod      sa-platform-auth-service           1               N/A               1                     29m
+        sa-p8-prod      sa-platform-catalog-service        1               N/A               1                     29m
+        sa-p8-prod      sa-platform-notification-service   1               N/A               1                     29m
+        sa-p8-prod      sa-platform-notification-worker    1               N/A               1                     29m
+        sa-p8-prod      sa-platform-order-service          1               N/A               1                     29m
+        sa-p8-prod      sa-platform-postgresql             N/A             1                 1                     29m
+        sa-p8-prod      sa-platform-rabbitmq               N/A             1                 1                     29m
+        sa-p8-stage     sa-platform-notification-worker    1               N/A               0                     29m
+        sa-p8-stage     sa-platform-postgresql             N/A             1                 1                     29m
+        sa-p8-stage     sa-platform-rabbitmq               N/A             1                 1                     29m
+2026-10-17T03:57:55Z  +00:06  [pdb]  ✓ PodDisruptionBudget antes del drenaje
+2026-10-17T03:57:56Z  +00:07  [prueba]  nodo a drenar: gke-sa-p9-sa-p9-principal-43d923d8-dff4 (modo tipico)
+2026-10-17T03:58:00Z  +00:11  [prueba]  sondas en marcha; 30 s de línea base
+2026-10-17T03:58:30Z  +00:41  [drenaje]  ═══ T_drenaje = 2026-10-17T03:58:30Z: kubectl drain gke-sa-p9-sa-p9-principal-43d923d8-dff4 ═══
+2026-10-17T03:58:30Z  +00:41  [drenaje]  ▶ kubectl drain
+        node/gke-sa-p9-sa-p9-principal-43d923d8-dff4 cordoned
+        Warning: ignoring DaemonSet-managed Pods: gmp-system/collector-pc956, kube-system/anetd-vz8gn, kube-system/fluentbit-gke-gws5d, kube-system/gke-metadata-server-dn4mj, kube-system/gke-metrics-agent-z5rjn, kube-system/netd-mbjn7, kube-system/node-local-dns-rxdzp, kube-system/pdcsi-node-gxkvb
+        evicting pod argocd/argocd-repo-server-874b847f-htrbt
+        evicting pod kyverno/kyverno-reports-controller-79d68cccbb-qpb47
+        evicting pod argocd/argocd-application-controller-0
+        evicting pod ingress-nginx/ingress-nginx-controller-6f999bf976-4n2fl
+        evicting pod argocd/argocd-server-598486b97d-xmwfs
+        evicting pod sa-p8-stage/sa-platform-notification-service-5bb778c46d-z7dq4
+        evicting pod velero/velero-79b9dcf9bc-2crgn
+        evicting pod sa-p8-prod/sa-platform-rabbitmq-0
+        evicting pod sa-p8-stage/sa-platform-catalog-service-5ccd8f648c-d7bjf
+        evicting pod sa-p8-prod/sa-platform-notification-worker-69ff5cfd59-x6bgd
+        evicting pod sa-p8-prod/sa-platform-notification-service-dffb4898b-pm7hh
+        evicting pod sa-p8-prod/sa-platform-catalog-service-56d49b9db7-vpbxq
+        evicting pod argo-rollouts/argo-rollouts-697c978fb6-t2gcw
+        evicting pod sa-p8-prod/sa-platform-api-gateway-549b68ddcb-4hrft
+        evicting pod argocd/argocd-redis-7bcd654f85-mqnq5
+        evicting pod sa-p8-stage/sa-platform-order-service-6d47db4469-fj8bk
+        evicting pod kube-system/konnectivity-agent-59b8688d7d-p7885
+        evicting pod kyverno/kyverno-admission-controller-86cbbb5545-v4pxj
+        evicting pod sa-p8-stage/sa-platform-auth-service-58d557f7bb-mjx8l
+        evicting pod sa-p8-prod/sa-platform-auth-service-7bc47b6dcf-rvl8r
+        I1016 21:58:33.241344   12274 request.go:752] "Waited before sending request" delay="1.00162125s" reason="client-side throttling, not priority and fairness" verb="POST" URL="https://35.192.110.209/api/v1/namespaces/sa-p8-stage/pods/sa-platform-order-service-6d47db4469-fj8bk/eviction"
+        pod/kyverno-reports-controller-79d68cccbb-qpb47 evicted
+        pod/kyverno-admission-controller-86cbbb5545-v4pxj evicted
+        pod/velero-79b9dcf9bc-2crgn evicted
+        pod/argocd-application-controller-0 evicted
+        pod/argocd-repo-server-874b847f-htrbt evicted
+        pod/argocd-redis-7bcd654f85-mqnq5 evicted
+        pod/sa-platform-notification-worker-69ff5cfd59-x6bgd evicted
+        pod/argocd-server-598486b97d-xmwfs evicted
+        pod/sa-platform-catalog-service-56d49b9db7-vpbxq evicted
+        pod/argo-rollouts-697c978fb6-t2gcw evicted
+        I1016 21:58:43.423435   12274 request.go:752] "Waited before sending request" delay="3.251135875s" reason="client-side throttling, not priority and fairness" verb="GET" URL="https://35.192.110.209/api/v1/namespaces/sa-p8-prod/pods/sa-platform-rabbitmq-0"
+        pod/sa-platform-auth-service-58d557f7bb-mjx8l evicted
+        pod/sa-platform-order-service-6d47db4469-fj8bk evicted
+        pod/sa-platform-notification-service-dffb4898b-pm7hh evicted
+        pod/sa-platform-notification-service-5bb778c46d-z7dq4 evicted
+        pod/sa-platform-api-gateway-549b68ddcb-4hrft evicted
+        pod/sa-platform-catalog-service-5ccd8f648c-d7bjf evicted
+        pod/sa-platform-auth-service-7bc47b6dcf-rvl8r evicted
+        pod/sa-platform-rabbitmq-0 evicted
+        pod/ingress-nginx-controller-6f999bf976-4n2fl evicted
+        pod/konnectivity-agent-59b8688d7d-p7885 evicted
+        node/gke-sa-p9-sa-p9-principal-43d923d8-dff4 drained
+2026-10-17T03:59:06Z  +01:17  [drenaje]  ✓ kubectl drain
+2026-10-17T03:59:06Z  +01:17  [drenaje]  nodo vacío; esperando a que los pods desalojados estén Ready en los otros nodos
+2026-10-17T04:01:45Z  +03:56  [topologia]  distribución con gke-sa-p9-sa-p9-principal-43d923d8-dff4 drenado
+        NODO                                           PODS RELEVANTES
+        gke-sa-p9-sa-p9-principal-43d923d8-dff4        [CORDONADO] 
+        gke-sa-p9-sa-p9-principal-43d923d8-hpv0        1×ingress-nginx-controller 1×kyverno-admission-controller 2×sa-platform 1×sa-platform-api-gateway 1×sa-platform-auth-service 1×sa-platform-catalog-service 1×sa-platform-notification-service 1×sa-platform-notification-worker 1×sa-platform-order-service 
+        gke-sa-p9-sa-p9-principal-43d923d8-z6xl        1×ingress-nginx-controller 2×kyverno-admission-controller 2×sa-platform-api-gateway 1×sa-platform-auth-service 1×sa-platform-catalog-service 1×sa-platform-notification-service 1×sa-platform-notification-worker 1×sa-platform-order-service 
+2026-10-17T04:02:04Z  +04:15  [pdb]  ▶ PodDisruptionBudget con el nodo drenado
+        NAMESPACE       NAME                               MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+        ingress-nginx   ingress-nginx-controller           1               N/A               1                     35m
+        kyverno         kyverno-admission-controller       1               N/A               2                     35m
+        sa-p8-prod      sa-platform-api-gateway            1               N/A               2                     33m
+        sa-p8-prod      sa-platform-auth-service           1               N/A               1                     33m
+        sa-p8-prod      sa-platform-catalog-service        1               N/A               1                     33m
+        sa-p8-prod      sa-platform-notification-service   1               N/A               1                     33m
+        sa-p8-prod      sa-platform-notification-worker    1               N/A               1                     33m
+        sa-p8-prod      sa-platform-order-service          1               N/A               1                     33m
+        sa-p8-prod      sa-platform-postgresql             N/A             1                 1                     33m
+        sa-p8-prod      sa-platform-rabbitmq               N/A             1                 1                     33m
+        sa-p8-stage     sa-platform-notification-worker    1               N/A               0                     33m
+        sa-p8-stage     sa-platform-postgresql             N/A             1                 1                     33m
+        sa-p8-stage     sa-platform-rabbitmq               N/A             1                 1                     33m
+2026-10-17T04:02:07Z  +04:18  [pdb]  ✓ PodDisruptionBudget con el nodo drenado
+2026-10-17T04:02:07Z  +04:18  [drenaje]  uncordon gke-sa-p9-sa-p9-principal-43d923d8-dff4
+
+════════════════════════════════════════════════════════════════════
+ DISPONIBILIDAD DURANTE LA PÉRDIDA DEL NODO gke-sa-p9-sa-p9-principal-43d923d8-dff4
+════════════════════════════════════════════════════════════════════
+/health/ready (cada 1 s) — balanceador, ingress y gateway:
+  peticiones 212 · 200: 212 · fallidas: 0 · disponibilidad 100.00 %
+  ninguna petición falló
+/health (cada 2 s) — de punta a punta, con los 4 servicios:
+  peticiones 121 · 200: 121 · fallidas: 0 · disponibilidad 100.00 %
+  ninguna petición falló
+
+Peticiones fallidas (si las hubo), con su hora:
+2026-10-17T04:02:43Z  +04:54  [fin]  prueba de pérdida de nodo terminada → P9/docs/evidencias/prueba-nodo-tipico-20261017T035749Z.log

@@ -1,0 +1,31 @@
+# Los rellena `20-gitops/argocd.tf`. Los valores de aquí solo sirven para
+# `helm template` en local.
+gitopsUrl: https://github.com/marcosbondel/sa-gitops-202202410.git
+gitopsRama: main
+etiquetas: {}
+
+# Repositorios de charts de los complementos que el proyecto `sa-p9-base`
+# puede instalar. Un AppProject que aceptara cualquier origen (`*`) dejaría
+# que una Application del repositorio público trajera un chart de cualquier
+# sitio.
+reposBase:
+  - https://argoproj.github.io/argo-helm
+  - https://kyverno.github.io/kyverno/
+  - https://bitnami.github.io/sealed-secrets
+  - https://kubernetes.github.io/ingress-nginx
+  - https://kubernetes-sigs.github.io/metrics-server/
+  - https://vmware-tanzu.github.io/helm-charts
+
+namespacesBase:
+  - argocd
+  - kube-system
+  - argo-rollouts
+  - kyverno
+  - ingress-nginx
+  - velero
+  - sa-p8-stage
+  - sa-p8-prod
+
+namespacesPlataforma:
+  - sa-p8-stage
+  - sa-p8-prod
