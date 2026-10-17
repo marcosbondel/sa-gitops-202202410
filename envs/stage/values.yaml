@@ -93,6 +93,17 @@ api-gateway:
 
   rollout:
     enabled: true
+    # Práctica 10: cada escalón del canary consulta Prometheus sobre el
+    # tráfico real de la versión candidata, en lugar de lanzar los Jobs de
+    # humo, integración y carga de la P8. Ver `charts/sa-p10-analisis/`.
+    analysis:
+      modo: metricas
+      templates:
+        - sa-p10-metricas
+
+  # Práctica 10: trazas por OTLP al Collector y métricas en :9464.
+  telemetria:
+    enabled: true
 
   # Sin PodDisruptionBudget en stage: con 2 réplicas y `minAvailable: 1`, el
   # PDB bloquea el drenaje del único nodo de kind cuando se reinicia, y el
@@ -141,6 +152,10 @@ catalog-service:
   resources:
     requests: { cpu: 25m, memory: 96Mi }
     limits: { cpu: 300m, memory: 256Mi }
+  # Práctica 10: trazas por OTLP al Collector y métricas en :9464.
+  telemetria:
+    enabled: true
+
   podDisruptionBudget:
     enabled: false
 
@@ -155,6 +170,10 @@ order-service:
   resources:
     requests: { cpu: 25m, memory: 128Mi }
     limits: { cpu: 300m, memory: 320Mi }
+  # Práctica 10: trazas por OTLP al Collector y métricas en :9464.
+  telemetria:
+    enabled: true
+
   podDisruptionBudget:
     enabled: false
 
