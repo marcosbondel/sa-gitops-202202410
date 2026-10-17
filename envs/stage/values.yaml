@@ -43,7 +43,7 @@ api-gateway:
     # repositorio GitOps. Es lo ÚNICO que el flujo automático modifica, y por
     # eso está sola en su línea: un `sed` sobre este archivo no puede tocar
     # nada más por accidente.
-    tag: "1.2.0"
+    tag: "1.3.1"
 
   # Dos réplicas, no una.
   #
@@ -93,6 +93,17 @@ api-gateway:
 
   rollout:
     enabled: true
+    # Práctica 10: cada escalón del canary consulta Prometheus sobre el
+    # tráfico real de la versión candidata, en lugar de lanzar los Jobs de
+    # humo, integración y carga de la P8. Ver `charts/sa-p10-analisis/`.
+    analysis:
+      modo: metricas
+      templates:
+        - sa-p10-metricas
+
+  # Práctica 10: trazas por OTLP al Collector y métricas en :9464.
+  telemetria:
+    enabled: true
 
   # Sin PodDisruptionBudget en stage: con 2 réplicas y `minAvailable: 1`, el
   # PDB bloquea el drenaje del único nodo de kind cuando se reinicia, y el
@@ -120,7 +131,7 @@ auth-service:
   image:
     registry: ghcr.io/marcosbondel
     repository: auth-service
-    tag: "1.2.0"
+    tag: "1.3.1"
   replicaCount: 1
   autoscaling:
     enabled: false
@@ -134,13 +145,17 @@ catalog-service:
   image:
     registry: ghcr.io/marcosbondel
     repository: catalog-service
-    tag: "1.2.0"
+    tag: "1.3.1"
   replicaCount: 1
   autoscaling:
     enabled: false
   resources:
     requests: { cpu: 25m, memory: 96Mi }
     limits: { cpu: 300m, memory: 256Mi }
+  # Práctica 10: trazas por OTLP al Collector y métricas en :9464.
+  telemetria:
+    enabled: true
+
   podDisruptionBudget:
     enabled: false
 
@@ -148,13 +163,17 @@ order-service:
   image:
     registry: ghcr.io/marcosbondel
     repository: order-service
-    tag: "1.2.0"
+    tag: "1.3.1"
   replicaCount: 1
   autoscaling:
     enabled: false
   resources:
     requests: { cpu: 25m, memory: 128Mi }
     limits: { cpu: 300m, memory: 320Mi }
+  # Práctica 10: trazas por OTLP al Collector y métricas en :9464.
+  telemetria:
+    enabled: true
+
   podDisruptionBudget:
     enabled: false
 
@@ -162,7 +181,7 @@ notification-service:
   image:
     registry: ghcr.io/marcosbondel
     repository: notification-service
-    tag: "1.2.0"
+    tag: "1.3.1"
   replicaCount: 1
   autoscaling:
     enabled: false
